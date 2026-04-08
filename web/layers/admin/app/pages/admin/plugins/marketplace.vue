@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { MarketplaceItem, PluginPreviewInfo } from "~/composables/usePluginApi";
+import type { MarketplaceItem, PluginItem, PluginPreviewInfo } from "~/composables/usePluginApi";
 
 const { t } = useI18n();
 const pluginApi = usePluginApi();
@@ -12,6 +12,7 @@ const loading = useMinLoading(rawLoading);
 const syncedAt = ref('');
 const syncing = ref(false);
 const installingName = ref<string | null>(null);
+const updatingName = ref<string | null>(null);
 
 // ── Preview / install modal ────────────────────────────────────────────────
 const previewModal = ref(false);
@@ -28,7 +29,6 @@ const openPreview = async (item: MarketplaceItem) => {
   try {
     previewData.value = await pluginApi.preview(item.repo);
   } catch {
-    // Preview failed — still show modal with basic info from marketplace
     previewData.value = {
       name: item.name,
       title: item.title,
@@ -54,7 +54,7 @@ const confirmInstall = async () => {
   installingName.value = previewItem.value.name;
   try {
     const res = await pluginApi.install(previewItem.value.repo);
-    installedIds.value.add(res.item.id);
+    installedPlugins.value.set(res.item.id, res.item);
     toast.add({ title: t('admin.plugins.install_success'), color: 'success' });
     previewModal.value = false;
   } catch (e: any) {
@@ -67,33 +67,81 @@ const confirmInstall = async () => {
 
 const search = ref('');
 const filterType = ref('all');
+const filterRuntime = ref('all');
 
-// ── Installed IDs (for "already installed" badge) ──────────────────────────
-const installedIds = ref<Set<string>>(new Set());
+// ── Installed plugins (for status detection) ──────────────────────────────
+const installedPlugins = ref<Map<string, PluginItem>>(new Map());
 
-const loadInstalledIds = async () => {
+const loadInstalled = async () => {
   try {
     const res = await pluginApi.list();
-    installedIds.value = new Set((res.items ?? []).map(p => p.id));
+    installedPlugins.value = new Map((res.items ?? []).map(p => [p.id, p]));
   } catch {}
+};
+
+/** Get installed plugin by marketplace name */
+const getInstalled = (name: string) => installedPlugins.value.get(name);
+
+/** Check if marketplace item has update available */
+const hasUpdate = (item: MarketplaceItem) => {
+  const installed = getInstalled(item.name);
+  if (!installed) return false;
+  return installed.version !== item.version;
+};
+
+/** Update an installed plugin from marketplace */
+const updateFromMarket = async (item: MarketplaceItem) => {
+  const installed = getInstalled(item.name);
+  if (!installed) return;
+  updatingName.value = item.name;
+  try {
+    const res = await pluginApi.update(installed.id);
+    installedPlugins.value.set(res.item.id, res.item);
+    toast.add({ title: t('admin.plugins.update_success'), color: 'success' });
+  } catch (e: any) {
+    toast.add({ title: e?.message ?? t('admin.plugins.update_failed'), color: 'error' });
+  } finally {
+    updatingName.value = null;
+  }
 };
 
 // ── Type options ───────────────────────────────────────────────────────────
 const typeOptions = computed(() => [
   { label: t('admin.plugins.market_type_all'), value: 'all' },
-  { label: t('admin.plugins.market_type_hook'), value: 'hook' },
-  { label: t('admin.plugins.market_type_integration'), value: 'integration' },
-  { label: t('admin.plugins.market_type_theme'), value: 'theme' },
-  { label: t('admin.plugins.market_type_editor'), value: 'editor' },
-  { label: t('admin.plugins.market_type_analytics'), value: 'analytics' },
-  { label: t('admin.plugins.market_type_moderation'), value: 'moderation' },
+  { label: t('admin.plugins.filter_type_builtin'), value: 'builtin' },
+  { label: t('admin.plugins.filter_type_js'), value: 'js' },
+  { label: t('admin.plugins.filter_type_yaml'), value: 'yaml' },
+  { label: t('admin.plugins.filter_type_full'), value: 'full' },
 ]);
+
+const runtimeOptions = computed(() => [
+  { label: t('admin.plugins.market_runtime_all'), value: 'all' },
+  { label: t('admin.plugins.market_runtime_compiled'), value: 'compiled' },
+  { label: t('admin.plugins.market_runtime_interpreted'), value: 'interpreted' },
+]);
+
+// ── Filtered items ────────────────────────────────────────────────────────
+const filtered = computed(() => {
+  let result = marketItems.value;
+  if (filterType.value !== 'all') result = result.filter(i => i.type === filterType.value);
+  if (filterRuntime.value !== 'all') result = result.filter(i => i.runtime === filterRuntime.value);
+  if (search.value) {
+    const q = search.value.toLowerCase();
+    result = result.filter(i =>
+      i.title.toLowerCase().includes(q) ||
+      i.description.toLowerCase().includes(q) ||
+      i.name.toLowerCase().includes(q) ||
+      i.tags?.some(tag => tag.toLowerCase().includes(q))
+    );
+  }
+  return result;
+});
 
 // ── Fetch ──────────────────────────────────────────────────────────────────
 const fetchMarketplace = async () => {
   rawLoading.value = true;
   try {
-    const res = await pluginApi.marketplace(search.value || undefined, filterType.value !== 'all' ? filterType.value : undefined);
+    const res = await pluginApi.marketplace();
     marketItems.value = res.items ?? [];
     syncedAt.value = res.synced_at ?? '';
   } catch (e: any) {
@@ -117,18 +165,33 @@ const doSync = async () => {
   }
 };
 
-// kept for direct install (no preview), not used from UI currently
 const installFromMarket = (item: MarketplaceItem) => openPreview(item);
 
 const formatSyncedAt = (s: string) => s ? new Date(s).toLocaleString() : '';
 
+// ── Badge helpers ─────────────────────────────────────────────────────────
+const typeBadgeColor = (type: string) => {
+  switch (type) {
+    case 'builtin': return 'primary'
+    case 'js': return 'warning'
+    case 'yaml': return 'info'
+    case 'full': return 'success'
+    default: return 'neutral'
+  }
+};
+
+const runtimeBadgeColor = (runtime: string) =>
+  runtime === 'compiled' ? 'error' : 'success';
+
+const runtimeIcon = (runtime: string) =>
+  runtime === 'compiled' ? 'i-tabler-refresh' : 'i-tabler-bolt';
+
 // ── Watchers ───────────────────────────────────────────────────────────────
-watchDebounced(search, () => fetchMarketplace(), { debounce: 300 });
-watch(filterType, () => fetchMarketplace());
+watchDebounced(search, () => {}, { debounce: 300 });
 
 onMounted(() => {
   fetchMarketplace();
-  loadInstalledIds();
+  loadInstalled();
 });
 </script>
 
@@ -160,11 +223,19 @@ onMounted(() => {
           <!-- Preview data -->
           <PluginPreviewPanel v-else-if="previewData" :info="previewData" />
 
-          <!-- Type badge from marketplace if known -->
-          <div v-if="previewItem?.type && !previewLoading" class="mt-3 flex items-center gap-2">
+          <!-- Type / runtime / official badges -->
+          <div v-if="previewItem && !previewLoading" class="mt-3 flex items-center gap-2 flex-wrap">
             <UBadge
-              :label="$t(`admin.plugins.market_type_${previewItem.type}`)"
-              color="neutral" variant="outline" size="sm" />
+              v-if="previewItem.type"
+              :label="$t(`admin.plugins.filter_type_${previewItem.type}`)"
+              :color="typeBadgeColor(previewItem.type) as any"
+              variant="soft" size="sm" />
+            <UBadge
+              v-if="previewItem.runtime"
+              :label="$t(`admin.plugins.market_runtime_${previewItem.runtime}`)"
+              :leading-icon="runtimeIcon(previewItem.runtime)"
+              :color="runtimeBadgeColor(previewItem.runtime) as any"
+              variant="outline" size="sm" />
             <UBadge
               v-if="previewItem.is_official"
               :label="$t('admin.plugins.market_official')"
@@ -175,8 +246,22 @@ onMounted(() => {
 
           <div class="flex justify-end gap-2 mt-5">
             <UButton color="neutral" variant="ghost" @click="previewModal = false">{{ $t('common.cancel') }}</UButton>
-            <UButton color="primary" leading-icon="i-tabler-download" :loading="previewInstalling" :disabled="previewLoading" @click="confirmInstall">
+            <UButton
+              v-if="hasUpdate(previewItem!)"
+              color="warning" leading-icon="i-tabler-arrow-up"
+              :loading="previewInstalling" :disabled="previewLoading"
+              @click="updateFromMarket(previewItem!); previewModal = false">
+              {{ $t('admin.plugins.update_btn') }}
+            </UButton>
+            <UButton
+              v-else-if="!getInstalled(previewItem?.name ?? '')"
+              color="primary" leading-icon="i-tabler-download"
+              :loading="previewInstalling" :disabled="previewLoading"
+              @click="confirmInstall">
               {{ $t('admin.plugins.install') }}
+            </UButton>
+            <UButton v-else color="neutral" variant="soft" disabled leading-icon="i-tabler-check">
+              {{ $t('admin.plugins.market_installed') }}
             </UButton>
           </div>
         </div>
@@ -209,7 +294,8 @@ onMounted(() => {
             <UButton icon="i-tabler-x" color="neutral" variant="ghost" size="xs" @click="search = ''" />
           </template>
         </UInput>
-        <USelect v-model="filterType" :items="typeOptions" class="w-40" size="sm" />
+        <USelect v-model="filterType" :items="typeOptions" class="w-32" size="sm" />
+        <USelect v-model="filterRuntime" :items="runtimeOptions" class="w-36" size="sm" />
       </div>
 
       <!-- Loading -->
@@ -224,7 +310,7 @@ onMounted(() => {
       </div>
 
       <!-- Empty -->
-      <div v-else-if="marketItems.length === 0" class="flex flex-col items-center justify-center py-16">
+      <div v-else-if="filtered.length === 0" class="flex flex-col items-center justify-center py-16">
         <UIcon name="i-tabler-building-store" class="size-16 text-muted mb-4" />
         <h3 class="text-lg font-medium text-highlighted mb-1">{{ $t('admin.plugins.market_empty') }}</h3>
         <p class="text-sm text-muted mb-4">{{ $t('admin.plugins.market_empty_desc') }}</p>
@@ -236,8 +322,9 @@ onMounted(() => {
       <!-- List -->
       <div v-else class="space-y-3">
         <div
-          v-for="item in marketItems" :key="item.name"
-          class="flex items-center gap-4 p-4 bg-default border border-default rounded-md hover:shadow-sm transition-all">
+          v-for="item in filtered" :key="item.name"
+          class="flex items-center gap-4 p-4 bg-default border border-default rounded-md hover:shadow-sm transition-all cursor-pointer"
+          @click="openPreview(item)">
           <div class="h-12 w-12 rounded-md bg-elevated flex items-center justify-center shrink-0">
             <UIcon :name="item.icon || 'i-tabler-plug'" class="size-6 text-primary" />
           </div>
@@ -255,8 +342,21 @@ onMounted(() => {
                     color="primary" variant="soft" size="sm" />
                   <UBadge
                     v-if="item.type"
-                    :label="$t(`admin.plugins.market_type_${item.type}`)"
-                    color="neutral" variant="outline" size="sm" />
+                    :label="$t(`admin.plugins.filter_type_${item.type}`)"
+                    :color="typeBadgeColor(item.type) as any"
+                    variant="soft" size="sm" />
+                  <UBadge
+                    v-if="item.runtime"
+                    :label="$t(`admin.plugins.market_runtime_${item.runtime}`)"
+                    :leading-icon="runtimeIcon(item.runtime)"
+                    :color="runtimeBadgeColor(item.runtime) as any"
+                    variant="outline" size="sm" />
+                  <!-- Update available badge -->
+                  <UBadge
+                    v-if="hasUpdate(item)"
+                    :label="$t('admin.plugins.update_available', { version: item.version })"
+                    color="warning" variant="soft" size="sm"
+                    icon="i-tabler-arrow-up" />
                 </div>
                 <p class="text-xs text-muted mb-1.5 line-clamp-2">{{ item.description }}</p>
                 <div class="flex items-center gap-3 flex-wrap">
@@ -270,18 +370,29 @@ onMounted(() => {
                     v-if="item.homepage"
                     :to="item.homepage"
                     target="_blank"
-                    class="text-xs text-primary hover:underline inline-flex items-center gap-0.5">
+                    class="text-xs text-primary hover:underline inline-flex items-center gap-0.5"
+                    @click.stop>
                     GitHub <UIcon name="i-tabler-external-link" class="size-3" />
                   </NuxtLink>
                 </div>
               </div>
 
-              <div class="shrink-0">
+              <div class="shrink-0" @click.stop>
+                <!-- Has update -->
                 <UButton
-                  v-if="installedIds.has(item.name)"
+                  v-if="hasUpdate(item)"
+                  size="sm" color="warning" variant="soft" leading-icon="i-tabler-arrow-up"
+                  :loading="updatingName === item.name"
+                  @click="updateFromMarket(item)">
+                  {{ $t('admin.plugins.update_btn') }}
+                </UButton>
+                <!-- Already installed, up to date -->
+                <UButton
+                  v-else-if="getInstalled(item.name)"
                   size="sm" color="neutral" variant="soft" leading-icon="i-tabler-check" disabled>
                   {{ $t('admin.plugins.market_installed') }}
                 </UButton>
+                <!-- Not installed -->
                 <UButton
                   v-else
                   size="sm" color="primary" variant="soft" leading-icon="i-tabler-download"

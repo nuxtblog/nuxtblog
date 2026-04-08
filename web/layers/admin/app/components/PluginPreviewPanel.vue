@@ -8,7 +8,10 @@ const props = defineProps<{ info: PluginPreviewInfo }>()
 const caps = computed(() => props.info.capabilities)
 const hasAnyCap = computed(() => caps.value.http || caps.value.store || caps.value.events)
 
-const requiredCount = computed(() => props.info.settings.filter(f => f.required).length)
+const settings = computed(() => props.info.settings ?? [])
+const webhooks = computed(() => props.info.webhooks ?? [])
+const pipelines = computed(() => props.info.pipelines ?? [])
+const requiredCount = computed(() => settings.value.filter(f => f.required).length)
 
 const httpDomains = computed(() => {
   const allow = caps.value.http?.allow ?? []
@@ -89,26 +92,26 @@ const httpDomains = computed(() => {
   <!-- Summary row: settings / webhooks / pipelines -->
   <div class="grid grid-cols-3 gap-2 text-center">
     <div class="rounded-md bg-elevated border border-default px-2 py-2">
-      <p class="text-base font-bold text-highlighted">{{ info.settings.length }}</p>
+      <p class="text-base font-bold text-highlighted">{{ settings.length }}</p>
       <p class="text-xs text-muted leading-tight mt-0.5">{{ $t('admin.plugins.preview_settings_label') }}</p>
       <p v-if="requiredCount > 0" class="text-xs text-warning mt-0.5">
         {{ $t('admin.plugins.preview_settings_required', { n: requiredCount }) }}
       </p>
     </div>
     <div class="rounded-md bg-elevated border border-default px-2 py-2">
-      <p class="text-base font-bold text-highlighted">{{ info.webhooks.length }}</p>
+      <p class="text-base font-bold text-highlighted">{{ webhooks.length }}</p>
       <p class="text-xs text-muted leading-tight mt-0.5">{{ $t('admin.plugins.preview_webhooks_label') }}</p>
     </div>
     <div class="rounded-md bg-elevated border border-default px-2 py-2">
-      <p class="text-base font-bold text-highlighted">{{ info.pipelines.length }}</p>
+      <p class="text-base font-bold text-highlighted">{{ pipelines.length }}</p>
       <p class="text-xs text-muted leading-tight mt-0.5">{{ $t('admin.plugins.preview_pipelines_label') }}</p>
     </div>
   </div>
 
   <!-- Pipeline detail -->
-  <div v-if="info.pipelines.length" class="mt-2 space-y-1">
+  <div v-if="pipelines.length" class="mt-2 space-y-1">
     <div
-      v-for="p in info.pipelines" :key="p.name"
+      v-for="p in pipelines" :key="p.name"
       class="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-elevated border border-default text-xs">
       <UIcon name="i-tabler-git-branch" class="size-3.5 text-muted shrink-0" />
       <span class="font-mono text-highlighted font-medium">{{ p.name }}</span>

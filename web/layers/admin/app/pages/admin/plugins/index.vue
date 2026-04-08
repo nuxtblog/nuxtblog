@@ -390,17 +390,14 @@ const getPluginActions = (item: PluginItem) => {
       }] : []),
     ],
   ];
-  // Builtin plugins cannot be uninstalled
-  if (item.source !== 'builtin') {
-    actions.push([
-      {
-        label: t("admin.plugins.uninstall_title"),
-        icon: "i-tabler-trash",
-        color: "error" as const,
-        onSelect: () => openUninstall(item),
-      },
-    ]);
-  }
+  actions.push([
+    {
+      label: t("admin.plugins.uninstall_title"),
+      icon: "i-tabler-trash",
+      color: "error" as const,
+      onSelect: () => openUninstall(item),
+    },
+  ]);
   return actions;
 };
 
@@ -691,8 +688,7 @@ const confirmUninstall = async () => {
                 { label: $t('admin.plugins.batch_disable'), value: 'disable' },
                 ...( selectedPlugins.some(id => items.find(p => p.id === id)?.repo_url)
                   ? [{ label: $t('admin.plugins.batch_update'), value: 'update' }] : []),
-                ...( selectedPlugins.some(id => items.find(p => p.id === id)?.source !== 'builtin')
-                  ? [{ label: $t('admin.plugins.batch_uninstall'), value: 'uninstall' }] : []),
+                { label: $t('admin.plugins.batch_uninstall'), value: 'uninstall' },
               ]"
               :placeholder="$t('admin.posts.batch_action')"
               class="w-36" size="sm" />

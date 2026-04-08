@@ -50,8 +50,14 @@ export interface MarketplaceItem {
   homepage: string
   tags: string[]
   type: string
+  /** 'compiled' = requires server restart, 'interpreted' = hot reload */
+  runtime: string
   is_official: boolean
   license: string
+  sdk_version: string
+  trust_level: string
+  capabilities: string[]
+  features: string[]
   published_at: string
   updated_at: string
 }
