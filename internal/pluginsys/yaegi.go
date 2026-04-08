@@ -151,6 +151,11 @@ func (m *Manager) activatePlugin(ctx context.Context, p sdk.Plugin, source strin
 	m.plugins[id] = lp
 	m.mu.Unlock()
 
+	// Dynamically register routes on the running HTTP server (hot install)
+	if m.server != nil && len(lp.routes) > 0 {
+		m.bindPluginRoutes(ctx, m.server, id, lp)
+	}
+
 	// Write embedded frontend assets to data/plugins/{id}/ for serving
 	if ap, ok := p.(sdk.HasAssets); ok {
 		if assets := ap.Assets(); len(assets) > 0 {

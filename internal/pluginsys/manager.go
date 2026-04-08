@@ -24,6 +24,7 @@ import (
 type Manager struct {
 	mu      sync.RWMutex
 	plugins map[string]*loadedPlugin
+	server  *ghttp.Server // set by RegisterRoutes, used for dynamic route binding
 }
 
 type loadedPlugin struct {
@@ -101,18 +102,27 @@ func (m *Manager) LoadStatic(ctx context.Context) error {
 }
 
 // RegisterRoutes registers all Go plugin routes on the GoFrame server.
+// It also stores the server reference so that dynamically installed plugins
+// can have their routes registered immediately without a restart.
 func (m *Manager) RegisterRoutes(s *ghttp.Server) {
+	m.server = s
+
 	ctx := context.Background()
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	for id, lp := range m.plugins {
-		for _, re := range lp.routes {
-			handler := m.wrapHandler(re, id)
-			pattern := strings.ToUpper(re.method) + ":" + re.path
-			s.BindHandler(pattern, handler)
-			g.Log().Infof(ctx, "[pluginmgr] registered route %s %s → %s (Go)", re.method, re.path, id)
-		}
+		m.bindPluginRoutes(ctx, s, id, lp)
+	}
+}
+
+// bindPluginRoutes registers a single plugin's routes on the server.
+func (m *Manager) bindPluginRoutes(ctx context.Context, s *ghttp.Server, id string, lp *loadedPlugin) {
+	for _, re := range lp.routes {
+		handler := m.wrapHandler(re, id)
+		pattern := strings.ToUpper(re.method) + ":" + re.path
+		s.BindHandler(pattern, handler)
+		g.Log().Infof(ctx, "[pluginmgr] registered route %s %s → %s", re.method, re.path, id)
 	}
 }
 
@@ -241,6 +251,15 @@ func splitSQL(sql string) []string {
 // wrapHandler converts a plugin http.HandlerFunc to a GoFrame handler with auth.
 func (m *Manager) wrapHandler(re routeEntry, pluginID string) ghttp.HandlerFunc {
 	return func(r *ghttp.Request) {
+		// Check if plugin is still loaded (handles dynamic uninstall/disable)
+		m.mu.RLock()
+		_, alive := m.plugins[pluginID]
+		m.mu.RUnlock()
+		if !alive {
+			r.Response.WriteStatus(http.StatusNotFound)
+			return
+		}
+
 		// Parse JWT for user info
 		if claims, err := middleware.ParseBearerToken(r); err == nil {
 			r.SetCtxVar("user_id", claims.UserID)

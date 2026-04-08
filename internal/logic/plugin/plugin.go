@@ -923,12 +923,6 @@ func (s *sPlugin) Uninstall(ctx context.Context, id string) error {
 	if err := requireAdmin(ctx); err != nil {
 		return err
 	}
-	// Reject uninstalling builtin (Go native) plugins — they can only be disabled
-	source, _ := g.DB().Ctx(ctx).Model("plugins").Where("id", id).Value("source")
-	if source.String() == "builtin" {
-		return gerror.NewCode(gcode.CodeNotSupported, "内置插件不可卸载，只能停用")
-	}
-
 	// Unload from Goja engine (legacy JS plugins)
 	eng.Unload(id)
 
