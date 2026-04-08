@@ -1,0 +1,40 @@
+# IDE & Editor
+.idea/
+.vscode/
+.settings/
+.project
+.buildpath
+
+# OS
+**/.DS_Store
+
+# Swap & Temp
+*.swp
+*.orig
+temp/
+temp.yaml
+
+# Build Output
+bin/
+output/
+manifest/output/
+main
+main.exe
+*exe*
+gf
+
+# Config (sensitive)
+**/config/config.yaml
+
+# Database
+blog.db*
+
+# Uploads
+uploads/
+
+# Plugins (runtime)
+server/plugins/
+server/data/plugins/
+
+
+data/

@@ -1,0 +1,17 @@
+/* 管理后台全局样式 */
+
+/* 覆盖 body 渐变背景（admin 不需要） */
+body:has([data-admin-layout]) {
+  background-image: none;
+}
+
+/* details 展开动画 */
+details summary::marker,
+details summary::-webkit-details-marker {
+  display: none;
+}
+
+/* UCard 在 admin 列表视图下去掉默认 ring */
+.admin-list-card .u-card {
+  box-shadow: none;
+}

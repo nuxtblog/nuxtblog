@@ -1,0 +1,50 @@
+# https://taskfile.dev
+
+version: '3'
+
+
+
+vars:
+  SERVER_DIR: server
+
+tasks:
+  zrun:
+    dir: "{{.SERVER_DIR}}"
+    cmds:
+      - gf run main.go
+
+  dao:
+    dir: "{{.SERVER_DIR}}"
+    cmds:
+      - gf gen dao
+
+  service:
+    dir: "{{.SERVER_DIR}}"
+    cmds:
+      - gf gen service
+
+  controller:
+    dir: "{{.SERVER_DIR}}"
+    cmds:
+      - gf gen ctrl
+
+  generate:
+    desc: Sync all Go plugins to server/builtin/ and generate imports
+    cmds:
+      - go run ../scripts/generate-builtin.go
+
+  build:
+    desc: Full build (generate + compile)
+    cmds:
+      - task: generate
+      - cmd: cd server && gf build
+
+  plugin:build:
+    desc: "Build a plugin: task plugin:build -- ../plugins/nuxtblog-plugin-view-counter"
+    cmds:
+      - pwsh -NoProfile -File ../scripts/build-plugin.ps1 {{.CLI_ARGS}}
+
+  plugin:zip:
+    desc: "Build & zip a plugin: task plugin:zip -- ../plugins/nuxtblog-plugin-view-counter"
+    cmds:
+      - pwsh -NoProfile -File ../scripts/build-plugin.ps1 {{.CLI_ARGS}} -Zip
