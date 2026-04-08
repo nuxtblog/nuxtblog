@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
@@ -32,6 +33,11 @@ type loadedPlugin struct {
 	ctx     sdk.PluginContext
 	routes  []routeEntry
 	filters []sdk.FilterDef
+
+	// Observability
+	stats   *PluginStats
+	window  *SlidingWindow
+	errors  *ErrorRingBuffer
 }
 
 type routeEntry struct {
@@ -134,7 +140,7 @@ func (m *Manager) RunFilter(ctx context.Context, event string, data, meta map[st
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	for _, lp := range m.plugins {
+	for id, lp := range m.plugins {
 		for _, f := range lp.filters {
 			if f.Event != event {
 				continue
@@ -145,9 +151,18 @@ func (m *Manager) RunFilter(ctx context.Context, event string, data, meta map[st
 				Data:    data,
 				Meta:    meta,
 			}
+			start := time.Now()
 			f.Handler(fc)
+			dur := time.Since(start)
+
+			var filterErr error
 			if fc.IsAborted() {
-				return fmt.Errorf("filter aborted by plugin: %s", fc.AbortReason())
+				filterErr = fmt.Errorf("filter aborted by plugin: %s", fc.AbortReason())
+			}
+			lp.recordExec(id, "filter:"+event, dur, filterErr)
+
+			if filterErr != nil {
+				return filterErr
 			}
 		}
 	}
@@ -159,9 +174,14 @@ func (m *Manager) FanOutEvent(ctx context.Context, event string, data map[string
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	for _, lp := range m.plugins {
+	for id, lp := range m.plugins {
 		if ep, ok := lp.plugin.(sdk.HasEvents); ok {
-			go ep.OnEvent(ctx, event, data)
+			go func(id string, lp *loadedPlugin, ep sdk.HasEvents) {
+				start := time.Now()
+				ep.OnEvent(ctx, event, data)
+				dur := time.Since(start)
+				lp.recordExec(id, "event:"+event, dur, nil)
+			}(id, lp, ep)
 		}
 	}
 }
@@ -256,7 +276,7 @@ func (m *Manager) wrapHandler(re routeEntry, pluginID string) ghttp.HandlerFunc 
 	return func(r *ghttp.Request) {
 		// Check if plugin is still loaded (handles dynamic uninstall/disable)
 		m.mu.RLock()
-		_, alive := m.plugins[pluginID]
+		lp, alive := m.plugins[pluginID]
 		m.mu.RUnlock()
 		if !alive {
 			r.Response.WriteStatus(http.StatusNotFound)
@@ -286,9 +306,44 @@ func (m *Manager) wrapHandler(re routeEntry, pluginID string) ghttp.HandlerFunc 
 			}
 		}
 
-		// Adapt ghttp.Request to standard http.ResponseWriter/Request
+		// Record stats for route execution
+		start := time.Now()
 		re.handler(r.Response.Writer, r.Request)
+		dur := time.Since(start)
+
+		routeErr := error(nil)
+		if r.Response.Status >= 500 {
+			routeErr = fmt.Errorf("HTTP %d on %s %s", r.Response.Status, re.method, re.path)
+		}
+		lp.recordExec(pluginID, "route:"+re.path, dur, routeErr)
 	}
+}
+
+// recordExec records a single execution (route/filter/event) into the plugin's
+// observability counters.
+func (lp *loadedPlugin) recordExec(pluginID, eventName string, dur time.Duration, err error) {
+	if lp.stats != nil {
+		lp.stats.record(dur, err)
+	}
+	if lp.window != nil {
+		lp.window.record(err != nil)
+	}
+	if err != nil && lp.errors != nil {
+		lp.errors.Add(ErrorEntry{
+			At:        time.Now(),
+			EventName: eventName,
+			Phase:     "route",
+			Message:   err.Error(),
+			Duration:  dur,
+		})
+	}
+}
+
+// getPluginObs returns the observability data for a plugin by ID.
+func (m *Manager) getPluginObs(id string) *loadedPlugin {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.plugins[id]
 }
 
 // ─── registrar implements sdk.RouteRegistrar ────────────────────────────────

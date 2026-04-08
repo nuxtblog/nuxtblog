@@ -130,22 +130,59 @@ func (r *ErrorRingBuffer) GetAll() []ErrorEntry {
 // ─── Public query functions ───────────────────────────────────────────────────
 
 // GetStats returns execution metrics for a plugin.
-// With the Goja engine removed, this always returns nil.
-// Go-native plugins track their own stats via the Manager.
 func GetStats(id string) *StatsSnapshot {
-	return nil
+	m := GetManager()
+	if m == nil {
+		return nil
+	}
+	lp := m.getPluginObs(id)
+	if lp == nil || lp.stats == nil {
+		return nil
+	}
+	s := lp.stats
+	s.lastErrMu.Lock()
+	snap := &StatsSnapshot{
+		PluginID:      id,
+		Invocations:   s.Invocations.Load(),
+		Errors:        s.Errors.Load(),
+		AvgDurationMs: s.AvgDurationMs(),
+		LastError:     s.LastError,
+		LastErrorAt:   s.LastErrorAt,
+	}
+	s.lastErrMu.Unlock()
+	return snap
 }
 
 // GetHistory returns the 60-minute sliding window history for a plugin.
-// With the Goja engine removed, this always returns nil.
 func GetHistory(id string) []WindowBucket {
-	return nil
+	m := GetManager()
+	if m == nil {
+		return nil
+	}
+	lp := m.getPluginObs(id)
+	if lp == nil || lp.window == nil {
+		return nil
+	}
+	return lp.window.GetHistory()
 }
 
 // GetErrors returns the recent error ring buffer contents for a plugin.
-// With the Goja engine removed, this always returns nil.
+// Returns nil if the plugin is not loaded; returns an empty (non-nil) slice
+// if loaded but no errors have been recorded.
 func GetErrors(id string) []ErrorEntry {
-	return nil
+	m := GetManager()
+	if m == nil {
+		return nil
+	}
+	lp := m.getPluginObs(id)
+	if lp == nil || lp.errors == nil {
+		return nil
+	}
+	entries := lp.errors.GetAll()
+	if entries == nil {
+		return []ErrorEntry{}
+	}
+	return entries
 }
 
 // ─── SlidingWindow ────────────────────────────────────────────────────────────

@@ -116,7 +116,12 @@ func (m *Manager) activatePlugin(ctx context.Context, p sdk.Plugin, source strin
 	mf := p.Manifest()
 	id := mf.ID
 
-	lp := &loadedPlugin{plugin: p}
+	lp := &loadedPlugin{
+		plugin: p,
+		stats:  &PluginStats{},
+		window: &SlidingWindow{},
+		errors: &ErrorRingBuffer{},
+	}
 
 	// Build plugin context
 	pctx := sdk.PluginContext{
