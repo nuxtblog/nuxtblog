@@ -86,7 +86,7 @@ type HasAssets interface {
 
 // PluginType enumerates plugin runtime types.
 const (
-	TypeBuiltin = "builtin" // compiled into binary, not installable
+	TypeBuiltin = "builtin" // compiled into binary, installable from marketplace (requires server restart)
 	TypeJS      = "js"      // JavaScript source interpreted by Goja, installable
 	TypeYAML    = "yaml"    // declarative YAML (webhooks, filters), installable
 	TypeUI      = "ui"      // frontend-only (admin.mjs/public.mjs), installable

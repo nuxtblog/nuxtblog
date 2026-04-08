@@ -98,6 +98,12 @@ func (m *Manager) LoadExternal(ctx context.Context, dataDir string) error {
 			}
 			m.ensureDBRecordExt(ctx, *pm, "external")
 
+		case sdk.TypeBuiltin:
+			// Builtin plugins have Go backend compiled into the binary.
+			// Here we only register metadata (frontend assets, pages, contributes)
+			// so the admin panel can serve the plugin's UI components.
+			m.registerMetadataPlugin(ctx, pm, "builtin")
+
 		case sdk.TypeYAML:
 			m.registerMetadataPlugin(ctx, pm, "external")
 
@@ -161,20 +167,24 @@ func (m *Manager) activatePlugin(ctx context.Context, p sdk.Plugin, source strin
 		m.bindPluginRoutes(ctx, m.server, id, lp)
 	}
 
-	// Write embedded frontend assets to data/plugins/{id}/ for serving
-	if ap, ok := p.(sdk.HasAssets); ok {
-		if assets := ap.Assets(); len(assets) > 0 {
-			assetsDir := filepath.Join("data", "plugins", id)
-			if err := os.MkdirAll(assetsDir, 0o755); err != nil {
-				g.Log().Warningf(ctx, "[pluginmgr] plugin %s: mkdir assets: %v", id, err)
-			} else {
-				for name, data := range assets {
-					fp := filepath.Join(assetsDir, filepath.Base(name))
-					if err := os.WriteFile(fp, data, 0o644); err != nil {
-						g.Log().Warningf(ctx, "[pluginmgr] plugin %s: write asset %s: %v", id, name, err)
+	// Write embedded frontend assets to data/plugins/{id}/ for serving.
+	// Builtin plugins skip this: their assets are //go:embed'd into the binary
+	// and served directly from memory by RegisterAssetRoutes (assets.go).
+	if source != "builtin" {
+		if ap, ok := p.(sdk.HasAssets); ok {
+			if assets := ap.Assets(); len(assets) > 0 {
+				assetsDir := filepath.Join("data", "plugins", id)
+				if err := os.MkdirAll(assetsDir, 0o755); err != nil {
+					g.Log().Warningf(ctx, "[pluginmgr] plugin %s: mkdir assets: %v", id, err)
+				} else {
+					for name, data := range assets {
+						fp := filepath.Join(assetsDir, filepath.Base(name))
+						if err := os.WriteFile(fp, data, 0o644); err != nil {
+							g.Log().Warningf(ctx, "[pluginmgr] plugin %s: write asset %s: %v", id, name, err)
+						}
 					}
+					g.Log().Infof(ctx, "[pluginmgr] plugin %s: wrote %d frontend assets", id, len(assets))
 				}
-				g.Log().Infof(ctx, "[pluginmgr] plugin %s: wrote %d frontend assets", id, len(assets))
 			}
 		}
 	}

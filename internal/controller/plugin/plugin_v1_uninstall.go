@@ -7,5 +7,9 @@ import (
 )
 
 func (c *ControllerV1) PluginUninstall(ctx context.Context, req *v1.PluginUninstallReq) (res *v1.PluginUninstallRes, err error) {
-	return &v1.PluginUninstallRes{}, service.Plugin().Uninstall(ctx, req.Id)
+	needRestart, err := service.Plugin().Uninstall(ctx, req.Id)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.PluginUninstallRes{NeedRestart: needRestart}, nil
 }

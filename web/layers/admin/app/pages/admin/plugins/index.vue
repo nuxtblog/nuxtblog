@@ -43,6 +43,7 @@ function toggleSelectAllPlugins() {
 
 async function applyBatchPlugins() {
   if (!batchPluginAction.value || !selectedPlugins.value.length) return;
+  let restartToastShown = false;
   try {
     if (batchPluginAction.value === 'enable') {
       await Promise.all(selectedPlugins.value.map(id => pluginApi.toggle(id, true)));
@@ -56,6 +57,15 @@ async function applyBatchPlugins() {
       if (res.failed?.length) {
         toast.add({ title: t('admin.plugins.batch_uninstall_partial', { n: res.failed.length }), color: 'warning' });
       }
+      if (res.need_restart) {
+        toast.add({
+          title: t('admin.plugins.uninstall_success'),
+          description: t('admin.plugins.restart_required_uninstall'),
+          color: 'warning',
+          duration: 0,
+        });
+        restartToastShown = true;
+      }
     } else if (batchPluginAction.value === 'update') {
       const res = await pluginApi.batchUpdate(selectedPlugins.value);
       if (res.succeeded?.length) await load();
@@ -63,7 +73,9 @@ async function applyBatchPlugins() {
         toast.add({ title: t('admin.plugins.batch_update_partial', { n: res.failed.length }), color: 'warning' });
       }
     }
-    toast.add({ title: t('admin.plugins.batch_success'), color: 'success' });
+    if (!restartToastShown) {
+      toast.add({ title: t('admin.plugins.batch_success'), color: 'success' });
+    }
     selectedPlugins.value = [];
     batchPluginAction.value = undefined;
   } catch (e: any) {
@@ -161,7 +173,7 @@ const statusFilterItems = computed(() => [
 
 const typeFilterItems = computed(() => [
   { label: t("admin.plugins.filter_type_all"), value: "all" },
-  { label: t("admin.plugins.filter_type_builtin"), value: "builtin" },
+  { label: t("admin.plugins.filter_type_go"), value: "builtin" },
   { label: t("admin.plugins.filter_type_js"), value: "js" },
   { label: t("admin.plugins.filter_type_yaml"), value: "yaml" },
 ]);
@@ -190,7 +202,7 @@ const filtered = computed(() => {
 // ── Type badge helpers ───────────────────────────────────────────────────
 const typeBadgeColor = (type: string) => {
   switch (type) {
-    case 'builtin': return 'primary'
+    case 'builtin': return 'info'
     case 'js': return 'warning'
     case 'yaml': return 'info'
     case 'full': return 'success'
@@ -228,8 +240,8 @@ const checkUpdates = async () => {
     const map: Record<string, string> = {};
     for (const mp of marketplaceItems.value) {
       const installed = items.value.find(p => p.id === mp.name);
-      if (installed && installed.repo_url && mp.version && mp.version !== installed.version) {
-        // Simple semver-like comparison: if marketplace version is different, mark as updatable
+      if (installed && installed.repo_url && mp.version &&
+          isNewerVersion(mp.version, installed.version)) {
         map[installed.id] = mp.version;
       }
     }
@@ -311,7 +323,16 @@ const confirmInstall = async () => {
       item = res.item;
     }
     items.value.unshift(item);
-    toast.add({ title: t("admin.plugins.install_success"), color: "success" });
+    if (item.need_restart) {
+      toast.add({
+        title: t("admin.plugins.install_success"),
+        description: t("admin.plugins.restart_required_install"),
+        color: "warning",
+        duration: 0,
+      });
+    } else {
+      toast.add({ title: t("admin.plugins.install_success"), color: "success" });
+    }
     installModal.value = false;
   } catch (e: any) {
     toast.add({ title: e?.message, color: "error" });
@@ -405,9 +426,18 @@ const confirmUninstall = async () => {
   if (!pendingUninstall.value) return;
   uninstalling.value = true;
   try {
-    await pluginApi.uninstall(pendingUninstall.value.id);
+    const res = await pluginApi.uninstall(pendingUninstall.value.id);
     items.value = items.value.filter(p => p.id !== pendingUninstall.value!.id);
-    toast.add({ title: t("admin.plugins.uninstall_success"), color: "success" });
+    if (res?.need_restart) {
+      toast.add({
+        title: t("admin.plugins.uninstall_success"),
+        description: t("admin.plugins.restart_required_uninstall"),
+        color: "warning",
+        duration: 0,
+      });
+    } else {
+      toast.add({ title: t("admin.plugins.uninstall_success"), color: "success" });
+    }
     uninstallModal.value = false;
   } catch (e: any) {
     toast.add({ title: e?.message, color: "error" });

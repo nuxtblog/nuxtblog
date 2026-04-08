@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/gogf/gf/v2/net/ghttp"
+
+	"github.com/nuxtblog/nuxtblog/sdk"
 )
 
 // ─── Plugin Asset Serving (Phase 2.8) ──────────────────────────────────────
@@ -139,7 +141,14 @@ export default window.__nuxtblog_vue;
 
 // RegisterAssetRoutes registers the static asset serving endpoint for plugins.
 // assetsDir is the root directory where plugin assets are stored (e.g. "data/plugins").
-func RegisterAssetRoutes(s *ghttp.Server, assetsDir string) {
+//
+// Lookup order for /api/plugins/{id}/assets/{filename}:
+//  1. In-memory: if the loaded plugin implements sdk.HasAssets, serve from its
+//     Assets() map. This is required for builtin plugins whose assets live only
+//     inside the compiled binary (//go:embed) and are never written to disk.
+//  2. Disk fallback: read from {assetsDir}/{dirName}/{filename}. This serves
+//     JS/yaegi plugins which still write their assets to data/plugins/{id}/.
+func (m *Manager) RegisterAssetRoutes(s *ghttp.Server, assetsDir string) {
 	// Serve shared dependency shims (e.g. /_shared/vue.mjs)
 	s.BindHandler("GET:/_shared/{filename}", func(r *ghttp.Request) {
 		filename := r.Get("filename").String()
@@ -178,15 +187,47 @@ func RegisterAssetRoutes(s *ghttp.Server, assetsDir string) {
 
 		// Sanitize plugin ID to directory name.
 		dirName := strings.ReplaceAll(pluginID, "/", "--")
-		filePath := filepath.Join(assetsDir, dirName, cleanName)
 
+		// 1) In-memory lookup via sdk.HasAssets — required for builtin plugins
+		//    whose assets are //go:embed'd into the binary and never on disk.
+		m.mu.RLock()
+		lp := m.plugins[pluginID]
+		m.mu.RUnlock()
+		if lp != nil && lp.plugin != nil {
+			if ap, ok := lp.plugin.(sdk.HasAssets); ok {
+				if assets := ap.Assets(); len(assets) > 0 {
+					var memData []byte
+					if d, hit := assets[cleanName]; hit {
+						memData = d
+					} else {
+						// Defensive: some plugins use keys like "dist/admin.mjs"
+						for k, d := range assets {
+							if filepath.Base(k) == cleanName {
+								memData = d
+								break
+							}
+						}
+					}
+					if memData != nil {
+						if ct, ok := extContentType[ext]; ok {
+							r.Response.Header().Set("Content-Type", ct)
+						}
+						r.Response.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+						r.Response.Write(memData)
+						return
+					}
+				}
+			}
+		}
+
+		// 2) Disk fallback for JS/yaegi plugins.
+		filePath := filepath.Join(assetsDir, dirName, cleanName)
 		data, err := os.ReadFile(filePath)
 		if err != nil {
 			r.Response.WriteHeader(http.StatusNotFound)
 			return
 		}
 
-		// Set content type and caching headers.
 		if ct, ok := extContentType[ext]; ok {
 			r.Response.Header().Set("Content-Type", ct)
 		}

@@ -7,7 +7,7 @@ import (
 )
 
 func (c *ControllerV1) PluginInstall(ctx context.Context, req *v1.PluginInstallReq) (res *v1.PluginInstallRes, err error) {
-	item, err := service.Plugin().Install(ctx, req.RepoUrl)
+	item, err := service.Plugin().Install(ctx, req.RepoUrl, req.ExpectedVersion)
 	if err != nil {
 		return nil, err
 	}

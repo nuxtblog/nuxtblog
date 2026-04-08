@@ -7,11 +7,11 @@ import (
 
 type IPlugin interface {
 	List(ctx context.Context) (*v1.PluginListRes, error)
-	Install(ctx context.Context, repoUrl string) (*v1.PluginItem, error)
+	Install(ctx context.Context, repoUrl, expectedVersion string) (*v1.PluginItem, error)
 	InstallZip(ctx context.Context, zipData []byte) (*v1.PluginItem, error)
 	Update(ctx context.Context, id string) (*v1.PluginItem, error)
 	BatchUpdate(ctx context.Context, ids []string) (*v1.PluginBatchUpdateRes, error)
-	Uninstall(ctx context.Context, id string) error
+	Uninstall(ctx context.Context, id string) (needRestart bool, err error)
 	Toggle(ctx context.Context, id string, enabled bool) error
 	GetSettings(ctx context.Context, id string) (*v1.PluginGetSettingsRes, error)
 	UpdateSettings(ctx context.Context, id string, values map[string]interface{}) error

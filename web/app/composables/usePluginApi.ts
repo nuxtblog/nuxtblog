@@ -19,6 +19,8 @@ export interface PluginItem {
   source: 'builtin' | 'external'
   /** Plugin runtime type: builtin (Go native), js (Goja), yaml (declarative), full (JS + frontend) */
   type: 'builtin' | 'js' | 'yaml' | 'full'
+  /** True when the plugin requires the Go server to be rebuilt and restarted to take effect (builtin plugins only). */
+  need_restart?: boolean
 }
 
 /** Returns human-readable capability badge labels for a plugin. */
@@ -158,10 +160,10 @@ export const usePluginApi = () => {
   const list = () =>
     apiFetch<{ items: PluginItem[] }>('/admin/plugins')
 
-  const install = (repoUrl: string) =>
+  const install = (repoUrl: string, expectedVersion?: string) =>
     apiFetch<{ item: PluginItem }>('/admin/plugins', {
       method: 'POST',
-      body: { repo_url: repoUrl },
+      body: { repo_url: repoUrl, expected_version: expectedVersion },
     })
 
   const uploadZip = (file: File) => {
@@ -174,10 +176,10 @@ export const usePluginApi = () => {
   }
 
   const uninstall = (id: string) =>
-    apiFetch(`/admin/plugins/${encodeURIComponent(id)}`, { method: 'DELETE' })
+    apiFetch<{ need_restart?: boolean }>(`/admin/plugins/${encodeURIComponent(id)}`, { method: 'DELETE' })
 
   const batchUninstall = (ids: string[]) =>
-    apiFetch<{ succeeded: string[]; failed: string[] }>('/admin/plugins/batch-uninstall', {
+    apiFetch<{ succeeded: string[]; failed: string[]; need_restart?: boolean }>('/admin/plugins/batch-uninstall', {
       method: 'POST',
       body: { ids },
     })

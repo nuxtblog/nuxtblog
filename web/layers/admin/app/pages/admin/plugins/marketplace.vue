@@ -88,7 +88,7 @@ const confirmInstall = async () => {
   previewInstalling.value = true;
   installingName.value = previewItem.value.name;
   try {
-    const res = await pluginApi.install(previewItem.value.repo);
+    const res = await pluginApi.install(previewItem.value.repo, previewItem.value.version);
     installedPlugins.value.set(res.item.id, res.item);
     toast.add({ title: t('admin.plugins.install_success'), color: 'success' });
     previewModal.value = false;
@@ -121,7 +121,7 @@ const getInstalled = (name: string) => installedPlugins.value.get(name);
 const hasUpdate = (item: MarketplaceItem) => {
   const installed = getInstalled(item.name);
   if (!installed) return false;
-  return installed.version !== item.version;
+  return isNewerVersion(item.version, installed.version);
 };
 
 /** Update an installed plugin from marketplace */
@@ -143,7 +143,7 @@ const updateFromMarket = async (item: MarketplaceItem) => {
 // ── Type options ───────────────────────────────────────────────────────────
 const typeOptions = computed(() => [
   { label: t('admin.plugins.market_type_all'), value: 'all' },
-  { label: t('admin.plugins.filter_type_builtin'), value: 'builtin' },
+  { label: t('admin.plugins.filter_type_go'), value: 'builtin' },
   { label: t('admin.plugins.filter_type_js'), value: 'js' },
   { label: t('admin.plugins.filter_type_yaml'), value: 'yaml' },
   { label: t('admin.plugins.filter_type_full'), value: 'full' },
@@ -207,7 +207,7 @@ const formatSyncedAt = (s: string) => s ? new Date(s).toLocaleString() : '';
 // ── Badge helpers ─────────────────────────────────────────────────────────
 const typeBadgeColor = (type: string) => {
   switch (type) {
-    case 'builtin': return 'primary'
+    case 'builtin': return 'info'
     case 'js': return 'warning'
     case 'yaml': return 'info'
     case 'full': return 'success'
@@ -262,7 +262,7 @@ onMounted(() => {
           <div v-if="previewItem && !previewLoading" class="mt-3 flex items-center gap-2 flex-wrap">
             <UBadge
               v-if="previewItem.type"
-              :label="$t(`admin.plugins.filter_type_${previewItem.type}`)"
+              :label="$t(`admin.plugins.type_${previewItem.type}`)"
               :color="typeBadgeColor(previewItem.type) as any"
               variant="soft" size="sm" />
             <UBadge
@@ -275,7 +275,7 @@ onMounted(() => {
               v-if="previewItem.is_official"
               :label="$t('admin.plugins.market_official')"
               leading-icon="i-tabler-rosette-discount-check"
-              color="primary" variant="soft" size="sm" />
+              color="success" variant="soft" size="sm" />
             <span v-if="previewItem.license" class="text-xs text-muted">{{ previewItem.license }}</span>
           </div>
 
@@ -400,10 +400,10 @@ onMounted(() => {
                     v-if="item.is_official"
                     :label="$t('admin.plugins.market_official')"
                     leading-icon="i-tabler-rosette-discount-check"
-                    color="primary" variant="soft" size="sm" />
+                    color="success" variant="soft" size="sm" />
                   <UBadge
                     v-if="item.type"
-                    :label="$t(`admin.plugins.filter_type_${item.type}`)"
+                    :label="$t(`admin.plugins.type_${item.type}`)"
                     :color="typeBadgeColor(item.type) as any"
                     variant="soft" size="sm" />
                   <UBadge

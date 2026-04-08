@@ -10,10 +10,14 @@ import (
 func (c *ControllerV1) PluginBatchUninstall(ctx context.Context, req *v1.PluginBatchUninstallReq) (res *v1.PluginBatchUninstallRes, err error) {
 	res = &v1.PluginBatchUninstallRes{}
 	for _, id := range req.Ids {
-		if e := service.Plugin().Uninstall(ctx, id); e != nil {
+		needRestart, e := service.Plugin().Uninstall(ctx, id)
+		if e != nil {
 			res.Failed = append(res.Failed, id)
-		} else {
-			res.Succeeded = append(res.Succeeded, id)
+			continue
+		}
+		res.Succeeded = append(res.Succeeded, id)
+		if needRestart {
+			res.NeedRestart = true
 		}
 	}
 	return res, nil

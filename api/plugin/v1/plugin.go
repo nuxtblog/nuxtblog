@@ -28,9 +28,10 @@ type PluginItem struct {
 	RepoUrl      string `json:"repo_url"`
 	Enabled      bool   `json:"enabled"`
 	InstalledAt  string `json:"installed_at"`
-	Capabilities string `json:"capabilities"` // raw JSON, e.g. {} means full-access
-	Source       string `json:"source"`        // "builtin" (Go native, cannot uninstall) | "external" (installed via zip/github)
-	Type         string `json:"type"`          // "builtin" | "js" | "yaml" | "full"
+	Capabilities string `json:"capabilities"`          // raw JSON, e.g. {} means full-access
+	Source       string `json:"source"`                 // "builtin" (Go native, cannot uninstall) | "external" (installed via zip/github)
+	Type         string `json:"type"`                   // "builtin" | "js" | "yaml" | "full"
+	NeedRestart  bool   `json:"need_restart,omitempty"` // true when plugin requires server restart to activate
 }
 
 // ── List ──────────────────────────────────────────────────────────────────
@@ -51,8 +52,9 @@ type PluginListRes struct {
 //	github.com/owner/repo
 //	owner/repo
 type PluginInstallReq struct {
-	g.Meta  `path:"/admin/plugins" method:"post" tags:"Plugin" summary:"Admin: install plugin" auth:"true"`
-	RepoUrl string `v:"required" json:"repo_url" dc:"GitHub repo URL or owner/repo"`
+	g.Meta          `path:"/admin/plugins" method:"post" tags:"Plugin" summary:"Admin: install plugin" auth:"true"`
+	RepoUrl         string `v:"required" json:"repo_url" dc:"GitHub repo URL or owner/repo"`
+	ExpectedVersion string `json:"expected_version,omitempty" dc:"Registry version to validate against GitHub release tag; empty disables validation"`
 }
 type PluginInstallRes struct {
 	Item PluginItem `json:"item"`
@@ -64,7 +66,9 @@ type PluginUninstallReq struct {
 	g.Meta `path:"/admin/plugins/{id}" method:"delete" tags:"Plugin" summary:"Admin: uninstall plugin" auth:"true"`
 	Id     string `v:"required" dc:"plugin id"`
 }
-type PluginUninstallRes struct{}
+type PluginUninstallRes struct {
+	NeedRestart bool `json:"need_restart,omitempty"`
+}
 
 // ── Batch Uninstall ──────────────────────────────────────────────────────
 
@@ -73,8 +77,9 @@ type PluginBatchUninstallReq struct {
 	Ids    []string `v:"required" json:"ids" dc:"plugin ids to uninstall"`
 }
 type PluginBatchUninstallRes struct {
-	Succeeded []string `json:"succeeded"`
-	Failed    []string `json:"failed"`
+	Succeeded   []string `json:"succeeded"`
+	Failed      []string `json:"failed"`
+	NeedRestart bool     `json:"need_restart,omitempty"`
 }
 
 // ── Upload ZIP ────────────────────────────────────────────────────────────
@@ -186,6 +191,7 @@ type MarketplaceItem struct {
 	Homepage    string   `json:"homepage"`
 	Tags        []string `json:"tags"`
 	Type        string   `json:"type"`
+	Runtime     string   `json:"runtime"` // "compiled" (needs Go rebuild+restart) | "interpreted" (hot-loaded)
 	IsOfficial  bool     `json:"is_official"`
 	License     string   `json:"license"`
 	PublishedAt string   `json:"published_at"`
