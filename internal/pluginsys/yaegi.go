@@ -264,6 +264,9 @@ func (m *Manager) InstallJSPlugin(ctx context.Context, pluginDir string, jsFile 
 		return fmt.Errorf("parse plugin.yaml: %w", err)
 	}
 
+	// Unload previous version if already loaded (update scenario)
+	m.UnloadPlugin(pm.ID)
+
 	p, err := loadGojaPlugin(ctx, pluginDir, jsFile, *pm)
 	if err != nil {
 		return fmt.Errorf("goja load: %w", err)

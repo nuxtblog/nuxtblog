@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -133,7 +134,7 @@ func (s *sPlugin) Install(ctx context.Context, repoUrl string) (*v1.PluginItem, 
 
 	// Fetch latest release metadata from GitHub API.
 	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", owner, repo)
-	releaseData, err := githubGet(apiURL)
+	releaseData, err := pluginHTTPGet(ctx, apiURL)
 	if err != nil {
 		return nil, gerror.NewCode(gcode.CodeInternalError,
 			fmt.Sprintf("cannot fetch release info for %s/%s: %v", owner, repo, err))
@@ -161,7 +162,7 @@ func (s *sPlugin) Install(ctx context.Context, repoUrl string) (*v1.PluginItem, 
 		}
 	}
 
-	zipData, err := githubGet(downloadURL)
+	zipData, err := pluginHTTPGet(ctx, downloadURL)
 	if err != nil {
 		return nil, gerror.NewCode(gcode.CodeInternalError,
 			fmt.Sprintf("cannot download release zip (%s): %v", release.TagName, err))
@@ -1066,7 +1067,7 @@ func (s *sPlugin) SyncMarketplace(ctx context.Context) (*v1.MarketplaceSyncRes, 
 	}
 
 	regURL := g.Cfg().MustGet(ctx, "plugin.registry_url", defaultRegistryURL).String()
-	body, err := githubGet(regURL)
+	body, err := pluginHTTPGet(ctx, regURL)
 	if err != nil {
 		return nil, gerror.NewCode(gcode.CodeInternalError, "fetch registry failed: "+err.Error())
 	}
@@ -1099,6 +1100,63 @@ func setOption(ctx context.Context, key, value string) {
 		_, _ = g.DB().Ctx(ctx).Model("options").
 			Data(g.Map{"key": key, "value": value}).Insert()
 	}
+}
+
+// ── GitHub proxy helpers ──────────────────────────────────────────────────
+
+// applyGitHubProxy rewrites a GitHub URL using the configured mirror prefix.
+// e.g. "https://api.github.com/..." → "https://ghproxy.net/https://api.github.com/..."
+func applyGitHubProxy(ctx context.Context, rawURL string) string {
+	proxy := strings.TrimRight(getOption(ctx, "plugin_github_proxy"), "/")
+	if proxy == "" {
+		return rawURL
+	}
+	for _, prefix := range []string{
+		"https://api.github.com",
+		"https://github.com",
+		"https://raw.githubusercontent.com",
+		"https://objects.githubusercontent.com",
+	} {
+		if strings.HasPrefix(rawURL, prefix) {
+			return proxy + "/" + rawURL
+		}
+	}
+	return rawURL
+}
+
+// pluginHTTPGet performs an HTTP GET like githubGet, but honours the
+// plugin_http_proxy and plugin_github_proxy options.
+func pluginHTTPGet(ctx context.Context, rawURL string) ([]byte, error) {
+	targetURL := applyGitHubProxy(ctx, rawURL)
+
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	if proxyAddr := getOption(ctx, "plugin_http_proxy"); proxyAddr != "" {
+		proxyURL, err := url.Parse(proxyAddr)
+		if err == nil {
+			transport.Proxy = http.ProxyURL(proxyURL)
+		}
+	}
+	client := &http.Client{Timeout: 60 * time.Second, Transport: transport}
+
+	req, err := http.NewRequest(http.MethodGet, targetURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "nuxtblog-plugin-installer/1.0")
+	req.Header.Set("Accept", "application/vnd.github+json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == 404 {
+		return nil, fmt.Errorf("not found (404)")
+	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+	return io.ReadAll(resp.Body)
 }
 
 // ── GetStyles ─────────────────────────────────────────────────────────────
@@ -1194,7 +1252,7 @@ func (s *sPlugin) Preview(ctx context.Context, repo string) (*v1.PluginPreviewRe
 
 	// Try plugin.yaml first
 	yamlURL := fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/HEAD/plugin.yaml", owner, repoName)
-	if yamlData, yamlErr := githubGet(yamlURL); yamlErr == nil {
+	if yamlData, yamlErr := pluginHTTPGet(ctx, yamlURL); yamlErr == nil {
 		mf, _, parseErr := parsePluginYAML(yamlData)
 		if parseErr == nil {
 			return buildPreviewFromManifest(mf), nil
@@ -1203,7 +1261,7 @@ func (s *sPlugin) Preview(ctx context.Context, repo string) (*v1.PluginPreviewRe
 
 	// Fallback: package.json
 	rawURL := fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/HEAD/package.json", owner, repoName)
-	data, err := githubGet(rawURL)
+	data, err := pluginHTTPGet(ctx, rawURL)
 	if err != nil {
 		return nil, gerror.NewCode(gcode.CodeInternalError,
 			fmt.Sprintf("cannot fetch plugin.yaml or package.json from %s/%s: %v", owner, repoName, err))

@@ -3,7 +3,42 @@ import type { MarketplaceItem, PluginItem, PluginPreviewInfo } from "~/composabl
 
 const { t } = useI18n();
 const pluginApi = usePluginApi();
+const optionApi = useOptionApi();
 const toast = useToast();
+
+// ── Proxy settings modal ──────────────────────────────────────────────────
+const proxyModal = ref(false);
+const proxyGithub = ref('');
+const proxyHttp = ref('');
+const proxySaving = ref(false);
+
+const openProxySettings = async () => {
+  proxyModal.value = true;
+  try {
+    const [gh, hp] = await Promise.all([
+      optionApi.getOption('plugin_github_proxy').catch(() => ''),
+      optionApi.getOption('plugin_http_proxy').catch(() => ''),
+    ]);
+    proxyGithub.value = (gh as string) || '';
+    proxyHttp.value = (hp as string) || '';
+  } catch {}
+};
+
+const saveProxySettings = async () => {
+  proxySaving.value = true;
+  try {
+    await Promise.all([
+      optionApi.setOption('plugin_github_proxy', proxyGithub.value.trim()),
+      optionApi.setOption('plugin_http_proxy', proxyHttp.value.trim()),
+    ]);
+    toast.add({ title: t('admin.plugins.proxy_save_success'), color: 'success' });
+    proxyModal.value = false;
+  } catch (e: any) {
+    toast.add({ title: e?.message ?? t('admin.plugins.proxy_save_failed'), color: 'error' });
+  } finally {
+    proxySaving.value = false;
+  }
+};
 
 // ── State ──────────────────────────────────────────────────────────────────
 const marketItems = ref<MarketplaceItem[]>([]);
@@ -268,12 +303,38 @@ onMounted(() => {
       </template>
     </UModal>
 
+    <!-- Proxy settings modal -->
+    <UModal v-model:open="proxyModal" :ui="{ content: 'max-w-sm' }">
+      <template #content>
+        <div class="p-6">
+          <h3 class="text-lg font-semibold text-highlighted mb-4">{{ $t('admin.plugins.proxy_settings_title') }}</h3>
+          <div class="space-y-4">
+            <div>
+              <label class="text-sm font-medium text-highlighted mb-1 block">{{ $t('admin.plugins.proxy_github_label') }}</label>
+              <UInput v-model="proxyGithub" placeholder="https://ghproxy.net" size="sm" />
+              <p class="text-xs text-muted mt-1">{{ $t('admin.plugins.proxy_github_hint') }}</p>
+            </div>
+            <div>
+              <label class="text-sm font-medium text-highlighted mb-1 block">{{ $t('admin.plugins.proxy_http_label') }}</label>
+              <UInput v-model="proxyHttp" placeholder="http://127.0.0.1:7890" size="sm" />
+              <p class="text-xs text-muted mt-1">{{ $t('admin.plugins.proxy_http_hint') }}</p>
+            </div>
+          </div>
+          <div class="flex justify-end gap-2 mt-5">
+            <UButton color="neutral" variant="ghost" @click="proxyModal = false">{{ $t('common.cancel') }}</UButton>
+            <UButton color="primary" :loading="proxySaving" @click="saveProxySettings">{{ $t('common.save') }}</UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
+
     <AdminPageHeader :title="$t('admin.plugins.market_title')" :subtitle="$t('admin.plugins.market_subtitle')">
       <template #actions>
         <div class="flex items-center gap-2">
           <span v-if="syncedAt" class="text-xs text-muted hidden sm:block">
             {{ $t('admin.plugins.market_synced_at', { time: formatSyncedAt(syncedAt) }) }}
           </span>
+          <UButton color="neutral" variant="ghost" icon="i-tabler-settings" @click="openProxySettings" />
           <UButton color="neutral" variant="outline" icon="i-tabler-refresh" :loading="syncing" @click="doSync">
             {{ $t('admin.plugins.market_sync') }}
           </UButton>

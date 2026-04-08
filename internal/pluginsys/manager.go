@@ -105,6 +105,9 @@ func (m *Manager) LoadStatic(ctx context.Context) error {
 // It also stores the server reference so that dynamically installed plugins
 // can have their routes registered immediately without a restart.
 func (m *Manager) RegisterRoutes(s *ghttp.Server) {
+	// Allow route overwrite so that plugin updates can re-register routes
+	// without causing a fatal duplicate-route error.
+	s.SetRouteOverWrite(true)
 	m.server = s
 
 	ctx := context.Background()

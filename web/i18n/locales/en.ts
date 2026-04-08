@@ -1112,6 +1112,13 @@ export default {
       preview_pipelines_label: "Pipelines",
       preview_pipeline_steps: "{n} steps",
       preview_priority: "Priority {n}",
+      proxy_settings_title: "GitHub Proxy Settings",
+      proxy_github_label: "GitHub Mirror URL",
+      proxy_github_hint: "Prefix mode, e.g. https://ghproxy.net. Leave empty for direct access",
+      proxy_http_label: "HTTP Proxy",
+      proxy_http_hint: "HTTP/SOCKS5 proxy, e.g. http://127.0.0.1:7890. Leave empty to disable",
+      proxy_save_success: "Proxy settings saved",
+      proxy_save_failed: "Failed to save proxy settings",
       monitor: {
         title: "Plugin Monitor",
         subtitle: "View plugin runtime stats and error history",

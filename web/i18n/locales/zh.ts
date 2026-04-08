@@ -1091,6 +1091,13 @@ export default {
       preview_pipelines_label: "Pipelines",
       preview_pipeline_steps: "{n} 步",
       preview_priority: "执行优先级 {n}",
+      proxy_settings_title: "GitHub 代理设置",
+      proxy_github_label: "GitHub 镜像地址",
+      proxy_github_hint: "前缀模式，如 https://ghproxy.net，留空则直连",
+      proxy_http_label: "HTTP 代理地址",
+      proxy_http_hint: "支持 HTTP/SOCKS5，如 http://127.0.0.1:7890，留空则不使用",
+      proxy_save_success: "代理设置已保存",
+      proxy_save_failed: "代理设置保存失败",
       monitor: {
         title: "插件监控",
         subtitle: "查看插件运行状态和历史错误",
