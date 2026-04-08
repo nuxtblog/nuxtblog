@@ -50,7 +50,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   const logout = async () => {
     if (token.value) {
-      await authApi.logout(token.value).catch(() => {})
+      await authApi.logout().catch(() => {})
     }
     tokenCookie.value = null
     refreshTokenCookie.value = null
@@ -60,10 +60,18 @@ export const useAuthStore = defineStore('auth', () => {
   const fetchMe = async () => {
     if (!token.value) return
     try {
-      const res = await authApi.me(token.value)
+      const res = await authApi.me()
       user.value = res.user
     } catch {
-      // token invalid — clear
+      // access token may have expired — try refresh before giving up
+      const refreshed = await tryRefresh()
+      if (refreshed) {
+        try {
+          const res = await authApi.me()
+          user.value = res.user
+          return
+        } catch { /* fall through to clear */ }
+      }
       tokenCookie.value = null
       refreshTokenCookie.value = null
       user.value = null

@@ -26,7 +26,7 @@ onMounted(async () => {
 
   // Fetch user info
   try {
-    const res = await authApi.me(access_token)
+    const res = await authApi.me()
     authStore.setUser(res.user)
     await navigateTo(redirect || '/', { replace: true })
   } catch {

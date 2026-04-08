@@ -29,13 +29,11 @@ export const useAuthApi = () => {
   const register = (data: { username: string; email: string; password: string; display_name?: string; code?: string }) =>
     apiFetch<AuthTokens>('/auth/register', { method: 'POST', body: data })
 
-  const me = (token: string) =>
-    apiFetch<{ user: AuthUser }>('/auth/me', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+  const me = () =>
+    apiFetch<{ user: AuthUser }>('/auth/me')
 
-  const logout = (token: string) =>
-    apiFetch('/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
+  const logout = () =>
+    apiFetch('/auth/logout', { method: 'POST' })
 
   const refresh = (refreshToken: string) =>
     apiFetch<{ access_token: string; expires_in: number }>('/auth/refresh', {

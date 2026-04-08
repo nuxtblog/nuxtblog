@@ -20,21 +20,43 @@ export const useApiFetch = () => {
   // Read from the same cookie @nuxtjs/i18n uses — avoids useI18n() composable restriction
   const localeCookie = useCookie<string>('i18n_locale', { default: () => 'zh' })
 
-  const apiFetch = async <T>(
+  let refreshPromise: Promise<boolean> | null = null
+
+  const doFetch = async <T>(
     path: string,
-    options?: Parameters<typeof $fetch>[1]
-  ): Promise<T> => {
+    options?: Parameters<typeof $fetch>[1],
+  ): Promise<{ code: number; message: string; data: T }> => {
     const url = path.startsWith('http') ? path : `${baseURL}${path}`
     const token = authStore.token
     const headers: Record<string, string> = {
       'Accept-Language': localeCookie.value,
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     }
-    const response = await $fetch<{ code: number; message: string; data: T }>(url, {
+    return $fetch<{ code: number; message: string; data: T }>(url, {
       ...options,
       headers: { ...headers, ...(options?.headers as Record<string, string> | undefined) },
       parseResponse: parseSafeJSON,
     })
+  }
+
+  const apiFetch = async <T>(
+    path: string,
+    options?: Parameters<typeof $fetch>[1],
+  ): Promise<T> => {
+    let response = await doFetch<T>(path, options)
+
+    // Auto-refresh on 401: try once, then retry the original request
+    if (response.code === 401 && authStore.token) {
+      // Deduplicate concurrent refresh calls
+      if (!refreshPromise) {
+        refreshPromise = authStore.tryRefresh().finally(() => { refreshPromise = null })
+      }
+      const ok = await refreshPromise
+      if (ok) {
+        response = await doFetch<T>(path, options)
+      }
+    }
+
     if (response.code !== 0) {
       throw new Error(response.message || 'API error')
     }
