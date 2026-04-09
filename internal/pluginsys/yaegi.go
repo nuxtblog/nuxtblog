@@ -151,7 +151,7 @@ func (m *Manager) LoadExternal(ctx context.Context, dataDir string) error {
 				g.Log().Errorf(ctx, "[pluginmgr] %s goja load failed: %v", pm.ID, err)
 				continue
 			}
-			if err := m.activatePlugin(ctx, p, "external"); err != nil {
+			if err := m.activatePlugin(ctx, p, "external", c.pluginDir, jsFile); err != nil {
 				g.Log().Errorf(ctx, "[pluginmgr] %s activation failed: %v", pm.ID, err)
 			}
 			m.ensureDBRecordExt(ctx, *pm, "external")
@@ -173,15 +173,17 @@ func (m *Manager) LoadExternal(ctx context.Context, dataDir string) error {
 }
 
 // activatePlugin runs the full activation lifecycle for a sdk.Plugin instance.
-func (m *Manager) activatePlugin(ctx context.Context, p sdk.Plugin, source string) error {
+func (m *Manager) activatePlugin(ctx context.Context, p sdk.Plugin, source string, pluginDir, jsFile string) error {
 	mf := p.Manifest()
 	id := mf.ID
 
 	lp := &loadedPlugin{
-		plugin: p,
-		stats:  &PluginStats{},
-		window: &SlidingWindow{},
-		errors: &ErrorRingBuffer{},
+		plugin:    p,
+		pluginDir: pluginDir,
+		jsFile:    jsFile,
+		stats:     &PluginStats{},
+		window:    &SlidingWindow{},
+		errors:    &ErrorRingBuffer{},
 	}
 
 	// Build plugin context with DB capabilities
@@ -357,6 +359,32 @@ func (m *Manager) InstallJSPlugin(ctx context.Context, pluginDir string, jsFile 
 		}
 	}
 
+	// Capture source info of dependents that will be cascade-unloaded, so they
+	// can be reloaded afterwards. Order: shallowest first (reverse of cascade
+	// unload order), excluding pm.ID itself.
+	type reloadTarget struct {
+		id        string
+		pluginDir string
+		jsFile    string
+	}
+	var toReload []reloadTarget
+	m.mu.RLock()
+	cascade := m.graph.GetCascadeUnloadOrder(pm.ID) // [deepest…, pm.ID]
+	for i := len(cascade) - 1; i >= 0; i-- {
+		depID := cascade[i]
+		if depID == pm.ID {
+			continue
+		}
+		if lp, ok := m.plugins[depID]; ok && lp.pluginDir != "" {
+			toReload = append(toReload, reloadTarget{
+				id:        depID,
+				pluginDir: lp.pluginDir,
+				jsFile:    lp.jsFile,
+			})
+		}
+	}
+	m.mu.RUnlock()
+
 	// Unload previous version if already loaded (update scenario)
 	m.UnloadPlugin(pm.ID)
 
@@ -366,10 +394,23 @@ func (m *Manager) InstallJSPlugin(ctx context.Context, pluginDir string, jsFile 
 	if err != nil {
 		return fmt.Errorf("goja load: %w", err)
 	}
-	if err := m.activatePlugin(ctx, p, "external"); err != nil {
+	if err := m.activatePlugin(ctx, p, "external", pluginDir, jsFile); err != nil {
 		return err
 	}
 	m.ensureDBRecordExt(ctx, *pm, "external")
+
+	// Cascade reload dependents in topological order (shallow → deep). Each
+	// recursive call's own cascade capture will be empty because deeper
+	// dependents are still unloaded at that point — no double-reload.
+	for _, rt := range toReload {
+		if err := m.InstallJSPlugin(ctx, rt.pluginDir, rt.jsFile); err != nil {
+			g.Log().Warningf(ctx,
+				"[pluginmgr] cascade reload dependent %s failed: %v", rt.id, err)
+			continue
+		}
+		g.Log().Infof(ctx, "[pluginmgr] cascade reloaded dependent: %s", rt.id)
+	}
+
 	return nil
 }
 

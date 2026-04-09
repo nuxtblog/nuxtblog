@@ -35,10 +35,15 @@ type loadedPlugin struct {
 	routes  []routeEntry
 	filters []sdk.FilterDef
 
+	// Source info — needed for cascade reload after a dependency is updated.
+	// Empty for builtin plugins (they don't need on-disk reloading).
+	pluginDir string
+	jsFile    string
+
 	// Observability
-	stats   *PluginStats
-	window  *SlidingWindow
-	errors  *ErrorRingBuffer
+	stats  *PluginStats
+	window *SlidingWindow
+	errors *ErrorRingBuffer
 }
 
 type routeEntry struct {
@@ -127,7 +132,7 @@ func (m *Manager) LoadStatic(ctx context.Context) error {
 		if p == nil {
 			continue
 		}
-		if err := m.activatePlugin(ctx, p, "builtin"); err != nil {
+		if err := m.activatePlugin(ctx, p, "builtin", "", ""); err != nil {
 			g.Log().Errorf(ctx, "[pluginmgr] plugin %s failed: %v", id, err)
 			continue
 		}
