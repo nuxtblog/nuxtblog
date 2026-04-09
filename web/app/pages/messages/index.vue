@@ -38,13 +38,14 @@ const msgLoading = ref(false)
 const sending = ref(false)
 const content = ref('')
 const messagesEl = ref<HTMLElement | null>(null)
+const loadedFor = ref<number | null>(null)
 
 const displayName = computed(() =>
   otherUser.value?.display_name || otherUser.value?.username || t('site.message.user_default')
 )
 
 const openConversation = async (userId: number) => {
-  if (selectedId.value === userId) return
+  if (loadedFor.value === userId) return
   router.replace({ query: { with: userId } })
   otherUser.value = null
   messages.value = []
@@ -58,6 +59,7 @@ const openConversation = async (userId: number) => {
     otherUser.value = u
     messages.value = res.items
     hasMore.value = res.has_more
+    loadedFor.value = userId
     await nextTick()
     scrollToBottom()
   } finally {
