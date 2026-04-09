@@ -1238,6 +1238,9 @@ func (s *sPlugin) Uninstall(ctx context.Context, id string) (bool, error) {
 		}
 	}
 
+	// Rollback database migrations (drop plugin-created tables)
+	s.rollbackPluginMigrations(ctx, id)
+
 	// Also remove per-plugin KV store entries
 	_, _ = g.DB().Ctx(ctx).Model("options").
 		WhereLike("key", "plugin_store:"+id+":%").Delete()
@@ -1268,6 +1271,38 @@ func (s *sPlugin) Uninstall(ctx context.Context, id string) (bool, error) {
 		return false, err
 	}
 	return isBuiltin, nil
+}
+
+// rollbackPluginMigrations reads the plugin's manifest from the DB and runs
+// down migrations to drop plugin-created tables, then cleans up the
+// plugin_migrations tracking records.
+func (s *sPlugin) rollbackPluginMigrations(ctx context.Context, id string) {
+	manifestVal, _ := g.DB().Ctx(ctx).Model("plugins").
+		Where("id", id).Value("manifest")
+	manifestStr := manifestVal.String()
+	if manifestStr == "" || manifestStr == "{}" {
+		return
+	}
+
+	// Try to extract migrations from the stored manifest JSON.
+	// The manifest may be either sdk.Manifest format (yaml-based) or
+	// pluginsys.Manifest format (package.json-based). Both have a
+	// "migrations" array with "version", "up", "down" fields.
+	var mf struct {
+		Migrations []eng.MigrationDef `json:"migrations"`
+	}
+	if err := json.Unmarshal([]byte(manifestStr), &mf); err != nil || len(mf.Migrations) == 0 {
+		// No migrations to roll back — just clean up tracking records
+		_, _ = g.DB().Ctx(ctx).Model("plugin_migrations").
+			Where("plugin_id", id).Delete()
+		return
+	}
+
+	if err := eng.RollbackMigrations(ctx, id, mf.Migrations); err != nil {
+		g.Log().Warningf(ctx, "[plugin] %s migration rollback error: %v", id, err)
+	} else {
+		g.Log().Infof(ctx, "[plugin] %s: rolled back %d migration(s)", id, len(mf.Migrations))
+	}
 }
 
 // ── Toggle ────────────────────────────────────────────────────────────────
