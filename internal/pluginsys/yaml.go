@@ -36,27 +36,30 @@ import (
 
 	"github.com/gogf/gf/v2/frame/g"
 	"gopkg.in/yaml.v3"
+
+	"github.com/nuxtblog/nuxtblog/sdk"
 )
 
 // ─── YAML plugin definition ─────────────────────────────────────────────────
 
 // YAMLPlugin is the in-memory representation of a declarative YAML plugin.
 type YAMLPlugin struct {
-	ID          string         `yaml:"id"`
-	Title       string         `yaml:"title"`
-	Version     string         `yaml:"version"`
-	Icon        string         `yaml:"icon"`
-	Author      string         `yaml:"author"`
-	Description string         `yaml:"description"`
-	TrustLevel  string         `yaml:"trust_level"`
-	Priority    int            `yaml:"priority"`
-	Settings    []SettingField `yaml:"settings"`
-	Webhooks    []YAMLWebhook  `yaml:"webhooks"`
-	Filters     []YAMLFilter   `yaml:"filters"`
-	CSS         string         `yaml:"css"`
-	PublicJS    string         `yaml:"public_js"`
-	AdminJS     string         `yaml:"admin_js"`
-	Navigation  []NavigationDef `yaml:"navigation"`
+	ID          string            `yaml:"id"`
+	Title       string            `yaml:"title"`
+	Version     string            `yaml:"version"`
+	Icon        string            `yaml:"icon"`
+	Author      string            `yaml:"author"`
+	Description string            `yaml:"description"`
+	TrustLevel  string            `yaml:"trust_level"`
+	Priority    int               `yaml:"priority"`
+	Depends     []sdk.Dependency  `yaml:"depends"`
+	Settings    []SettingField    `yaml:"settings"`
+	Webhooks    []YAMLWebhook     `yaml:"webhooks"`
+	Filters     []YAMLFilter      `yaml:"filters"`
+	CSS         string            `yaml:"css"`
+	PublicJS    string            `yaml:"public_js"`
+	AdminJS     string            `yaml:"admin_js"`
+	Navigation  []NavigationDef   `yaml:"navigation"`
 }
 
 // YAMLWebhook is a declarative webhook forwarding rule.

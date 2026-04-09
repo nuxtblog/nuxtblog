@@ -134,6 +134,9 @@ type Manifest struct {
 	// ── Configuration schema ──
 	Settings []SettingDef `yaml:"settings" json:"settings,omitempty"`
 
+	// ── Dependencies ──
+	Depends []Dependency `yaml:"depends" json:"depends,omitempty"`
+
 	// ── Functionality declarations ──
 	Pages       []PageDef      `yaml:"pages"       json:"pages,omitempty"`
 	Routes      []RouteDef     `yaml:"routes"      json:"routes,omitempty"`
@@ -303,12 +306,26 @@ type Migration struct {
 	Down    string `yaml:"down"    json:"down,omitempty"`
 }
 
+// Dependency declares a requirement on another plugin.
+type Dependency struct {
+	ID       string `yaml:"id"       json:"id"`
+	Version  string `yaml:"version"  json:"version,omitempty"`  // semver constraint, e.g. ">=1.0.0"
+	Optional bool   `yaml:"optional" json:"optional,omitempty"`
+}
+
+// PluginQuery provides runtime queries about other plugins.
+type PluginQuery interface {
+	IsAvailable(id string) bool
+	GetVersion(id string) string
+}
+
 // PluginContext provides platform services to plugins during activation.
 type PluginContext struct {
 	DB       DB
 	Store    Store
 	Settings Settings
 	Log      Logger
+	Plugins  PluginQuery
 }
 
 // DB provides isolated database access for plugins.

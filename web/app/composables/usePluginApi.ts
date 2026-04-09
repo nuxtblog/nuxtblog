@@ -129,7 +129,14 @@ export interface PipelineDef {
   steps: StepDef[]
 }
 
+export interface PluginDependency {
+  id: string
+  version?: string
+  optional?: boolean
+}
+
 export interface PluginManifest {
+  depends?: PluginDependency[]
   pipelines?: PipelineDef[]
   webhooks?: Array<{ url: string; events: string[]; headers?: Record<string, string> }>
   [key: string]: unknown
@@ -149,6 +156,7 @@ export interface PluginPreviewInfo {
     store?: { read?: boolean; write?: boolean }
     events?: { subscribe?: string[] }
   }
+  depends?: PluginDependency[]
   settings: PluginSettingField[]
   webhooks: Array<{ url: string; events: string[] }>
   pipelines: Array<{ name: string; trigger: string; step_count: number }>
@@ -177,6 +185,9 @@ export const usePluginApi = () => {
 
   const uninstall = (id: string) =>
     apiFetch<{ need_restart?: boolean }>(`/admin/plugins/${encodeURIComponent(id)}`, { method: 'DELETE' })
+
+  const unloadImpact = (id: string) =>
+    apiFetch<{ will_unload: string[] }>(`/admin/plugins/${encodeURIComponent(id)}/unload-impact`)
 
   const batchUninstall = (ids: string[]) =>
     apiFetch<{ succeeded: string[]; failed: string[]; need_restart?: boolean }>('/admin/plugins/batch-uninstall', {
@@ -243,7 +254,7 @@ export const usePluginApi = () => {
   const clientList = () =>
     apiFetch<{ items: PluginClientItem[] }>('/admin/plugins/client')
 
-  return { list, install, uploadZip, uninstall, batchUninstall, update, batchUpdate, toggle, getSettings, updateSettings, getStyles, marketplace, syncMarketplace, getStats, getErrors, getManifest, updateManifest, preview, clientList }
+  return { list, install, uploadZip, uninstall, unloadImpact, batchUninstall, update, batchUpdate, toggle, getSettings, updateSettings, getStyles, marketplace, syncMarketplace, getStats, getErrors, getManifest, updateManifest, preview, clientList }
 }
 
 /** Phase 2.4: Client-side plugin info for admin panel */

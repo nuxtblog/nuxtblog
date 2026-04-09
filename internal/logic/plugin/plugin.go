@@ -799,6 +799,12 @@ type pluginYAMLManifest struct {
 		Fn          string `yaml:"fn"`
 		Description string `yaml:"description"`
 	} `yaml:"routes"`
+
+	Depends []struct {
+		ID       string `yaml:"id"`
+		Version  string `yaml:"version"`
+		Optional bool   `yaml:"optional"`
+	} `yaml:"depends"`
 }
 
 func parseArchive(data []byte) (*parseArchiveResult, error) {
@@ -1214,9 +1220,12 @@ func (s *sPlugin) Uninstall(ctx context.Context, id string) (bool, error) {
 	// Unload from Goja engine (legacy JS plugins)
 	eng.Unload(id)
 
-	// Unload from plugin manager (JS/builtin plugins)
+	// Unload from plugin manager (JS/builtin plugins) — cascade unloads dependents
 	if mgr := eng.GetManager(); mgr != nil {
-		mgr.UnloadPlugin(id)
+		unloaded := mgr.UnloadPlugin(id)
+		if len(unloaded) > 1 {
+			g.Log().Infof(ctx, "[plugin] cascade unloaded %d plugins: %v", len(unloaded), unloaded)
+		}
 	}
 
 	// Remove plugin directory from data/plugins/{id}/
@@ -1306,14 +1315,33 @@ func (s *sPlugin) Toggle(ctx context.Context, id string, enabled bool) error {
 			_ = eng.Load(id, r.Script, mf)
 		}
 	} else {
-		// Unload from both engines
+		// Unload from both engines — cascade unloads dependents
 		normalized, _ := eng.NormalizePluginID(id)
 		eng.Unload(normalized)
 		if mgr := eng.GetManager(); mgr != nil {
-			mgr.UnloadPlugin(id)
+			unloaded := mgr.UnloadPlugin(id)
+			if len(unloaded) > 1 {
+				g.Log().Infof(ctx, "[plugin] cascade unloaded %d plugins on disable: %v", len(unloaded), unloaded)
+			}
 		}
 	}
 	return nil
+}
+
+// ── Unload Impact ─────────────────────────────────────────────────────────
+
+func (s *sPlugin) UnloadImpact(ctx context.Context, id string) (*v1.PluginUnloadImpactRes, error) {
+	if err := requireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	var willUnload []string
+	if mgr := eng.GetManager(); mgr != nil {
+		willUnload = mgr.UnloadImpact(id)
+	}
+	if willUnload == nil {
+		willUnload = []string{}
+	}
+	return &v1.PluginUnloadImpactRes{WillUnload: willUnload}, nil
 }
 
 // ── Marketplace ───────────────────────────────────────────────────────────
@@ -1567,7 +1595,17 @@ func (s *sPlugin) Preview(ctx context.Context, repo string) (*v1.PluginPreviewRe
 	if yamlData, yamlErr := pluginHTTPGet(ctx, yamlURL); yamlErr == nil {
 		mf, _, parseErr := parsePluginYAML(yamlData)
 		if parseErr == nil {
-			return buildPreviewFromManifest(mf), nil
+			res := buildPreviewFromManifest(mf)
+			// Parse depends from raw YAML (eng.Manifest doesn't carry depends)
+			var raw pluginYAMLManifest
+			if yaml.Unmarshal(yamlData, &raw) == nil && len(raw.Depends) > 0 {
+				for _, d := range raw.Depends {
+					res.Depends = append(res.Depends, v1.DependencyPreview{
+						ID: d.ID, Version: d.Version, Optional: d.Optional,
+					})
+				}
+			}
+			return res, nil
 		}
 	}
 

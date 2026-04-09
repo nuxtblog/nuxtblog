@@ -11,6 +11,7 @@ const hasAnyCap = computed(() => caps.value.http || caps.value.store || caps.val
 const settings = computed(() => props.info.settings ?? [])
 const webhooks = computed(() => props.info.webhooks ?? [])
 const pipelines = computed(() => props.info.pipelines ?? [])
+const depends = computed(() => props.info.depends ?? [])
 const requiredCount = computed(() => settings.value.filter(f => f.required).length)
 
 const httpDomains = computed(() => {
@@ -85,6 +86,22 @@ const httpDomains = computed(() => {
       <div v-if="info.has_css" class="flex items-center gap-2.5 px-3 py-2.5">
         <UIcon name="i-tabler-brush" class="size-4 text-warning shrink-0" />
         <span class="text-xs text-muted">{{ $t('admin.plugins.preview_has_css') }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dependencies -->
+  <div v-if="depends.length" class="rounded-md border border-default overflow-hidden mb-3">
+    <div class="px-3 py-2 bg-elevated border-b border-default">
+      <span class="text-xs font-semibold text-muted uppercase tracking-wide">{{ $t('admin.plugins.preview_depends_label') }}</span>
+    </div>
+    <div class="divide-y divide-default">
+      <div v-for="dep in depends" :key="dep.id" class="flex items-center gap-2 px-3 py-2">
+        <UIcon name="i-tabler-plug" class="size-3.5 text-muted shrink-0" />
+        <span class="text-xs font-mono text-highlighted">{{ dep.id }}</span>
+        <UBadge v-if="dep.version" :label="dep.version" color="neutral" variant="soft" size="xs" />
+        <UBadge v-if="dep.optional" :label="$t('admin.plugins.dep_optional')" color="info" variant="soft" size="xs" />
+        <UBadge v-else :label="$t('admin.plugins.preview_dep_required')" color="warning" variant="soft" size="xs" />
       </div>
     </div>
   </div>

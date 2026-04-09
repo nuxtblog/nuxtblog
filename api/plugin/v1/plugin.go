@@ -258,6 +258,16 @@ type PluginGetErrorsRes struct {
 	Items []PluginErrorEntry `json:"items"`
 }
 
+// ── Unload Impact ─────────────────────────────────────────────────────────────
+
+type PluginUnloadImpactReq struct {
+	g.Meta `path:"/admin/plugins/{id}/unload-impact" method:"get" tags:"Plugin" summary:"Admin: preview cascade unload impact" auth:"true"`
+	Id     string `v:"required" dc:"plugin id"`
+}
+type PluginUnloadImpactRes struct {
+	WillUnload []string `json:"will_unload"`
+}
+
 // ── Manifest (P-B11) ──────────────────────────────────────────────────────────
 
 type PluginGetManifestReq struct {
@@ -314,6 +324,12 @@ type PipelinePreview struct {
 	StepCount int    `json:"step_count"`
 }
 
+type DependencyPreview struct {
+	ID       string `json:"id"`
+	Version  string `json:"version,omitempty"`
+	Optional bool   `json:"optional,omitempty"`
+}
+
 type PluginPreviewRes struct {
 	Name         string              `json:"name"`
 	Title        string              `json:"title"`
@@ -324,6 +340,7 @@ type PluginPreviewRes struct {
 	Priority     int                 `json:"priority"`
 	HasCSS       bool                `json:"has_css"`
 	Capabilities CapabilitiesPreview `json:"capabilities"`
+	Depends      []DependencyPreview `json:"depends,omitempty"`
 	Settings     []SettingField      `json:"settings"`
 	Webhooks     []WebhookPreview    `json:"webhooks"`
 	Pipelines    []PipelinePreview   `json:"pipelines"`

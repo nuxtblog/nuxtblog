@@ -359,11 +359,48 @@ const pendingUninstall = ref<PluginItem | null>(null);
 const uninstalling = ref(false);
 const updatingId = ref<string | null>(null);
 
+// Cascade impact state
+const cascadePlugins = ref<string[]>([]);
+const cascadeLoading = ref(false);
+
+// Disable confirmation modal
+const disableModal = ref(false);
+const pendingDisable = ref<PluginItem | null>(null);
+
 const toggle = async (item: PluginItem) => {
+  // If disabling, check for cascade impact first
+  if (item.enabled) {
+    try {
+      cascadeLoading.value = true;
+      const res = await pluginApi.unloadImpact(item.id);
+      if (res.will_unload?.length > 0) {
+        cascadePlugins.value = res.will_unload;
+        pendingDisable.value = item;
+        disableModal.value = true;
+        return;
+      }
+    } catch {
+      // If impact check fails, proceed without warning
+    } finally {
+      cascadeLoading.value = false;
+    }
+  }
+  await doToggle(item);
+};
+
+const doToggle = async (item: PluginItem) => {
   togglingId.value = item.id;
   try {
     await pluginApi.toggle(item.id, !item.enabled);
     item.enabled = !item.enabled;
+    // If we disabled a plugin with cascade, remove dependents from active state in the UI
+    if (!item.enabled && cascadePlugins.value.length > 0) {
+      for (const depId of cascadePlugins.value) {
+        const dep = items.value.find(p => p.id === depId);
+        if (dep) dep.enabled = false;
+      }
+      cascadePlugins.value = [];
+    }
   } catch (e: any) {
     toast.add({ title: e?.message, color: "error" });
   } finally {
@@ -371,9 +408,26 @@ const toggle = async (item: PluginItem) => {
   }
 };
 
-const openUninstall = (item: PluginItem) => {
+const confirmDisable = async () => {
+  if (!pendingDisable.value) return;
+  disableModal.value = false;
+  await doToggle(pendingDisable.value);
+  pendingDisable.value = null;
+};
+
+const openUninstall = async (item: PluginItem) => {
   pendingUninstall.value = item;
+  cascadePlugins.value = [];
+  cascadeLoading.value = true;
   uninstallModal.value = true;
+  try {
+    const res = await pluginApi.unloadImpact(item.id);
+    cascadePlugins.value = res.will_unload ?? [];
+  } catch {
+    // Non-critical
+  } finally {
+    cascadeLoading.value = false;
+  }
 };
 
 const updatePlugin = async (item: PluginItem) => {
@@ -593,10 +647,56 @@ const confirmUninstall = async () => {
         <template #content>
           <div class="p-6">
             <h3 class="text-lg font-semibold text-highlighted mb-2">{{ $t("admin.plugins.uninstall_confirm_title") }}</h3>
-            <p class="text-sm text-muted mb-6">{{ $t("admin.plugins.uninstall_confirm_desc", { name: pendingUninstall?.title }) }}</p>
+            <p class="text-sm text-muted mb-4">{{ $t("admin.plugins.uninstall_confirm_desc", { name: pendingUninstall?.title }) }}</p>
+            <!-- Cascade warning -->
+            <div v-if="cascadeLoading" class="mb-4">
+              <USkeleton class="h-4 w-48" />
+            </div>
+            <div v-else-if="cascadePlugins.length > 0" class="mb-4 p-3 bg-warning-50 dark:bg-warning-950/30 border border-warning-200 dark:border-warning-800 rounded-md">
+              <div class="flex items-start gap-2">
+                <UIcon name="i-tabler-alert-triangle" class="size-4 text-warning-600 dark:text-warning-400 shrink-0 mt-0.5" />
+                <div>
+                  <p class="text-sm font-medium text-warning-800 dark:text-warning-200 mb-1">{{ $t("admin.plugins.cascade_warning") }}</p>
+                  <ul class="text-xs text-warning-700 dark:text-warning-300 space-y-0.5">
+                    <li v-for="pid in cascadePlugins" :key="pid" class="flex items-center gap-1">
+                      <UIcon name="i-tabler-plug" class="size-3" />
+                      {{ items.find(p => p.id === pid)?.title || pid }}
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
             <div class="flex justify-end gap-2">
               <UButton color="neutral" variant="ghost" @click="uninstallModal = false">{{ $t("common.cancel") }}</UButton>
               <UButton color="error" :loading="uninstalling" @click="confirmUninstall">{{ $t("admin.plugins.uninstall_title") }}</UButton>
+            </div>
+          </div>
+        </template>
+      </UModal>
+
+      <!-- Disable cascade confirm modal -->
+      <UModal v-model:open="disableModal" :ui="{ content: 'max-w-sm' }">
+        <template #content>
+          <div class="p-6">
+            <h3 class="text-lg font-semibold text-highlighted mb-2">{{ $t("admin.plugins.disable_confirm_title") }}</h3>
+            <p class="text-sm text-muted mb-4">{{ $t("admin.plugins.disable_confirm_desc", { name: pendingDisable?.title }) }}</p>
+            <div class="mb-4 p-3 bg-warning-50 dark:bg-warning-950/30 border border-warning-200 dark:border-warning-800 rounded-md">
+              <div class="flex items-start gap-2">
+                <UIcon name="i-tabler-alert-triangle" class="size-4 text-warning-600 dark:text-warning-400 shrink-0 mt-0.5" />
+                <div>
+                  <p class="text-sm font-medium text-warning-800 dark:text-warning-200 mb-1">{{ $t("admin.plugins.cascade_disable_warning") }}</p>
+                  <ul class="text-xs text-warning-700 dark:text-warning-300 space-y-0.5">
+                    <li v-for="pid in cascadePlugins" :key="pid" class="flex items-center gap-1">
+                      <UIcon name="i-tabler-plug" class="size-3" />
+                      {{ items.find(p => p.id === pid)?.title || pid }}
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            <div class="flex justify-end gap-2">
+              <UButton color="neutral" variant="ghost" @click="disableModal = false; pendingDisable = null">{{ $t("common.cancel") }}</UButton>
+              <UButton color="warning" @click="confirmDisable">{{ $t("admin.plugins.disable_confirm_btn") }}</UButton>
             </div>
           </div>
         </template>

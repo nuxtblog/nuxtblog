@@ -26,6 +26,7 @@ type Manager struct {
 	mu      sync.RWMutex
 	plugins map[string]*loadedPlugin
 	server  *ghttp.Server // set by RegisterRoutes, used for dynamic route binding
+	graph   *depGraph
 }
 
 type loadedPlugin struct {
@@ -54,6 +55,7 @@ var defaultMgr *Manager
 func New() *Manager {
 	m := &Manager{
 		plugins: make(map[string]*loadedPlugin),
+		graph:   newDepGraph(),
 	}
 	defaultMgr = m
 	return m
@@ -84,7 +86,12 @@ func (m *Manager) HasPlugin(id string) bool {
 }
 
 // LoadStatic loads all statically registered plugins and activates them.
+// Uses two-phase loading: first collects all enabled candidates, registers
+// dependencies, topologically sorts, then activates in dependency order.
 func (m *Manager) LoadStatic(ctx context.Context) error {
+	// Phase 1: collect enabled candidates
+	candidates := make(map[string]sdk.Plugin)
+	var ids []string
 	for _, p := range sdk.GetStatic() {
 		mf := p.Manifest()
 		id := mf.ID
@@ -92,13 +99,34 @@ func (m *Manager) LoadStatic(ctx context.Context) error {
 			g.Log().Warning(ctx, "[pluginmgr] skipping plugin with empty ID")
 			continue
 		}
-
-		// Check if plugin is enabled in DB
 		if !m.isEnabled(ctx, id) {
 			g.Log().Infof(ctx, "[pluginmgr] plugin %s not enabled, skipping", id)
 			continue
 		}
+		candidates[id] = p
+		ids = append(ids, id)
+		m.graph.Add(id, mf.Depends)
+	}
 
+	// Phase 2: topological sort
+	versionResolver := func(id string) string {
+		if p, ok := candidates[id]; ok {
+			return p.Manifest().Version
+		}
+		return ""
+	}
+	sorted, err := m.graph.TopologicalSort(ids, versionResolver)
+	if err != nil {
+		g.Log().Warningf(ctx, "[pluginmgr] dependency sort failed: %v; loading in original order", err)
+		sorted = ids
+	}
+
+	// Phase 3: activate in sorted order
+	for _, id := range sorted {
+		p := candidates[id]
+		if p == nil {
+			continue
+		}
 		if err := m.activatePlugin(ctx, p, "builtin"); err != nil {
 			g.Log().Errorf(ctx, "[pluginmgr] plugin %s failed: %v", id, err)
 			continue
@@ -560,4 +588,38 @@ func (l *pluginLogger) Error(msg string) {
 
 func (l *pluginLogger) Debug(msg string) {
 	g.Log().Infof(context.Background(), "[plugin:%s] %s", l.pluginID, msg)
+}
+
+// ─── pluginQuery implements sdk.PluginQuery ──────────────────────────────────
+
+type pluginQuery struct {
+	mgr *Manager
+}
+
+func (q *pluginQuery) IsAvailable(id string) bool {
+	q.mgr.mu.RLock()
+	_, ok := q.mgr.plugins[id]
+	q.mgr.mu.RUnlock()
+	return ok
+}
+
+func (q *pluginQuery) GetVersion(id string) string {
+	q.mgr.mu.RLock()
+	defer q.mgr.mu.RUnlock()
+	if lp, ok := q.mgr.plugins[id]; ok {
+		return lp.plugin.Manifest().Version
+	}
+	return ""
+}
+
+// UnloadImpact returns plugin IDs that would be cascade-unloaded (excluding id itself).
+func (m *Manager) UnloadImpact(id string) []string {
+	cascade := m.graph.GetCascadeUnloadOrder(id)
+	result := make([]string, 0, len(cascade)-1)
+	for _, pid := range cascade {
+		if pid != id {
+			result = append(result, pid)
+		}
+	}
+	return result
 }

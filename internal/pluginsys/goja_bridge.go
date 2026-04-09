@@ -24,6 +24,9 @@ func injectPluginSDK(vm *goja.Runtime, pctx sdk.PluginContext) {
 	injectSettings(vm, ctx, pctx.Settings)
 	injectLog(vm, ctx, pctx.Log)
 	injectHTTP(vm, ctx)
+	if pctx.Plugins != nil {
+		injectPlugins(vm, ctx, pctx.Plugins)
+	}
 	vm.Set("ctx", ctx)
 }
 
@@ -196,6 +199,17 @@ func injectHTTP(vm *goja.Runtime, ctx *goja.Object) {
 	})
 
 	ctx.Set("http", o)
+}
+
+// ── ctx.plugins ─────────────────────────────────────────────────────────────
+
+// injectPlugins exposes ctx.plugins.isAvailable(id) and ctx.plugins.getVersion(id)
+// so JS plugins can query whether other plugins are loaded.
+func injectPlugins(vm *goja.Runtime, ctx *goja.Object, pq sdk.PluginQuery) {
+	o := vm.NewObject()
+	o.Set("isAvailable", func(id string) bool { return pq.IsAvailable(id) })
+	o.Set("getVersion", func(id string) string { return pq.GetVersion(id) })
+	ctx.Set("plugins", o)
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────────

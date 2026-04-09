@@ -24,6 +24,7 @@ type IPlugin interface {
 	UpdateManifest(ctx context.Context, id string, manifest string) error
 	Preview(ctx context.Context, repo string) (*v1.PluginPreviewRes, error)
 	ClientList(ctx context.Context) (*v1.PluginClientListRes, error)
+	UnloadImpact(ctx context.Context, id string) (*v1.PluginUnloadImpactRes, error)
 }
 
 var _plugin IPlugin

@@ -18,8 +18,15 @@ import (
 	"github.com/nuxtblog/nuxtblog/sdk"
 )
 
+// externalCandidate holds discovery-phase data for an external plugin.
+type externalCandidate struct {
+	manifest  *sdk.Manifest
+	pluginDir string
+}
+
 // LoadExternal scans dataDir for plugin directories, reads plugin.yaml,
 // and loads JS/full type plugins via Goja.
+// Uses two-phase loading: discovery pass, then topological sort, then activate.
 //
 // dataDir is typically "data/plugins/".
 func (m *Manager) LoadExternal(ctx context.Context, dataDir string) error {
@@ -32,6 +39,10 @@ func (m *Manager) LoadExternal(ctx context.Context, dataDir string) error {
 	}
 
 	g.Log().Infof(ctx, "[pluginmgr] LoadExternal scanning %s (%d entries)", dataDir, len(entries))
+
+	// Phase 1: Discovery — parse all manifests
+	candidates := make(map[string]*externalCandidate)
+	var jsIDs []string // IDs of JS/full plugins that need activation ordering
 
 	for _, entry := range entries {
 		if !entry.IsDir() {
@@ -77,18 +88,65 @@ func (m *Manager) LoadExternal(ctx context.Context, dataDir string) error {
 			continue
 		}
 
+		candidates[pm.ID] = &externalCandidate{manifest: pm, pluginDir: pluginDir}
+
+		// Register dependencies for JS/full plugins
+		if pm.Type == sdk.TypeJS || pm.Type == sdk.TypeFull {
+			m.graph.Add(pm.ID, pm.Depends)
+			jsIDs = append(jsIDs, pm.ID)
+		}
+	}
+
+	// Phase 2: Build union of already-loaded (builtin) IDs + new JS candidate IDs for sorting
+	m.mu.RLock()
+	allIDs := make([]string, 0, len(m.plugins)+len(jsIDs))
+	for id := range m.plugins {
+		allIDs = append(allIDs, id)
+	}
+	m.mu.RUnlock()
+	allIDs = append(allIDs, jsIDs...)
+
+	versionResolver := func(id string) string {
+		// Check already-loaded plugins
+		m.mu.RLock()
+		if lp, ok := m.plugins[id]; ok {
+			m.mu.RUnlock()
+			return lp.plugin.Manifest().Version
+		}
+		m.mu.RUnlock()
+		// Check candidates
+		if c, ok := candidates[id]; ok {
+			return c.manifest.Version
+		}
+		return ""
+	}
+
+	sorted, err := m.graph.TopologicalSort(allIDs, versionResolver)
+	if err != nil {
+		g.Log().Warningf(ctx, "[pluginmgr] dependency sort failed: %v; loading in discovery order", err)
+		sorted = allIDs
+	}
+
+	// Phase 3: Activate in sorted order, skipping already-loaded builtins
+	for _, id := range sorted {
+		c, ok := candidates[id]
+		if !ok {
+			continue // already-loaded builtin, skip
+		}
+		pm := c.manifest
+
 		switch pm.Type {
 		case sdk.TypeJS, sdk.TypeFull:
 			jsFile := pm.JSEntry
 			if jsFile == "" {
 				jsFile = "plugin.js"
 			}
-			jsPath := filepath.Join(pluginDir, jsFile)
+			jsPath := filepath.Join(c.pluginDir, jsFile)
 			if _, err := os.Stat(jsPath); err != nil {
 				g.Log().Warningf(ctx, "[pluginmgr] %s: js source %s not found", pm.ID, jsFile)
 				continue
 			}
-			p, err := loadGojaPlugin(ctx, pluginDir, jsFile, *pm)
+			p, err := loadGojaPlugin(ctx, c.pluginDir, jsFile, *pm)
 			if err != nil {
 				g.Log().Errorf(ctx, "[pluginmgr] %s goja load failed: %v", pm.ID, err)
 				continue
@@ -99,9 +157,6 @@ func (m *Manager) LoadExternal(ctx context.Context, dataDir string) error {
 			m.ensureDBRecordExt(ctx, *pm, "external")
 
 		case sdk.TypeBuiltin:
-			// Builtin plugins have Go backend compiled into the binary.
-			// Here we only register metadata (frontend assets, pages, contributes)
-			// so the admin panel can serve the plugin's UI components.
 			m.registerMetadataPlugin(ctx, pm, "builtin")
 
 		case sdk.TypeYAML:
@@ -135,6 +190,7 @@ func (m *Manager) activatePlugin(ctx context.Context, p sdk.Plugin, source strin
 		Store:    newPluginStore(id),
 		Settings: newPluginSettings(id),
 		Log:      newPluginLogger(id),
+		Plugins:  &pluginQuery{mgr: m},
 	}
 	lp.ctx = pctx
 
@@ -279,8 +335,23 @@ func (m *Manager) InstallJSPlugin(ctx context.Context, pluginDir string, jsFile 
 		return fmt.Errorf("parse plugin.yaml: %w", err)
 	}
 
+	// Check dependencies before loading
+	for _, dep := range pm.Depends {
+		if !dep.Optional && !m.HasPlugin(dep.ID) {
+			return fmt.Errorf("missing required dependency: %s", dep.ID)
+		}
+		if dep.Version != "" && m.HasPlugin(dep.ID) {
+			ver := (&pluginQuery{mgr: m}).GetVersion(dep.ID)
+			if ver != "" && !matchSemverConstraint(ver, dep.Version) {
+				return fmt.Errorf("dependency %s requires version %s, but found %s", dep.ID, dep.Version, ver)
+			}
+		}
+	}
+
 	// Unload previous version if already loaded (update scenario)
 	m.UnloadPlugin(pm.ID)
+
+	m.graph.Add(pm.ID, pm.Depends)
 
 	p, err := loadGojaPlugin(ctx, pluginDir, jsFile, *pm)
 	if err != nil {
@@ -293,14 +364,27 @@ func (m *Manager) InstallJSPlugin(ctx context.Context, pluginDir string, jsFile 
 	return nil
 }
 
-// UnloadPlugin deactivates and removes a plugin from the manager.
-func (m *Manager) UnloadPlugin(id string) {
+// UnloadPlugin deactivates and removes a plugin and all its dependents (cascade).
+// Returns the list of plugin IDs that were actually unloaded.
+func (m *Manager) UnloadPlugin(id string) []string {
+	cascade := m.graph.GetCascadeUnloadOrder(id)
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if lp, ok := m.plugins[id]; ok {
-		if dp, ok := lp.plugin.(sdk.HasDeactivate); ok {
-			_ = dp.Deactivate()
+
+	ctx := context.Background()
+	var unloaded []string
+	for _, pid := range cascade {
+		if lp, ok := m.plugins[pid]; ok {
+			if dp, ok := lp.plugin.(sdk.HasDeactivate); ok {
+				if err := dp.Deactivate(); err != nil {
+					g.Log().Warningf(ctx, "[pluginmgr] %s deactivate error: %v", pid, err)
+				}
+			}
+			delete(m.plugins, pid)
+			m.graph.Remove(pid)
+			unloaded = append(unloaded, pid)
 		}
-		delete(m.plugins, id)
 	}
+	return unloaded
 }
