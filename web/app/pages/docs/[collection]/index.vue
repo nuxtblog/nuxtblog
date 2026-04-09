@@ -103,30 +103,12 @@ onMounted(fetchCollection)
           <!-- Doc tree nav -->
           <nav class="rounded-lg bg-default ring-1 ring-default shadow-sm p-3">
             <h3 class="text-xs font-semibold text-muted uppercase tracking-wider mb-2 px-1">目录</h3>
-            <ul class="space-y-0.5">
-              <template v-for="doc in topLevelDocs" :key="doc.id">
-                <li>
-                  <NuxtLink
-                    :to="`/docs/${collectionSlug}/${doc.slug}`"
-                    class="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-sm transition-colors hover:bg-elevated"
-                    active-class="bg-primary/10 text-primary font-medium">
-                    <UIcon name="i-tabler-file-text" class="size-3.5 shrink-0 text-muted" />
-                    <span class="truncate">{{ doc.title }}</span>
-                  </NuxtLink>
-                  <!-- Children -->
-                  <ul v-if="childDocsByParent[doc.id]?.length" class="ml-4 mt-0.5 space-y-0.5 border-l border-default pl-2">
-                    <li v-for="child in childDocsByParent[doc.id]" :key="child.id">
-                      <NuxtLink
-                        :to="`/docs/${collectionSlug}/${child.slug}`"
-                        class="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-sm transition-colors hover:bg-elevated text-muted"
-                        active-class="text-primary font-medium">
-                        <span class="truncate">{{ child.title }}</span>
-                      </NuxtLink>
-                    </li>
-                  </ul>
-                </li>
-              </template>
-            </ul>
+            <DocNavTree
+              :docs="topLevelDocs"
+              :child-docs-by-parent="childDocsByParent"
+              :collection-slug="collectionSlug"
+              current-slug=""
+            />
           </nav>
         </aside>
 

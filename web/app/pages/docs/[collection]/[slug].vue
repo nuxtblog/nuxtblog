@@ -43,10 +43,26 @@ const childDocsByParent = computed(() => {
   return map
 })
 
-// Prev/next navigation among top-level docs
-const currentDocIndex = computed(() => topLevelDocs.value.findIndex(d => d.slug === docSlug.value))
-const prevDoc = computed(() => currentDocIndex.value > 0 ? topLevelDocs.value[currentDocIndex.value - 1] : null)
-const nextDoc = computed(() => currentDocIndex.value < topLevelDocs.value.length - 1 ? topLevelDocs.value[currentDocIndex.value + 1] : null)
+// Recursively flatten doc tree: parent → children → grandchildren ...
+const flatDocs = computed(() => {
+  const map = childDocsByParent.value
+  const result: DocItem[] = []
+  function walk(docs: DocItem[]) {
+    for (const doc of docs) {
+      result.push(doc)
+      if (map[doc.id]?.length) {
+        walk(map[doc.id]!)
+      }
+    }
+  }
+  walk(topLevelDocs.value)
+  return result
+})
+
+// Prev/next navigation among all docs
+const currentDocIndex = computed(() => flatDocs.value.findIndex(d => d.slug === docSlug.value))
+const prevDoc = computed(() => currentDocIndex.value > 0 ? flatDocs.value[currentDocIndex.value - 1] : null)
+const nextDoc = computed(() => currentDocIndex.value < flatDocs.value.length - 1 ? flatDocs.value[currentDocIndex.value + 1] : null)
 
 async function fetchDoc() {
   rawLoading.value = true
@@ -121,29 +137,12 @@ watch(docSlug, fetchDoc)
             </NuxtLink>
 
             <nav class="rounded-lg bg-default ring-1 ring-default shadow-sm p-3">
-              <ul class="space-y-0.5">
-                <template v-for="item in topLevelDocs" :key="item.id">
-                  <li>
-                    <NuxtLink
-                      :to="`/docs/${collectionSlug}/${item.slug}`"
-                      class="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-sm transition-colors hover:bg-elevated"
-                      :class="item.slug === docSlug ? 'bg-primary/10 text-primary font-medium' : 'text-muted'">
-                      <UIcon name="i-tabler-file-text" class="size-3.5 shrink-0" />
-                      <span class="truncate">{{ item.title }}</span>
-                    </NuxtLink>
-                    <ul v-if="childDocsByParent[item.id]?.length" class="ml-4 mt-0.5 space-y-0.5 border-l border-default pl-2">
-                      <li v-for="child in childDocsByParent[item.id]" :key="child.id">
-                        <NuxtLink
-                          :to="`/docs/${collectionSlug}/${child.slug}`"
-                          class="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-sm transition-colors hover:bg-elevated"
-                          :class="child.slug === docSlug ? 'text-primary font-medium' : 'text-muted'">
-                          <span class="truncate">{{ child.title }}</span>
-                        </NuxtLink>
-                      </li>
-                    </ul>
-                  </li>
-                </template>
-              </ul>
+              <DocNavTree
+                :docs="topLevelDocs"
+                :child-docs-by-parent="childDocsByParent"
+                :collection-slug="collectionSlug"
+                :current-slug="docSlug"
+              />
             </nav>
           </div>
         </aside>
@@ -159,31 +158,35 @@ watch(docSlug, fetchDoc)
             <span class="text-highlighted truncate">{{ doc.title }}</span>
           </div>
 
-          <!-- Doc header -->
-          <div class="mb-6">
-            <h1 class="text-2xl font-bold text-highlighted mb-2">{{ doc.title }}</h1>
-            <div class="flex items-center gap-4 text-sm text-muted">
-              <span v-if="doc.updated_at" class="flex items-center gap-1">
-                <UIcon name="i-tabler-calendar" class="size-4" />
-                {{ formatDate(doc.updated_at) }}
-              </span>
-              <span v-if="doc.stats?.view_count" class="flex items-center gap-1">
-                <UIcon name="i-tabler-eye" class="size-4" />
-                {{ doc.stats.view_count }}
-              </span>
+          <!-- Doc card -->
+          <div class="rounded-lg bg-default ring-1 ring-default shadow-sm p-6 md:p-8">
+            <!-- Doc header -->
+            <div class="mb-6">
+              <h1 class="text-2xl font-bold text-highlighted mb-2">{{ doc.title }}</h1>
+              <div class="flex items-center gap-4 text-sm text-muted">
+                <span v-if="doc.updated_at" class="flex items-center gap-1">
+                  <UIcon name="i-tabler-calendar" class="size-4" />
+                  {{ formatDate(doc.updated_at) }}
+                </span>
+                <span v-if="doc.stats?.view_count" class="flex items-center gap-1">
+                  <UIcon name="i-tabler-eye" class="size-4" />
+                  {{ doc.stats.view_count }}
+                </span>
+              </div>
             </div>
+
+            <!-- Doc content -->
+            <MarkdownContent v-if="doc.content" :content="doc.content" />
+            <div v-else class="text-muted text-sm italic">此文档暂无内容。</div>
+
           </div>
 
-          <!-- Doc content -->
-          <MarkdownContent v-if="doc.content" :content="doc.content" />
-          <div v-else class="text-muted text-sm italic">此文档暂无内容。</div>
-
           <!-- Prev/Next navigation -->
-          <div class="mt-10 pt-6 border-t border-default grid grid-cols-2 gap-4">
+          <div class="mt-6 grid grid-cols-2 gap-4">
             <NuxtLink
               v-if="prevDoc"
               :to="`/docs/${collectionSlug}/${prevDoc.slug}`"
-              class="flex items-center gap-2 p-3 rounded-lg ring-1 ring-default hover:ring-primary/50 hover:shadow-sm transition-all group">
+              class="flex items-center gap-2 p-4 rounded-lg bg-default ring-1 ring-default shadow-sm hover:ring-primary/50 hover:shadow-md transition-all group">
               <UIcon name="i-tabler-arrow-left" class="size-4 text-muted group-hover:text-primary shrink-0" />
               <div class="min-w-0">
                 <p class="text-xs text-muted">上一篇</p>
@@ -195,7 +198,7 @@ watch(docSlug, fetchDoc)
             <NuxtLink
               v-if="nextDoc"
               :to="`/docs/${collectionSlug}/${nextDoc.slug}`"
-              class="flex items-center justify-end gap-2 p-3 rounded-lg ring-1 ring-default hover:ring-primary/50 hover:shadow-sm transition-all group text-right">
+              class="flex items-center justify-end gap-2 p-4 rounded-lg bg-default ring-1 ring-default shadow-sm hover:ring-primary/50 hover:shadow-md transition-all group text-right">
               <div class="min-w-0">
                 <p class="text-xs text-muted">下一篇</p>
                 <p class="text-sm font-medium text-highlighted group-hover:text-primary truncate">{{ nextDoc.title }}</p>

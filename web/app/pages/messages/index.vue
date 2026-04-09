@@ -133,16 +133,16 @@ const bubbleRounding = (idx: number) => {
   const isMine = msg.sender_id === authStore.user?.id
   const prevSame = idx > 0 && messages.value[idx - 1]?.sender_id === msg.sender_id
   const nextSame = idx < messages.value.length - 1 && messages.value[idx + 1]?.sender_id === msg.sender_id
-  const base = 'rounded-md'
+  const base = 'rounded-2xl'
   if (isMine) {
-    if (prevSame && nextSame) return `${base} rounded-r-md`
-    if (prevSame) return `${base} rounded-tr-md`
-    if (nextSame) return `${base} rounded-br-md`
+    if (prevSame && nextSame) return `${base} rounded-tr-md rounded-br-md`
+    if (prevSame) return `${base} rounded-br-md`
+    if (nextSame) return `${base} rounded-tr-md`
     return base
   } else {
-    if (prevSame && nextSame) return `${base} rounded-l-md`
-    if (prevSame) return `${base} rounded-tl-md`
-    if (nextSame) return `${base} rounded-bl-md`
+    if (prevSame && nextSame) return `${base} rounded-tl-md rounded-bl-md`
+    if (prevSame) return `${base} rounded-bl-md`
+    if (nextSame) return `${base} rounded-tl-md`
     return base
   }
 }
@@ -186,7 +186,7 @@ useHead({ title: t('site.message.inbox_title') })
 
         <!-- Skeleton -->
         <div v-if="convLoading" class="px-2 pt-2 space-y-1">
-          <div v-for="i in 6" :key="i" class="flex gap-3 items-center rounded-md px-3 py-3">
+          <div v-for="i in 6" :key="i" class="flex gap-3 items-center rounded-lg px-3 py-3">
             <USkeleton class="size-10 rounded-full shrink-0" />
             <div class="flex-1 space-y-1.5">
               <div class="flex justify-between">
@@ -210,9 +210,9 @@ useHead({ title: t('site.message.inbox_title') })
           <button
             v-for="conv in conversations"
             :key="conv.id"
-            class="w-full flex items-center gap-3 rounded-md px-3 py-2.5 transition-colors text-left group"
+            class="w-full flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors text-left group"
             :class="selectedId === conv.other_user_id
-              ? 'bg-primary/10'
+              ? 'bg-primary/10 ring-1 ring-primary/20'
               : 'hover:bg-elevated'"
             @click="openConversation(conv.other_user_id)">
 
@@ -265,8 +265,8 @@ useHead({ title: t('site.message.inbox_title') })
 
       <!-- No conversation selected (desktop empty state) -->
       <div v-if="!selectedId" class="flex-1 flex flex-col items-center justify-center gap-4 text-center px-8">
-        <div class="size-20 rounded-full bg-primary/10 flex items-center justify-center">
-          <UIcon name="i-tabler-message-2" class="size-10 text-primary" />
+        <div class="size-24 rounded-full bg-primary/10 flex items-center justify-center">
+          <UIcon name="i-tabler-message-2" class="size-12 text-primary" />
         </div>
         <div>
           <p class="font-semibold text-highlighted mb-1">{{ $t('site.message.inbox_title') }}</p>
@@ -278,7 +278,7 @@ useHead({ title: t('site.message.inbox_title') })
       <template v-else>
 
         <!-- Chat header -->
-        <div class="flex items-center gap-3 px-4 h-14 border-b border-default bg-default shrink-0">
+        <div class="flex items-center gap-3 px-4 h-14 border-b border-default bg-default/80 backdrop-blur-sm shrink-0">
           <!-- Mobile back button -->
           <UButton
             class="md:hidden"
@@ -311,7 +311,7 @@ useHead({ title: t('site.message.inbox_title') })
         <!-- Messages (scrollable) -->
         <div
           ref="messagesEl"
-          class="flex-1 overflow-y-auto px-4 py-4 space-y-0.5 bg-muted/30"
+          class="flex-1 overflow-y-auto px-4 py-4 space-y-1 bg-muted/20"
           style="overscroll-behavior: contain">
 
           <!-- Load more -->
@@ -336,7 +336,7 @@ useHead({ title: t('site.message.inbox_title') })
 
           <!-- Empty -->
           <div v-else-if="messages.length === 0"
-            class="flex flex-col items-center justify-center gap-3 h-40 text-center">
+            class="flex flex-col items-center justify-center gap-3 h-full text-center">
             <div class="size-14 rounded-full bg-primary/10 flex items-center justify-center">
               <UIcon name="i-tabler-message-circle" class="size-7 text-primary" />
             </div>
@@ -367,12 +367,12 @@ useHead({ title: t('site.message.inbox_title') })
               <div class="max-w-[65%] flex flex-col"
                 :class="msg.sender_id === authStore.user?.id ? 'items-end' : 'items-start'">
                 <div
-                  class="px-3.5 py-2 text-sm leading-relaxed break-words whitespace-pre-wrap"
+                  class="px-4 py-2.5 text-sm leading-relaxed break-words whitespace-pre-wrap"
                   :class="[
                     bubbleRounding(idx),
                     msg.sender_id === authStore.user?.id
-                      ? 'bg-primary text-white'
-                      : 'bg-default text-highlighted shadow-xs ring-1 ring-default',
+                      ? 'bg-primary text-white shadow-sm'
+                      : 'bg-default text-highlighted shadow-sm',
                   ]">
                   {{ msg.content }}
                 </div>
@@ -395,7 +395,7 @@ useHead({ title: t('site.message.inbox_title') })
         </div>
 
         <!-- Input area -->
-        <div class="border-t border-default bg-default px-4 py-3 shrink-0">
+        <div class="border-t border-default bg-default px-4 py-3 shrink-0 shadow-[0_-1px_3px_rgba(0,0,0,0.04)]">
           <div class="flex items-end gap-2">
             <UTextarea
               v-model="content"
