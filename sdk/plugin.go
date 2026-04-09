@@ -143,9 +143,32 @@ type Manifest struct {
 	Migrations  []Migration    `yaml:"migrations"  json:"migrations,omitempty"`
 	Contributes *Contributes   `yaml:"contributes" json:"contributes,omitempty"`
 
+	// ── Capabilities ──
+	Capabilities *Capabilities `yaml:"capabilities" json:"capabilities,omitempty"`
+
 	// ── YAML plugin specific (declarative logic) ──
 	Webhooks []WebhookDef `yaml:"webhooks" json:"webhooks,omitempty"`
 	Filters  []YAMLFilter `yaml:"filters"  json:"filters,omitempty"`
+}
+
+// ─── Capabilities ────────────────────────────────────────────────────────
+
+// DBCapability declares the database access level for a plugin.
+type DBCapability struct {
+	Own    bool            `yaml:"own"    json:"own,omitempty"`
+	Tables []DBTableAccess `yaml:"tables" json:"tables,omitempty"`
+	Raw    bool            `yaml:"raw"    json:"raw,omitempty"`
+}
+
+// DBTableAccess declares permitted operations on a specific core table.
+type DBTableAccess struct {
+	Table string   `yaml:"table" json:"table"`
+	Ops   []string `yaml:"ops"   json:"ops"`
+}
+
+// Capabilities declares which platform APIs the plugin is permitted to use.
+type Capabilities struct {
+	DB *DBCapability `yaml:"db" json:"db,omitempty"`
 }
 
 // ─── Setting ──────────────────────────────────────────────────────────────
@@ -161,6 +184,7 @@ type SettingDef struct {
 	Description string   `yaml:"description" json:"description,omitempty"`
 	Options     []string `yaml:"options"     json:"options,omitempty"`
 	Group       string   `yaml:"group"       json:"group,omitempty"`
+	Shared      bool     `yaml:"shared"      json:"shared,omitempty"`
 }
 
 // ─── Page ─────────���───────────────────────────────────────────────────────
@@ -317,6 +341,7 @@ type Dependency struct {
 type PluginQuery interface {
 	IsAvailable(id string) bool
 	GetVersion(id string) string
+	GetSetting(pluginID, key string) (any, error)
 }
 
 // PluginContext provides platform services to plugins during activation.

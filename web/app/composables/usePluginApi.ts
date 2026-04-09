@@ -2,6 +2,11 @@ export interface PluginCapabilities {
   http?: { allow?: string[]; timeout_ms?: number }
   store?: { read?: boolean; write?: boolean }
   events?: { subscribe?: string[] }
+  db?: {
+    own?: boolean
+    tables?: Array<{ table: string; ops: string[] }>
+    raw?: boolean
+  } | boolean
 }
 
 export interface PluginItem {
@@ -78,6 +83,8 @@ export interface PluginSettingField {
   group?: string
   /** Condition expression, e.g. "advanced_mode === true". Field is hidden when falsy. */
   showIf?: string
+  /** When true, other plugins can read this setting via ctx.plugins.getSetting() */
+  shared?: boolean
 }
 
 export interface PluginWindowBucket {
@@ -155,6 +162,11 @@ export interface PluginPreviewInfo {
     http?: { allow?: string[]; timeout_ms?: number }
     store?: { read?: boolean; write?: boolean }
     events?: { subscribe?: string[] }
+    db?: {
+      own?: boolean
+      tables?: Array<{ table: string; ops: string[] }>
+      raw?: boolean
+    } | boolean
   }
   depends?: PluginDependency[]
   settings: PluginSettingField[]

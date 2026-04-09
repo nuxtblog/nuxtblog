@@ -209,6 +209,15 @@ func injectPlugins(vm *goja.Runtime, ctx *goja.Object, pq sdk.PluginQuery) {
 	o := vm.NewObject()
 	o.Set("isAvailable", func(id string) bool { return pq.IsAvailable(id) })
 	o.Set("getVersion", func(id string) string { return pq.GetVersion(id) })
+	o.Set("getSetting", func(call goja.FunctionCall) goja.Value {
+		pluginID := call.Argument(0).String()
+		key := call.Argument(1).String()
+		val, err := pq.GetSetting(pluginID, key)
+		if err != nil {
+			return goja.Null()
+		}
+		return vm.ToValue(val)
+	})
 	ctx.Set("plugins", o)
 }
 

@@ -760,6 +760,7 @@ type pluginYAMLManifest struct {
 		Description string   `yaml:"description"`
 		Options     []string `yaml:"options"`
 		Group       string   `yaml:"group"`
+		Shared      bool     `yaml:"shared"`
 	} `yaml:"settings"`
 
 	Pages []struct {
@@ -1059,6 +1060,7 @@ func parsePluginYAML(data []byte) (*eng.Manifest, string, error) {
 			Description: s.Description,
 			Options:     s.Options,
 			Group:       s.Group,
+			Shared:      s.Shared,
 		}
 		m.Settings = append(m.Settings, sf)
 	}
@@ -1407,7 +1409,7 @@ func (s *sPlugin) SyncMarketplace(ctx context.Context) (*v1.MarketplaceSyncRes, 
 	}
 
 	regURL := g.Cfg().MustGet(ctx, "plugin.registry_url", defaultRegistryURL).String()
-	body, err := pluginHTTPGet(ctx, regURL)
+	body, err := pluginHTTPGet(ctx, regURL, true)
 	if err != nil {
 		return nil, gerror.NewCode(gcode.CodeInternalError, "fetch registry failed: "+err.Error())
 	}
@@ -1466,7 +1468,7 @@ func applyGitHubProxy(ctx context.Context, rawURL string) string {
 
 // pluginHTTPGet performs an HTTP GET like githubGet, but honours the
 // plugin_http_proxy and plugin_github_proxy options.
-func pluginHTTPGet(ctx context.Context, rawURL string) ([]byte, error) {
+func pluginHTTPGet(ctx context.Context, rawURL string, noCache ...bool) ([]byte, error) {
 	targetURL := applyGitHubProxy(ctx, rawURL)
 
 	transport := http.DefaultTransport.(*http.Transport).Clone()
@@ -1484,6 +1486,9 @@ func pluginHTTPGet(ctx context.Context, rawURL string) ([]byte, error) {
 	}
 	req.Header.Set("User-Agent", "nuxtblog-plugin-installer/1.0")
 	req.Header.Set("Accept", "application/vnd.github+json")
+	if len(noCache) > 0 && noCache[0] {
+		req.Header.Set("Cache-Control", "no-cache")
+	}
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -1659,6 +1664,7 @@ func (s *sPlugin) Preview(ctx context.Context, repo string) (*v1.PluginPreviewRe
 			Placeholder: sf.Placeholder,
 			Description: sf.Description,
 			Options:     sf.Options,
+			Shared:      sf.Shared,
 		})
 	}
 
@@ -1694,6 +1700,9 @@ func (s *sPlugin) Preview(ctx context.Context, repo string) (*v1.PluginPreviewRe
 			Subscribe: pkg.Plugin.Capabilities.Events.Subscribe,
 		}
 	}
+	if pkg.Plugin.Capabilities.DB != nil {
+		caps.DB = convertDBCapPreview(pkg.Plugin.Capabilities.DB)
+	}
 
 	return &v1.PluginPreviewRes{
 		Name:         pkg.Name,
@@ -1724,18 +1733,44 @@ func buildPreviewFromManifest(mf *eng.Manifest) *v1.PluginPreviewRes {
 			Placeholder: sf.Placeholder,
 			Description: sf.Description,
 			Options:     sf.Options,
+			Shared:      sf.Shared,
 		})
 	}
-	return &v1.PluginPreviewRes{
-		Name:        mf.Name,
-		Title:       mf.Title,
-		Description: mf.Description,
-		Version:     mf.Version,
-		Author:      mf.Author,
-		Icon:        orDefault(mf.Icon, "i-tabler-plug"),
-		HasCSS:      mf.CSS != "",
-		Settings:    settings,
+
+	caps := v1.CapabilitiesPreview{}
+	if mf.Capabilities.DB != nil {
+		caps.DB = convertDBCapPreview(mf.Capabilities.DB)
 	}
+
+	return &v1.PluginPreviewRes{
+		Name:         mf.Name,
+		Title:        mf.Title,
+		Description:  mf.Description,
+		Version:      mf.Version,
+		Author:       mf.Author,
+		Icon:         orDefault(mf.Icon, "i-tabler-plug"),
+		HasCSS:       mf.CSS != "",
+		Capabilities: caps,
+		Settings:     settings,
+	}
+}
+
+// convertDBCapPreview converts engine DBCap to API DBCapPreview.
+func convertDBCapPreview(d *eng.DBCap) *v1.DBCapPreview {
+	if d == nil {
+		return nil
+	}
+	r := &v1.DBCapPreview{
+		Own: d.Own,
+		Raw: d.Raw,
+	}
+	for _, t := range d.Tables {
+		r.Tables = append(r.Tables, v1.DBTablePreview{
+			Table: t.Table,
+			Ops:   t.Ops,
+		})
+	}
+	return r
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────

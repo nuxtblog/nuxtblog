@@ -2,6 +2,7 @@ package pluginsys
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 )
 
@@ -52,6 +53,7 @@ type SettingField struct {
 	Options     []string    `json:"options"`  // used when Type == SettingTypeSelect
 	Group       string      `json:"group,omitempty"`   // v2: groups settings into collapsible sections
 	ShowIf      string      `json:"showIf,omitempty"`  // v2: JS expression; field hidden when falsy, e.g. "advanced_mode === true"
+	Shared      bool        `json:"shared,omitempty"`
 }
 
 // PluginCapabilities declares which platform APIs the plugin is permitted to use.
@@ -59,8 +61,34 @@ type PluginCapabilities struct {
 	HTTP   *HTTPCap   `json:"http,omitempty"`
 	Store  *StoreCap  `json:"store,omitempty"`
 	Events *EventsCap `json:"events,omitempty"`
-	DB     bool       `json:"db,omitempty"`     // Phase 4.1: access to plugin-prefixed tables
+	DB     *DBCap     `json:"db,omitempty" yaml:"db,omitempty"`
 	AI     bool       `json:"ai,omitempty"`     // Phase 5.1: access to nuxtblog.ai service
+}
+
+// DBCap declares database access permissions for a plugin.
+type DBCap struct {
+	Own    bool          `json:"own,omitempty" yaml:"own,omitempty"`
+	Tables []DBTableRule `json:"tables,omitempty" yaml:"tables,omitempty"`
+	Raw    bool          `json:"raw,omitempty" yaml:"raw,omitempty"`
+}
+
+// UnmarshalJSON handles backward compatibility where DB was previously a bool.
+func (d *DBCap) UnmarshalJSON(data []byte) error {
+	var b bool
+	if json.Unmarshal(data, &b) == nil {
+		if b {
+			d.Own = true
+		}
+		return nil
+	}
+	type alias DBCap
+	return json.Unmarshal(data, (*alias)(d))
+}
+
+// DBTableRule declares permitted operations on a specific core table.
+type DBTableRule struct {
+	Table string   `json:"table" yaml:"table"`
+	Ops   []string `json:"ops" yaml:"ops"`
 }
 
 // HTTPCap grants access to HTTP fetch.

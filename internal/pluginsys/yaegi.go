@@ -184,9 +184,18 @@ func (m *Manager) activatePlugin(ctx context.Context, p sdk.Plugin, source strin
 		errors: &ErrorRingBuffer{},
 	}
 
-	// Build plugin context
+	// Build plugin context with DB capabilities
+	var dbCaps *DBCap
+	if mf.Capabilities != nil && mf.Capabilities.DB != nil {
+		dbCaps = convertSDKDBCap(mf.Capabilities.DB)
+	}
+	trust := TrustLevel(mf.TrustLevel)
+	if source == "builtin" {
+		trust = TrustLevelOfficial
+	}
+
 	pctx := sdk.PluginContext{
-		DB:       newPluginDB(id),
+		DB:       newPluginDB(id, dbCaps, trust),
 		Store:    newPluginStore(id),
 		Settings: newPluginSettings(id),
 		Log:      newPluginLogger(id),
@@ -295,7 +304,7 @@ func (m *Manager) ensureDBRecordExt(ctx context.Context, mf sdk.Manifest, source
 			"settings":        defaultsJSON,
 			"settings_schema": schemaJSON,
 			"manifest":        manifestJSON,
-			"capabilities":    `{"store":{"read":true,"write":true},"db":true}`,
+			"capabilities":    manifestCapsJSON(mf),
 			"installed_at":    time.Now(),
 		}).Insert()
 	} else {
@@ -387,4 +396,37 @@ func (m *Manager) UnloadPlugin(id string) []string {
 		}
 	}
 	return unloaded
+}
+
+// convertSDKDBCap converts sdk.DBCapability to pluginsys.DBCap.
+func convertSDKDBCap(c *sdk.DBCapability) *DBCap {
+	if c == nil {
+		return nil
+	}
+	d := &DBCap{
+		Own: c.Own,
+		Raw: c.Raw,
+	}
+	for _, t := range c.Tables {
+		d.Tables = append(d.Tables, DBTableRule{
+			Table: t.Table,
+			Ops:   t.Ops,
+		})
+	}
+	return d
+}
+
+// manifestCapsJSON serializes the sdk.Manifest capabilities to JSON for DB storage.
+func manifestCapsJSON(mf sdk.Manifest) string {
+	caps := map[string]any{
+		"store": map[string]any{"read": true, "write": true},
+	}
+	if mf.Capabilities != nil && mf.Capabilities.DB != nil {
+		caps["db"] = mf.Capabilities.DB
+	}
+	b, err := json.Marshal(caps)
+	if err != nil {
+		return `{"store":{"read":true,"write":true}}`
+	}
+	return string(b)
 }

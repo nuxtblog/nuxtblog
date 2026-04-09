@@ -15,6 +15,7 @@ type SettingField struct {
 	Placeholder string   `json:"placeholder"`
 	Description string   `json:"description"`
 	Options     []string `json:"options"`
+	Shared      bool     `json:"shared,omitempty"`
 }
 
 // PluginItem is returned in list responses.
@@ -307,10 +308,22 @@ type EventsCapPreview struct {
 	Subscribe []string `json:"subscribe"`
 }
 
+type DBCapPreview struct {
+	Own    bool              `json:"own,omitempty"`
+	Tables []DBTablePreview  `json:"tables,omitempty"`
+	Raw    bool              `json:"raw,omitempty"`
+}
+
+type DBTablePreview struct {
+	Table string   `json:"table"`
+	Ops   []string `json:"ops"`
+}
+
 type CapabilitiesPreview struct {
 	HTTP   *HTTPCapPreview   `json:"http,omitempty"`
 	Store  *StoreCapPreview  `json:"store,omitempty"`
 	Events *EventsCapPreview `json:"events,omitempty"`
+	DB     *DBCapPreview     `json:"db,omitempty"`
 }
 
 type WebhookPreview struct {

@@ -407,13 +407,23 @@ func (reg *registrar) Handle(method, path string, handler http.HandlerFunc, opts
 type pluginDB struct {
 	pluginID string
 	prefix   string
+	caps     *DBCap
+	trust    TrustLevel
 }
 
-func newPluginDB(pluginID string) *pluginDB {
-	return &pluginDB{pluginID: pluginID, prefix: sanitizeTablePrefix(pluginID)}
+func newPluginDB(pluginID string, caps *DBCap, trust TrustLevel) *pluginDB {
+	return &pluginDB{
+		pluginID: pluginID,
+		prefix:   sanitizeTablePrefix(pluginID),
+		caps:     caps,
+		trust:    trust,
+	}
 }
 
 func (d *pluginDB) Query(sql string, args ...any) ([]map[string]any, error) {
+	if err := (&sqlGuard{d.prefix, d.caps, d.trust}).validate(sql); err != nil {
+		return nil, fmt.Errorf("db access denied: %w", err)
+	}
 	ctx := context.Background()
 	result, err := g.DB().GetAll(ctx, sql, args...)
 	if err != nil {
@@ -427,6 +437,9 @@ func (d *pluginDB) Query(sql string, args ...any) ([]map[string]any, error) {
 }
 
 func (d *pluginDB) Execute(sql string, args ...any) (int64, error) {
+	if err := (&sqlGuard{d.prefix, d.caps, d.trust}).validate(sql); err != nil {
+		return 0, fmt.Errorf("db access denied: %w", err)
+	}
 	ctx := context.Background()
 	res, err := g.DB().Exec(ctx, sql, args...)
 	if err != nil {
@@ -610,6 +623,26 @@ func (q *pluginQuery) GetVersion(id string) string {
 		return lp.plugin.Manifest().Version
 	}
 	return ""
+}
+
+func (q *pluginQuery) GetSetting(pluginID, key string) (any, error) {
+	q.mgr.mu.RLock()
+	lp, ok := q.mgr.plugins[pluginID]
+	q.mgr.mu.RUnlock()
+	if !ok {
+		return nil, fmt.Errorf("plugin %s not available", pluginID)
+	}
+	mf := lp.plugin.Manifest()
+	for _, s := range mf.Settings {
+		if s.Key == key {
+			if !s.Shared {
+				return nil, fmt.Errorf("setting %s.%s is not shared", pluginID, key)
+			}
+			settings := newPluginSettings(pluginID)
+			return settings.Get(key), nil
+		}
+	}
+	return nil, fmt.Errorf("setting %s.%s not found", pluginID, key)
 }
 
 // UnloadImpact returns plugin IDs that would be cascade-unloaded (excluding id itself).

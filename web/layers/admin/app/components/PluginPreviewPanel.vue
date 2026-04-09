@@ -6,7 +6,20 @@ const { t } = useI18n()
 const props = defineProps<{ info: PluginPreviewInfo }>()
 
 const caps = computed(() => props.info.capabilities)
-const hasAnyCap = computed(() => caps.value.http || caps.value.store || caps.value.events)
+const hasAnyCap = computed(() => caps.value.http || caps.value.store || caps.value.events || caps.value.db)
+
+const dbCap = computed(() => {
+  const db = caps.value.db
+  if (!db) return null
+  if (typeof db === 'boolean') return db ? { own: true } : null
+  return db
+})
+
+const dbTablesSummary = computed(() => {
+  if (!dbCap.value || typeof dbCap.value === 'boolean') return ''
+  const tables = dbCap.value.tables ?? []
+  return tables.map(r => `${r.table} (${r.ops.join(', ')})`).join(', ')
+})
 
 const settings = computed(() => props.info.settings ?? [])
 const webhooks = computed(() => props.info.webhooks ?? [])
@@ -79,6 +92,22 @@ const httpDomains = computed(() => {
           <p class="text-xs text-muted mt-0.5 font-mono">
             {{ (caps.events.subscribe ?? []).join(', ') || '*' }}
           </p>
+        </div>
+      </div>
+
+      <!-- DB -->
+      <div v-if="dbCap" class="flex items-start gap-2.5 px-3 py-2.5">
+        <UIcon name="i-tabler-database-cog" :class="['size-4 shrink-0 mt-0.5', dbCap.raw ? 'text-warning' : 'text-primary']" />
+        <div>
+          <p v-if="dbCap.raw" class="text-xs font-medium text-warning">{{ $t('admin.plugins.cap_db_raw') }}</p>
+          <template v-else>
+            <p v-if="dbCap.own" class="text-xs font-medium text-highlighted">{{ $t('admin.plugins.cap_db_own') }}</p>
+            <p v-if="dbCap.own" class="text-xs text-muted mt-0.5">{{ $t('admin.plugins.preview_db_own_desc') }}</p>
+            <p v-if="dbCap.tables?.length" class="text-xs text-muted mt-0.5">
+              {{ $t('admin.plugins.cap_db_tables', { n: dbCap.tables.length }) }}:
+              <span class="font-mono">{{ dbTablesSummary }}</span>
+            </p>
+          </template>
         </div>
       </div>
 
