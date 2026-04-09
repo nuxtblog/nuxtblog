@@ -48,6 +48,8 @@ var (
 		Usage: "main",
 		Brief: "start http server",
 		Func: func(ctx context.Context, parser *gcmd.Parser) (err error) {
+			middleware.InitLogger()
+
 			if err = autoMigrate(ctx); err != nil {
 				g.Log().Warningf(ctx, "autoMigrate warning: %v", err)
 			}

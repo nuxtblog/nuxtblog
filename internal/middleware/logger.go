@@ -48,7 +48,7 @@ func AccessLogger(r *ghttp.Request) {
 
 	fmt.Printf(
 		"%s%s%s  %s%s%s  %s%-7s%s  %-45s  %s%s%s  %s%s%s\n",
-		colorGray, time.Now().Format("15:04:05"), colorReset,
+		colorGray, time.Now().Format("01-02 15:04:05"), colorReset,
 		statusColor, fmt.Sprintf("%d", status), colorReset,
 		methodColor, method, colorReset,
 		path,
