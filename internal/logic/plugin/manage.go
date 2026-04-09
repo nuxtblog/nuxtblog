@@ -92,15 +92,26 @@ func (s *sPlugin) Uninstall(ctx context.Context, id string) (bool, error) {
 		if len(unloaded) > 1 {
 			g.Log().Infof(ctx, "[plugin] cascade unloaded %d plugins: %v", len(unloaded), unloaded)
 		}
-		// Disable cascade-unloaded dependents in DB so the admin UI reflects
-		// their actual runtime state (their required dependency is gone).
+		// Fully uninstall cascade-unloaded dependents (not just disable).
 		for _, pid := range unloaded {
 			if pid == id {
 				continue
 			}
-			if _, err := g.DB().Ctx(ctx).Model("plugins").Where("id", pid).
-				Data(g.Map{"enabled": 0, "updated_at": gtime.Now()}).Update(); err != nil {
-				g.Log().Warningf(ctx, "[plugin] disable cascaded dependent %s failed: %v", pid, err)
+			// 1. Remove plugin directory
+			depDir := filepath.Join(PluginAssetsDir(), sanitizePluginPath(pid))
+			if info, err := os.Stat(depDir); err == nil && info.IsDir() {
+				if rmErr := os.RemoveAll(depDir); rmErr != nil {
+					g.Log().Warningf(ctx, "[plugin] failed to remove cascaded plugin dir %s: %v", depDir, rmErr)
+				}
+			}
+			// 2. Rollback migrations
+			s.rollbackPluginMigrations(ctx, pid)
+			// 3. Remove KV store entries
+			_, _ = g.DB().Ctx(ctx).Model("options").
+				WhereLike("key", "plugin_store:"+pid+":%").Delete()
+			// 4. Delete DB record
+			if _, err := g.DB().Ctx(ctx).Model("plugins").Where("id", pid).Delete(); err != nil {
+				g.Log().Warningf(ctx, "[plugin] delete cascaded dependent %s failed: %v", pid, err)
 			}
 		}
 	}
