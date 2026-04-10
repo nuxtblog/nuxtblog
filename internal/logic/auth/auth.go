@@ -19,6 +19,8 @@ import (
 	"github.com/nuxtblog/nuxtblog/internal/tokenstore"
 	"github.com/nuxtblog/nuxtblog/internal/util/password"
 
+	"github.com/gogf/gf/v2/errors/gcode"
+	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 	"github.com/gogf/gf/v2/os/gtime"
@@ -331,11 +333,11 @@ func (s *sAuth) Logout(ctx context.Context, refreshToken string) error {
 func (s *sAuth) Me(ctx context.Context) (*v1.AuthUserItem, error) {
 	r := ghttp.RequestFromCtx(ctx)
 	if r == nil {
-		return nil, errors.New(g.I18n().T(ctx, "error.unauthorized"))
+		return nil, gerror.NewCode(gcode.New(401, "", nil), g.I18n().T(ctx, "error.unauthorized"))
 	}
 	uid := r.GetCtxVar("user_id").Int64()
 	if uid == 0 {
-		return nil, errors.New(g.I18n().T(ctx, "error.unauthorized"))
+		return nil, gerror.NewCode(gcode.New(401, "", nil), g.I18n().T(ctx, "error.unauthorized"))
 	}
 	var user entity.Users
 	if err := dao.Users.Ctx(ctx).Where("id", uid).WhereNull("deleted_at").Scan(&user); err != nil || user.Id == 0 {
@@ -350,7 +352,7 @@ func (s *sAuth) Me(ctx context.Context) (*v1.AuthUserItem, error) {
 func (s *sAuth) Refresh(ctx context.Context, refreshToken string) (*v1.AuthRefreshRes, error) {
 	claims, err := parseToken(ctx, refreshToken)
 	if err != nil || claims.Type != "refresh" {
-		return nil, errors.New(g.I18n().T(ctx, "auth.invalid_refresh_token"))
+		return nil, gerror.NewCode(gcode.New(401, "", nil), g.I18n().T(ctx, "auth.invalid_refresh_token"))
 	}
 
 	// Verify the token hash exists in the store (not revoked)
@@ -360,7 +362,7 @@ func (s *sAuth) Refresh(ctx context.Context, refreshToken string) (*v1.AuthRefre
 		return nil, fmt.Errorf("token store error: %w", err)
 	}
 	if !ok {
-		return nil, errors.New(g.I18n().T(ctx, "auth.refresh_token_revoked"))
+		return nil, gerror.NewCode(gcode.New(401, "", nil), g.I18n().T(ctx, "auth.refresh_token_revoked"))
 	}
 
 	var user entity.Users

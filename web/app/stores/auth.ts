@@ -58,7 +58,16 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const fetchMe = async () => {
-    if (!token.value) return
+    // No access token but have refresh token — try to obtain a new access token
+    if (!token.value) {
+      if (refreshTokenCookie.value) {
+        const ok = await tryRefresh()
+        if (!ok) return
+      } else {
+        return
+      }
+    }
+
     try {
       const res = await authApi.me()
       user.value = res.user
@@ -73,7 +82,6 @@ export const useAuthStore = defineStore('auth', () => {
         } catch { /* fall through to clear */ }
       }
       tokenCookie.value = null
-      refreshTokenCookie.value = null
       user.value = null
     }
   }
@@ -97,13 +105,15 @@ export const useAuthStore = defineStore('auth', () => {
   const tryRefresh = async () => {
     if (!refreshTokenCookie.value) return false
     try {
-      const res = await authApi.refresh(refreshTokenCookie.value)
-      tokenCookie.value = res.access_token
+      // Bypass apiFetch to avoid circular 401-refresh loop
+      const res = await $fetch<{ code: number; message: string; data: { access_token: string } }>(
+        `${baseURL}/auth/refresh`,
+        { method: 'POST', body: { refresh_token: refreshTokenCookie.value } },
+      )
+      if (res.code !== 0 || !res.data?.access_token) return false
+      tokenCookie.value = res.data.access_token
       return true
     } catch {
-      tokenCookie.value = null
-      refreshTokenCookie.value = null
-      user.value = null
       return false
     }
   }

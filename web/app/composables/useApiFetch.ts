@@ -39,6 +39,14 @@ export const useApiFetch = () => {
     })
   }
 
+  const tryAutoRefresh = async (): Promise<boolean> => {
+    if (!authStore.token) return false
+    if (!refreshPromise) {
+      refreshPromise = authStore.tryRefresh().finally(() => { refreshPromise = null })
+    }
+    return refreshPromise
+  }
+
   const apiFetch = async <T>(
     path: string,
     options?: Parameters<typeof $fetch>[1],
@@ -47,11 +55,7 @@ export const useApiFetch = () => {
 
     // Auto-refresh on 401: try once, then retry the original request
     if (response.code === 401 && authStore.token) {
-      // Deduplicate concurrent refresh calls
-      if (!refreshPromise) {
-        refreshPromise = authStore.tryRefresh().finally(() => { refreshPromise = null })
-      }
-      const ok = await refreshPromise
+      const ok = await tryAutoRefresh()
       if (ok) {
         response = await doFetch<T>(path, options)
       }
