@@ -214,7 +214,7 @@
 
             <UFormField :label="t('admin.docs.editor.comment_status')">
               <div class="flex items-center gap-2">
-                <UToggle v-model="formData.comment_status" :true-value="1" :false-value="0" />
+                <USwitch v-model="commentStatusBool" />
                 <span class="text-sm text-muted">{{ formData.comment_status === 1 ? t('admin.docs.editor.comments_open') : t('admin.docs.editor.comments_closed') }}</span>
               </div>
             </UFormField>
@@ -508,6 +508,11 @@ const seoData = ref({
   og_image:      init?.seo?.og_image      ?? '',
   canonical_url: init?.seo?.canonical_url ?? '',
   robots:        init?.seo?.robots        ?? 'index,follow',
+})
+
+const commentStatusBool = computed({
+  get: () => formData.value.comment_status === 1,
+  set: (val: boolean) => { formData.value.comment_status = val ? 1 : 0 },
 })
 
 // ── Status/options ────────────────────────────────────────────────────────
