@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { DocDetailItem, DocItem, DocCollectionItem } from '~/types/api/doc'
+import { useDebounceFn } from '@vueuse/core'
 
 const route = useRoute()
 const docApi = useDocApi()
@@ -98,6 +99,31 @@ onMounted(async () => {
   }
 })
 
+// Sidebar search
+const sidebarSearch = ref('')
+const sidebarResults = ref<DocItem[] | null>(null)
+const sidebarSearching = ref(false)
+
+const doSidebarSearch = useDebounceFn(async () => {
+  const kw = sidebarSearch.value.trim()
+  if (!kw) {
+    sidebarResults.value = null
+    return
+  }
+  if (!collection.value) return
+  sidebarSearching.value = true
+  try {
+    const res = await docApi.getDocs({ collection_id: collection.value.id, keyword: kw, status: 2, page_size: 50 })
+    sidebarResults.value = res.data ?? []
+  } catch {
+    sidebarResults.value = []
+  } finally {
+    sidebarSearching.value = false
+  }
+}, 350)
+
+watch(sidebarSearch, doSidebarSearch)
+
 // Re-fetch when slug changes
 watch(docSlug, fetchDoc)
 </script>
@@ -136,8 +162,36 @@ watch(docSlug, fetchDoc)
               {{ collection?.title ?? '返回合集' }}
             </NuxtLink>
 
+            <div class="mb-3">
+              <UInput
+                v-model="sidebarSearch"
+                placeholder="搜索文档..."
+                leading-icon="i-tabler-search"
+                :loading="sidebarSearching"
+                size="sm"
+                class="w-full" />
+            </div>
+
             <nav class="rounded-lg bg-default ring-1 ring-default shadow-sm p-3">
+              <!-- Search results -->
+              <template v-if="sidebarResults !== null">
+                <div v-if="sidebarResults.length === 0" class="py-4 text-center">
+                  <p class="text-xs text-muted">未找到相关文档</p>
+                </div>
+                <ul v-else class="space-y-0.5">
+                  <li v-for="item in sidebarResults" :key="item.id">
+                    <NuxtLink
+                      :to="`/docs/${collectionSlug}/${item.slug}`"
+                      class="block px-2 py-1.5 text-sm rounded-md transition-colors"
+                      :class="item.slug === docSlug ? 'bg-primary/10 text-primary font-medium' : 'text-muted hover:text-highlighted hover:bg-elevated'">
+                      {{ item.title }}
+                    </NuxtLink>
+                  </li>
+                </ul>
+              </template>
+              <!-- Normal nav tree -->
               <DocNavTree
+                v-else
                 :docs="topLevelDocs"
                 :child-docs-by-parent="childDocsByParent"
                 :collection-slug="collectionSlug"

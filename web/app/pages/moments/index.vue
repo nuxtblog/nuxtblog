@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useDebounceFn } from '@vueuse/core'
 import type { MomentItem } from '~/types/api/moment'
 
 const momentApi = useMomentApi()
@@ -10,6 +11,7 @@ const moments = ref<MomentItem[]>([])
 const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(20)
+const searchQuery = ref('')
 
 useHead({
   title: '动态',
@@ -19,7 +21,11 @@ useHead({
 async function fetchMoments() {
   rawLoading.value = true
   try {
-    const res = await momentApi.getMoments({ page: currentPage.value, page_size: pageSize.value, visibility: 1 })
+    const params: Record<string, any> = { page: currentPage.value, page_size: pageSize.value, visibility: 1 }
+    if (searchQuery.value.trim()) {
+      params.keyword = searchQuery.value.trim()
+    }
+    const res = await momentApi.getMoments(params)
     moments.value = res.data ?? []
     total.value = res.total ?? 0
   } catch (e: any) {
@@ -28,6 +34,13 @@ async function fetchMoments() {
     rawLoading.value = false
   }
 }
+
+const debouncedSearch = useDebounceFn(() => {
+  currentPage.value = 1
+  fetchMoments()
+}, 350)
+
+watch(searchQuery, debouncedSearch)
 
 function getAuthorInitials(item: MomentItem) {
   const name = item.author?.nickname || item.author?.username || '?'
@@ -67,6 +80,17 @@ onMounted(fetchMoments)
           <h1 class="text-2xl font-bold text-highlighted">动态</h1>
           <p class="text-sm text-muted mt-0.5">查看最新动态</p>
         </div>
+      </div>
+
+      <!-- Search -->
+      <div class="max-w-2xl mx-auto mb-6">
+        <UInput
+          v-model="searchQuery"
+          icon="i-tabler-search"
+          placeholder="搜索动态..."
+          size="md"
+          class="w-full"
+        />
       </div>
 
       <!-- Skeleton -->

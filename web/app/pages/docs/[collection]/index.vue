@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { DocCollectionItem, DocItem } from '~/types/api/doc'
+import { useDebounceFn } from '@vueuse/core'
 
 const route = useRoute()
 const docApi = useDocApi()
@@ -10,6 +11,10 @@ const loading = useMinLoading(rawLoading)
 
 const collection = ref<DocCollectionItem | null>(null)
 const docs = ref<DocItem[]>([])
+
+const searchQuery = ref('')
+const searchResults = ref<DocItem[] | null>(null)
+const searching = ref(false)
 
 const collectionSlug = computed(() => route.params.collection as string)
 
@@ -53,6 +58,26 @@ async function fetchCollection() {
 function formatDate(d: string) {
   return d ? new Date(d).toLocaleDateString('zh-CN') : ''
 }
+
+const doSearch = useDebounceFn(async () => {
+  const kw = searchQuery.value.trim()
+  if (!kw) {
+    searchResults.value = null
+    return
+  }
+  if (!collection.value) return
+  searching.value = true
+  try {
+    const res = await docApi.getDocs({ collection_id: collection.value.id, keyword: kw, status: 2, page_size: 50 })
+    searchResults.value = res.data ?? []
+  } catch {
+    searchResults.value = []
+  } finally {
+    searching.value = false
+  }
+}, 350)
+
+watch(searchQuery, doSearch)
 
 onMounted(fetchCollection)
 </script>
@@ -119,37 +144,76 @@ onMounted(fetchCollection)
             <p v-if="collection.description" class="text-muted">{{ collection.description }}</p>
           </div>
 
-          <div v-if="topLevelDocs.length === 0" class="flex flex-col items-center justify-center py-16">
-            <div class="size-16 rounded-full bg-muted flex items-center justify-center mb-4">
-              <UIcon name="i-tabler-file-text-off" class="size-8 text-muted" />
-            </div>
-            <p class="text-sm text-muted">此合集暂无文档</p>
+          <!-- Search -->
+          <div class="mb-4">
+            <UInput
+              v-model="searchQuery"
+              placeholder="搜索文档..."
+              leading-icon="i-tabler-search"
+              :loading="searching"
+              class="w-full" />
           </div>
 
-          <div v-else class="rounded-lg bg-default ring-1 ring-default shadow-sm overflow-hidden">
-            <div class="divide-y divide-default">
-              <NuxtLink
-                v-for="doc in topLevelDocs" :key="doc.id"
-                :to="`/docs/${collectionSlug}/${doc.slug}`"
-                class="flex items-start gap-4 p-4 hover:bg-elevated transition-colors group">
-                <div class="flex-1 min-w-0">
-                  <h3 class="font-medium text-highlighted group-hover:text-primary transition-colors truncate">
-                    {{ doc.title }}
-                  </h3>
-                  <p v-if="doc.excerpt" class="text-sm text-muted line-clamp-2 mt-0.5">{{ doc.excerpt }}</p>
-                  <div class="flex items-center gap-3 mt-2">
-                    <span v-if="doc.stats?.view_count" class="flex items-center gap-1 text-xs text-muted">
-                      <UIcon name="i-tabler-eye" class="size-3.5" />
-                      {{ doc.stats.view_count }}
-                    </span>
-                    <span v-if="doc.updated_at" class="text-xs text-muted">{{ formatDate(doc.updated_at) }}</span>
-                    <UBadge v-if="childDocsByParent[doc.id]?.length" :label="`${childDocsByParent[doc.id]?.length ?? 0} 子文档`" color="neutral" variant="soft" size="xs" />
-                  </div>
-                </div>
-                <UIcon name="i-tabler-chevron-right" class="size-4 text-muted shrink-0 mt-1 group-hover:text-primary transition-colors" />
-              </NuxtLink>
+          <!-- Search results -->
+          <template v-if="searchResults !== null">
+            <div v-if="searchResults.length === 0" class="flex flex-col items-center justify-center py-16">
+              <div class="size-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                <UIcon name="i-tabler-search-off" class="size-8 text-muted" />
+              </div>
+              <p class="text-sm text-muted">未找到相关文档</p>
             </div>
-          </div>
+            <div v-else class="rounded-lg bg-default ring-1 ring-default shadow-sm overflow-hidden">
+              <div class="divide-y divide-default">
+                <NuxtLink
+                  v-for="item in searchResults" :key="item.id"
+                  :to="`/docs/${collectionSlug}/${item.slug}`"
+                  class="flex items-start gap-4 p-4 hover:bg-elevated transition-colors group">
+                  <div class="flex-1 min-w-0">
+                    <h3 class="font-medium text-highlighted group-hover:text-primary transition-colors truncate">
+                      {{ item.title }}
+                    </h3>
+                    <p v-if="item.excerpt" class="text-sm text-muted line-clamp-2 mt-0.5">{{ item.excerpt }}</p>
+                  </div>
+                  <UIcon name="i-tabler-chevron-right" class="size-4 text-muted shrink-0 mt-1 group-hover:text-primary transition-colors" />
+                </NuxtLink>
+              </div>
+            </div>
+          </template>
+
+          <!-- Normal tree list -->
+          <template v-else>
+            <div v-if="topLevelDocs.length === 0" class="flex flex-col items-center justify-center py-16">
+              <div class="size-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                <UIcon name="i-tabler-file-text-off" class="size-8 text-muted" />
+              </div>
+              <p class="text-sm text-muted">此合集暂无文档</p>
+            </div>
+
+            <div v-else class="rounded-lg bg-default ring-1 ring-default shadow-sm overflow-hidden">
+              <div class="divide-y divide-default">
+                <NuxtLink
+                  v-for="doc in topLevelDocs" :key="doc.id"
+                  :to="`/docs/${collectionSlug}/${doc.slug}`"
+                  class="flex items-start gap-4 p-4 hover:bg-elevated transition-colors group">
+                  <div class="flex-1 min-w-0">
+                    <h3 class="font-medium text-highlighted group-hover:text-primary transition-colors truncate">
+                      {{ doc.title }}
+                    </h3>
+                    <p v-if="doc.excerpt" class="text-sm text-muted line-clamp-2 mt-0.5">{{ doc.excerpt }}</p>
+                    <div class="flex items-center gap-3 mt-2">
+                      <span v-if="doc.stats?.view_count" class="flex items-center gap-1 text-xs text-muted">
+                        <UIcon name="i-tabler-eye" class="size-3.5" />
+                        {{ doc.stats.view_count }}
+                      </span>
+                      <span v-if="doc.updated_at" class="text-xs text-muted">{{ formatDate(doc.updated_at) }}</span>
+                      <UBadge v-if="childDocsByParent[doc.id]?.length" :label="`${childDocsByParent[doc.id]?.length ?? 0} 子文档`" color="neutral" variant="soft" size="xs" />
+                    </div>
+                  </div>
+                  <UIcon name="i-tabler-chevron-right" class="size-4 text-muted shrink-0 mt-1 group-hover:text-primary transition-colors" />
+                </NuxtLink>
+              </div>
+            </div>
+          </template>
         </main>
       </div>
     </div>

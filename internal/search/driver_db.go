@@ -7,36 +7,37 @@ import (
 	"github.com/gogf/gf/v2/frame/g"
 )
 
-// dbSearcher uses SQL LIKE on the posts table.
+// dbSearcher uses SQL LIKE on the relevant table.
 // Works with both SQLite and PostgreSQL — no extra setup required.
 type dbSearcher struct{}
 
 func newDbSearcher() Searcher { return &dbSearcher{} }
 
-func (s *dbSearcher) SearchPostIDs(ctx context.Context, keyword string) ([]int64, error) {
+func (s *dbSearcher) Search(ctx context.Context, ct ContentType, keyword string) (SearchResult, error) {
+	meta := metaMap[ct]
 	type Row struct {
 		Id int64 `orm:"id"`
 	}
 	var rows []Row
 	err := g.DB().Ctx(ctx).
-		Model("posts").
+		Model(meta.Table).
 		Fields("id").
 		WhereNull("deleted_at").
-		WhereLike("title", fmt.Sprintf("%%%s%%", keyword)).
-		Limit(1000).
+		WhereLike(meta.LikeCol, fmt.Sprintf("%%%s%%", keyword)).
+		Limit(defaultSearchLimit).
 		Scan(&rows)
 	if err != nil {
-		return nil, err
+		return SearchResult{}, err
 	}
 	ids := make([]int64, len(rows))
 	for i, r := range rows {
 		ids[i] = r.Id
 	}
-	return ids, nil
+	return SearchResult{IDs: ids, Total: -1}, nil
 }
 
-// IndexPost is a no-op: the database IS the index.
-func (s *dbSearcher) IndexPost(_ context.Context, _ PostDoc) error { return nil }
+// Index is a no-op: the database IS the index.
+func (s *dbSearcher) Index(_ context.Context, _ ContentType, _ Document) error { return nil }
 
-// DeletePost is a no-op: deletion from the DB removes the post automatically.
-func (s *dbSearcher) DeletePost(_ context.Context, _ int64) error { return nil }
+// Delete is a no-op: deletion from the DB removes the record automatically.
+func (s *dbSearcher) Delete(_ context.Context, _ ContentType, _ int64) error { return nil }

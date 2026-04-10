@@ -9,6 +9,7 @@ import (
 	"github.com/nuxtblog/nuxtblog/internal/middleware"
 	"github.com/nuxtblog/nuxtblog/internal/model/entity"
 	plugin "github.com/nuxtblog/nuxtblog/internal/pluginsys"
+	"github.com/nuxtblog/nuxtblog/internal/search"
 	"github.com/nuxtblog/nuxtblog/internal/service"
 	"github.com/nuxtblog/nuxtblog/internal/util/idgen"
 
@@ -447,7 +448,14 @@ func (s *sDoc) DocGetList(ctx context.Context, req *docv1.DocGetListReq) (*docv1
 		m = m.Where("locale", *req.Locale)
 	}
 	if req.Keyword != nil && *req.Keyword != "" {
-		m = m.WhereLike("title", "%"+*req.Keyword+"%")
+		sr, err := search.Default(ctx).Search(ctx, search.ContentDoc, *req.Keyword)
+		if err != nil {
+			return nil, err
+		}
+		if len(sr.IDs) == 0 {
+			return &docv1.DocGetListRes{Data: []*docv1.DocItem{}, Page: req.Page, PageSize: req.PageSize}, nil
+		}
+		m = m.WhereIn("id", sr.IDs)
 	}
 
 	total, err := m.Count()

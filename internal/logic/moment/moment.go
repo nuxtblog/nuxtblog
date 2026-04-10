@@ -8,6 +8,7 @@ import (
 	"github.com/nuxtblog/nuxtblog/internal/dao"
 	"github.com/nuxtblog/nuxtblog/internal/middleware"
 	"github.com/nuxtblog/nuxtblog/internal/model/entity"
+	"github.com/nuxtblog/nuxtblog/internal/search"
 	"github.com/nuxtblog/nuxtblog/internal/service"
 	"github.com/nuxtblog/nuxtblog/internal/util/idgen"
 
@@ -256,6 +257,16 @@ func (s *sMoment) GetList(ctx context.Context, req *momentv1.MomentGetListReq) (
 				m = m.Where("visibility", 1)
 			}
 		}
+	}
+	if req.Keyword != nil && *req.Keyword != "" {
+		sr, err := search.Default(ctx).Search(ctx, search.ContentMoment, *req.Keyword)
+		if err != nil {
+			return nil, err
+		}
+		if len(sr.IDs) == 0 {
+			return &momentv1.MomentGetListRes{Data: []*momentv1.MomentItem{}, Page: req.Page, PageSize: req.PageSize}, nil
+		}
+		m = m.WhereIn("id", sr.IDs)
 	}
 
 	total, err := m.Count()

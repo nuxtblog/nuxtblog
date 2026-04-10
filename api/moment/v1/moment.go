@@ -101,10 +101,11 @@ type MomentGetOneRes struct {
 
 type MomentGetListReq struct {
 	g.Meta     `path:"/moments" method:"get" tags:"Moment" summary:"List moments"`
-	AuthorId   *int64 `p:"author_id" v:"min:1"              dc:"filter by author"`
-	Visibility *int   `p:"visibility" v:"in:1,2,3"          dc:"filter by visibility"`
-	Page       int    `p:"page" v:"min:1" d:"1"             dc:"page number"`
-	PageSize   int    `p:"page_size" v:"between:1,100" d:"20" dc:"page size"`
+	AuthorId   *int64  `p:"author_id" v:"min:1"              dc:"filter by author"`
+	Visibility *int    `p:"visibility" v:"in:1,2,3"          dc:"filter by visibility"`
+	Keyword    *string `p:"keyword"                          dc:"search content"`
+	Page       int     `p:"page" v:"min:1" d:"1"             dc:"page number"`
+	PageSize   int     `p:"page_size" v:"between:1,100" d:"20" dc:"page size"`
 }
 type MomentGetListRes struct {
 	Data       []*MomentItem `json:"data"`

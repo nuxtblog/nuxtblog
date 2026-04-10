@@ -258,14 +258,14 @@ func (s *sPost) GetList(ctx context.Context, req *v1.PostGetListReq) (*v1.PostGe
 		m = m.Where("author_id", *req.AuthorId)
 	}
 	if req.Keyword != nil && *req.Keyword != "" {
-		ids, err := search.Default(ctx).SearchPostIDs(ctx, *req.Keyword)
+		sr, err := search.Default(ctx).Search(ctx, search.ContentPost, *req.Keyword)
 		if err != nil {
 			return nil, err
 		}
-		if len(ids) == 0 {
+		if len(sr.IDs) == 0 {
 			return &v1.PostGetListRes{Data: []*v1.PostListItem{}, Page: req.Page, PageSize: req.PageSize}, nil
 		}
-		m = m.WhereIn("id", ids)
+		m = m.WhereIn("id", sr.IDs)
 	}
 	if req.TermTaxonomyId != nil {
 		m = m.WhereIn("id", dao.ObjectTaxonomies.Ctx(ctx).
