@@ -12,9 +12,5 @@ type IAI interface {
 	AIDeleteConfig(ctx context.Context, req *v1.AIDeleteConfigReq) (res *v1.AIDeleteConfigRes, err error)
 	AIActivateConfig(ctx context.Context, req *v1.AIActivateConfigReq) (res *v1.AIActivateConfigRes, err error)
 	AITestConfig(ctx context.Context, req *v1.AITestConfigReq) (res *v1.AITestConfigRes, err error)
-	AIPolish(ctx context.Context, req *v1.AIPolishReq) (res *v1.AIPolishRes, err error)
-	AISummarize(ctx context.Context, req *v1.AISummarizeReq) (res *v1.AISummarizeRes, err error)
-	AISuggestTags(ctx context.Context, req *v1.AISuggestTagsReq) (res *v1.AISuggestTagsRes, err error)
 	AIFromURL(ctx context.Context, req *v1.AIFromURLReq) (res *v1.AIFromURLRes, err error)
-	AITranslate(ctx context.Context, req *v1.AITranslateReq) (res *v1.AITranslateRes, err error)
 }

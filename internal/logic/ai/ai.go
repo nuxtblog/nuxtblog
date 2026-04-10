@@ -14,6 +14,7 @@ import (
 	"github.com/nuxtblog/nuxtblog/internal/middleware"
 	eng "github.com/nuxtblog/nuxtblog/internal/pluginsys"
 	"github.com/nuxtblog/nuxtblog/internal/service"
+	sdk "github.com/nuxtblog/nuxtblog/sdk"
 
 	"github.com/gogf/gf/v2/errors/gcode"
 	"github.com/gogf/gf/v2/errors/gerror"
@@ -27,42 +28,40 @@ func New() service.IAI { return &sAI{} }
 
 func init() {
 	service.RegisterAI(New())
-	// Register AI service function for plugin SDK (nuxtblog.ai)
+	// Legacy AI service function for plugin SDK (nuxtblog.ai) — kept for backward compatibility
 	eng.RegisterAIServiceFn(func(ctx context.Context, action string, params map[string]interface{}) (string, error) {
+		return "", fmt.Errorf("legacy AI action %q removed; use ctx.AI.Generate() instead", action)
+	})
+
+	// Register atomic Generate for plugin SDK (ctx.AI.Generate)
+	eng.RegisterAIGenerateFn(func(ctx context.Context, req sdk.AIRequest) (*sdk.AIResponse, error) {
 		cfg, err := getActiveConfig(ctx)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
-		switch action {
-		case "polish":
-			content, _ := params["content"].(string)
-			style, _ := params["style"].(string)
-			return generateText(ctx, *cfg,
-				buildPolishSystem(style), content)
-		case "summarize":
-			content, _ := params["content"].(string)
-			maxLen := 200
-			if v, ok := params["max_length"].(int); ok && v > 0 {
-				maxLen = v
+		// Convert Messages to system + user strings for current generateText
+		var system, user string
+		for _, m := range req.Messages {
+			switch m.Role {
+			case sdk.RoleSystem:
+				system = m.Content
+			case sdk.RoleUser:
+				if user != "" {
+					user += "\n\n"
+				}
+				user += m.Content
+			case sdk.RoleAssistant:
+				// Best-effort multi-turn with current generateText
+				if user != "" {
+					user += "\n\nAssistant: " + m.Content + "\n\nUser: "
+				}
 			}
-			return generateText(ctx, *cfg,
-				fmt.Sprintf("请为以下内容生成一段摘要，不超过 %d 个字。直接输出摘要文本。", maxLen),
-				content)
-		case "suggest-tags":
-			title, _ := params["title"].(string)
-			content, _ := params["content"].(string)
-			return generateText(ctx, *cfg,
-				"请为以下文章提取 3-5 个标签关键词，用逗号分隔，只输出标签。",
-				title+"\n\n"+content)
-		case "translate":
-			content, _ := params["content"].(string)
-			lang, _ := params["target_lang"].(string)
-			return generateText(ctx, *cfg,
-				fmt.Sprintf("请将以下内容翻译为 %s，只输出翻译结果。", lang),
-				content)
-		default:
-			return "", fmt.Errorf("unknown AI action: %s", action)
 		}
+		text, err := generateText(ctx, *cfg, system, user)
+		if err != nil {
+			return nil, err
+		}
+		return &sdk.AIResponse{Text: text}, nil
 	})
 }
 
@@ -340,62 +339,6 @@ func (s *sAI) TestConfig(ctx context.Context, id string) (*v1.AITestConfigRes, e
 	return &v1.AITestConfigRes{OK: true, Message: msg}, nil
 }
 
-// ── AI Actions ────────────────────────────────────────────────────────────────
-
-func buildPolishSystem(style string) string {
-	stylePart := ""
-	switch style {
-	case "formal":
-		stylePart = "使用正式、专业的语气。"
-	case "casual":
-		stylePart = "使用轻松、口语化的语气。"
-	case "concise":
-		stylePart = "尽量简洁，去除冗余。"
-	}
-	return fmt.Sprintf("你是一位专业的中文写作助手。请对用户提供的文本进行润色和改写，保持原意，提升表达质量。%s只输出润色后的正文，不添加任何解释。", stylePart)
-}
-
-func (s *sAI) Polish(ctx context.Context, content, style string) (string, error) {
-	cfg, err := getActiveConfig(ctx)
-	if err != nil {
-		return "", err
-	}
-	return generateText(ctx, *cfg, buildPolishSystem(style), content)
-}
-
-func (s *sAI) Summarize(ctx context.Context, content string, maxLength int) (string, error) {
-	cfg, err := getActiveConfig(ctx)
-	if err != nil {
-		return "", err
-	}
-	if maxLength <= 0 {
-		maxLength = 200
-	}
-	system := fmt.Sprintf("请为以下内容生成一段摘要，不超过 %d 个字。直接输出摘要文本，不需要任何前缀。", maxLength)
-	return generateText(ctx, *cfg, system, content)
-}
-
-func (s *sAI) SuggestTags(ctx context.Context, title, content string) ([]string, error) {
-	cfg, err := getActiveConfig(ctx)
-	if err != nil {
-		return nil, err
-	}
-	system := "请为以下文章提取 3-5 个标签关键词，用逗号分隔，只输出标签，不输出其他内容。例如：技术,开源,教程"
-	input := title + "\n\n" + content
-	result, err := generateText(ctx, *cfg, system, input)
-	if err != nil {
-		return nil, err
-	}
-	var tags []string
-	for _, t := range strings.Split(result, ",") {
-		t = strings.TrimSpace(t)
-		if t != "" {
-			tags = append(tags, t)
-		}
-	}
-	return tags, nil
-}
-
 func (s *sAI) FromURL(ctx context.Context, url, style string) (*v1.AIFromURLRes, error) {
 	cfg, err := getActiveConfig(ctx)
 	if err != nil {
@@ -444,24 +387,6 @@ func (s *sAI) FromURL(ctx context.Context, url, style string) (*v1.AIFromURLRes,
 		res.Content = raw
 	}
 	return &res, nil
-}
-
-func (s *sAI) Translate(ctx context.Context, content, targetLang string) (string, error) {
-	cfg, err := getActiveConfig(ctx)
-	if err != nil {
-		return "", err
-	}
-	langName := map[string]string{
-		"zh": "中文", "en": "English", "ja": "日本語", "ko": "한국어",
-		"fr": "Français", "de": "Deutsch", "es": "Español",
-		"pt": "Português", "ru": "Русский",
-	}
-	lang := langName[targetLang]
-	if lang == "" {
-		lang = targetLang
-	}
-	system := fmt.Sprintf("请将以下内容翻译为 %s。保持原文格式，只输出翻译结果，不要任何解释。", lang)
-	return generateText(ctx, *cfg, system, content)
 }
 
 // ── HTTP helper: fetch page text ──────────────────────────────────────────────

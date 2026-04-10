@@ -1,6 +1,7 @@
 package pluginsys
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -26,6 +27,9 @@ func injectPluginSDK(vm *goja.Runtime, pctx sdk.PluginContext) {
 	injectHTTP(vm, ctx)
 	if pctx.Plugins != nil {
 		injectPlugins(vm, ctx, pctx.Plugins)
+	}
+	if pctx.AI != nil {
+		injectPluginAI(vm, ctx, pctx.AI)
 	}
 	vm.Set("ctx", ctx)
 }
@@ -219,6 +223,60 @@ func injectPlugins(vm *goja.Runtime, ctx *goja.Object, pq sdk.PluginQuery) {
 		return vm.ToValue(val)
 	})
 	ctx.Set("plugins", o)
+}
+
+// ── ctx.ai ──────────────────────────────────────────────────────────────────
+
+// injectPluginAI exposes ctx.ai.generate(prompt) and ctx.ai.generate(messages, opts)
+// to JS plugins.
+func injectPluginAI(vm *goja.Runtime, ctxObj *goja.Object, ai sdk.AI) {
+	o := vm.NewObject()
+	o.Set("generate", func(call goja.FunctionCall) goja.Value {
+		arg0 := call.Argument(0)
+		var req sdk.AIRequest
+
+		if exported := arg0.Export(); exported != nil {
+			switch v := exported.(type) {
+			case string:
+				req.Messages = []sdk.Message{{Role: sdk.RoleUser, Content: v}}
+			case []interface{}:
+				for _, item := range v {
+					if m, ok := item.(map[string]interface{}); ok {
+						role, _ := m["role"].(string)
+						content, _ := m["content"].(string)
+						req.Messages = append(req.Messages, sdk.Message{
+							Role: sdk.Role(role), Content: content,
+						})
+					}
+				}
+			}
+		}
+
+		// Second arg: options {system, max_tokens, temperature}
+		if len(call.Arguments) > 1 && !goja.IsUndefined(call.Argument(1)) {
+			if opts, ok := call.Argument(1).Export().(map[string]interface{}); ok {
+				if v, ok := opts["system"].(string); ok {
+					req.Messages = append([]sdk.Message{{Role: sdk.RoleSystem, Content: v}}, req.Messages...)
+				}
+				if v, ok := opts["max_tokens"].(int64); ok {
+					req.MaxTokens = int(v)
+				}
+				if v, ok := opts["temperature"].(float64); ok {
+					req.Temperature = v
+				}
+			}
+		}
+
+		resp, err := ai.Generate(context.Background(), req)
+		if err != nil {
+			panic(vm.NewGoError(err))
+		}
+		return vm.ToValue(map[string]interface{}{
+			"text":          resp.Text,
+			"finish_reason": resp.FinishReason,
+		})
+	})
+	ctxObj.Set("ai", o)
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────────

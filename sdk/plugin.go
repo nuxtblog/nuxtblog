@@ -351,6 +351,7 @@ type PluginContext struct {
 	Settings Settings
 	Log      Logger
 	Plugins  PluginQuery
+	AI       AI
 }
 
 // DB provides isolated database access for plugins.
@@ -380,4 +381,59 @@ type Logger interface {
 	Warn(msg string)
 	Error(msg string)
 	Debug(msg string)
+}
+
+// ── AI types ────────────────────────────────────────────────────────────────
+
+// Role identifies the author of a chat message.
+type Role string
+
+const (
+	RoleSystem    Role = "system"
+	RoleUser      Role = "user"
+	RoleAssistant Role = "assistant"
+)
+
+// Message is a single message in a conversation.
+type Message struct {
+	Role    Role
+	Content string
+}
+
+// Messages is a convenience constructor: Messages(RoleSystem, "sys", RoleUser, "hi").
+func Messages(args ...any) []Message {
+	var msgs []Message
+	for i := 0; i+1 < len(args); i += 2 {
+		r, _ := args[i].(Role)
+		c, _ := args[i+1].(string)
+		msgs = append(msgs, Message{Role: r, Content: c})
+	}
+	return msgs
+}
+
+// AIRequest describes a one-shot or multi-turn LLM call.
+type AIRequest struct {
+	Messages    []Message // conversation messages (required)
+	MaxTokens   int       // 0 = provider default
+	Temperature float64   // 0 = provider default
+}
+
+// AIUsage tracks token consumption.
+type AIUsage struct {
+	PromptTokens     int
+	CompletionTokens int
+	TotalTokens      int
+}
+
+// AIResponse holds the result of an AI generation call.
+type AIResponse struct {
+	Text         string   // primary text output
+	FinishReason string   // "stop", "length", etc.; empty if unknown
+	Usage        *AIUsage // nil if provider doesn't report usage
+}
+
+// AI is the safe AI surface exposed to plugins.
+// Credentials are NEVER passed through this interface.
+type AI interface {
+	Generate(ctx context.Context, req AIRequest) (*AIResponse, error)
 }

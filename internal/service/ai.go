@@ -12,12 +12,7 @@ type IAI interface {
 	DeleteConfig(ctx context.Context, id string) error
 	ActivateConfig(ctx context.Context, id string) error
 	TestConfig(ctx context.Context, id string) (*v1.AITestConfigRes, error)
-	// Actions
-	Polish(ctx context.Context, content, style string) (string, error)
-	Summarize(ctx context.Context, content string, maxLength int) (string, error)
-	SuggestTags(ctx context.Context, title, content string) ([]string, error)
 	FromURL(ctx context.Context, url, style string) (*v1.AIFromURLRes, error)
-	Translate(ctx context.Context, content, targetLang string) (string, error)
 }
 
 var _ai IAI

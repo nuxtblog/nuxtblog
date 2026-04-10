@@ -202,6 +202,7 @@ func (m *Manager) activatePlugin(ctx context.Context, p sdk.Plugin, source strin
 		Settings: newPluginSettings(id),
 		Log:      newPluginLogger(id),
 		Plugins:  &pluginQuery{mgr: m},
+		AI:       DefaultAI(),
 	}
 	lp.ctx = pctx
 

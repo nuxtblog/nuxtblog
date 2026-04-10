@@ -393,8 +393,8 @@ func (reg *registrar) Handle(method, path string, handler http.HandlerFunc, opts
 		auth = "public"
 	}
 
-	// Enforce /api/plugin/ prefix
-	if !strings.HasPrefix(path, "/api/plugin/") {
+	// Allow /api/ prefix to pass through; auto-prefix others under /api/plugin/{id}
+	if !strings.HasPrefix(path, "/api/") {
 		path = fmt.Sprintf("/api/plugin/%s%s", reg.pluginID, path)
 	}
 

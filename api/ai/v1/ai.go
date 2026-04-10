@@ -77,33 +77,6 @@ type AITestConfigRes struct {
 
 // ── AI Actions ────────────────────────────────────────────────────────────────
 
-type AIPolishReq struct {
-	g.Meta  `path:"/ai/polish" method:"post" tags:"AI" summary:"Polish/rewrite content" auth:"true"`
-	Content string `json:"content" v:"required" dc:"Text to polish"`
-	Style   string `json:"style"   dc:"casual|formal|concise (optional)"`
-}
-type AIPolishRes struct {
-	Result string `json:"result"`
-}
-
-type AISummarizeReq struct {
-	g.Meta    `path:"/ai/summarize" method:"post" tags:"AI" summary:"Summarize content" auth:"true"`
-	Content   string `json:"content"    v:"required"`
-	MaxLength int    `json:"max_length" dc:"Max chars, default 200"`
-}
-type AISummarizeRes struct {
-	Result string `json:"result"`
-}
-
-type AISuggestTagsReq struct {
-	g.Meta  `path:"/ai/suggest-tags" method:"post" tags:"AI" summary:"Suggest tags" auth:"true"`
-	Title   string `json:"title"`
-	Content string `json:"content" v:"required"`
-}
-type AISuggestTagsRes struct {
-	Tags []string `json:"tags"`
-}
-
 type AIFromURLReq struct {
 	g.Meta `path:"/ai/from-url" method:"post" tags:"AI" summary:"Generate article from URL" auth:"true"`
 	URL    string `json:"url"   v:"required|url" dc:"Web page URL"`
@@ -115,11 +88,3 @@ type AIFromURLRes struct {
 	Excerpt string `json:"excerpt"`
 }
 
-type AITranslateReq struct {
-	g.Meta     `path:"/ai/translate" method:"post" tags:"AI" summary:"Translate content" auth:"true"`
-	Content    string `json:"content"     v:"required"`
-	TargetLang string `json:"target_lang" v:"required" dc:"zh|en|ja|ko|fr|de|es|pt|ru"`
-}
-type AITranslateRes struct {
-	Result string `json:"result"`
-}
