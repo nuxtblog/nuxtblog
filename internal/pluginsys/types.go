@@ -189,6 +189,7 @@ type Manifest struct {
 	Pages            []PageDef     `json:"pages,omitempty"`          // Phase 4.2: frontend route extensions
 	Service          *ServiceDef   `json:"service,omitempty"`        // Phase 4.3: external service proxy
 	Type             string        `json:"type,omitempty"`           // "builtin" | "js" | "yaml" | "full"
+	Permissions      []string      `json:"permissions,omitempty"`    // frontend API permissions: "user:read", "http:auth", "html:inject"
 }
 
 // ─── Route definitions (Phase 2.7) ──────────────────────────────────────────

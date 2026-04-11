@@ -151,6 +151,9 @@ onMounted(() => {
 
   <!-- Page -->
   <div v-else-if="page" class="-mt-8">
+    <!-- Plugin slot: page top -->
+    <ClientOnly><ContributionSlot name="public:page-before-content" /></ClientOnly>
+
     <PostPageActionBar :comment-count="page.comment_count" />
 
     <!-- ╔═══════════════════════════════════════╗ -->
@@ -315,5 +318,8 @@ onMounted(() => {
           class="lg:col-span-4" />
       </div>
     </template>
+
+    <!-- Plugin slot: page bottom -->
+    <ClientOnly><ContributionSlot name="public:page-after-content" /></ClientOnly>
   </div>
 </template>

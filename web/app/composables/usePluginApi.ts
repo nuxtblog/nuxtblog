@@ -172,6 +172,7 @@ export interface PluginPreviewInfo {
   settings: PluginSettingField[]
   webhooks: Array<{ url: string; events: string[] }>
   pipelines: Array<{ name: string; trigger: string; step_count: number }>
+  permissions?: string[]
 }
 
 export const usePluginApi = () => {

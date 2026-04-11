@@ -2,6 +2,9 @@
   <div class="min-h-screen pb-16">
     <div :class="[containerClass, 'mx-auto px-4 md:px-6 py-8']">
 
+      <!-- Plugin slot: tags top -->
+      <ClientOnly><ContributionSlot name="public:tags-top" /></ClientOnly>
+
       <!-- Title -->
       <div class="flex items-center gap-2 mb-6">
         <UIcon name="i-tabler-tags" class="size-6 text-primary shrink-0" />
@@ -147,6 +150,8 @@
         </div>
       </template>
 
+      <!-- Plugin slot: tags bottom -->
+      <ClientOnly><ContributionSlot name="public:tags-bottom" /></ClientOnly>
     </div>
   </div>
 </template>

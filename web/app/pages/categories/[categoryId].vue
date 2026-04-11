@@ -37,6 +37,9 @@
       </div>
 
       <template v-else>
+        <!-- Plugin slot: category top -->
+        <ClientOnly><ContributionSlot name="public:category-top" /></ClientOnly>
+
         <!-- Title -->
         <div class="flex items-center gap-2 mb-2">
           <UIcon name="i-tabler-stack-2" class="size-6 text-primary shrink-0" />
@@ -103,6 +106,9 @@
         <div v-if="totalPages > 1" class="flex justify-center mt-6">
           <UPagination v-model:page="currentPage" :total="total" :items-per-page="pageSize" />
         </div>
+
+        <!-- Plugin slot: category bottom -->
+        <ClientOnly><ContributionSlot name="public:category-bottom" /></ClientOnly>
       </template>
 
     </div>

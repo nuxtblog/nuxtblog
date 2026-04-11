@@ -1,6 +1,8 @@
 <template>
   <aside class="lg:col-span-3">
     <div class="sticky top-20 space-y-6">
+      <ClientOnly><ContributionSlot name="public:sidebar-top" /></ClientOnly>
+
       <template v-for="widget in activeWidgets" :key="widget.id">
         <WidgetUserBox v-if="widget.id === 'user_box'" :config="widget" />
         <WidgetSearchBar v-else-if="widget.id === 'search'" :config="widget" />
@@ -16,6 +18,8 @@
         <WidgetToc v-else-if="widget.id === 'toc'" :config="widget" />
         <WidgetDownloads v-else-if="widget.id === 'downloads'" :config="widget" />
       </template>
+
+      <ClientOnly><ContributionSlot name="public:sidebar-bottom" /></ClientOnly>
     </div>
   </aside>
 </template>

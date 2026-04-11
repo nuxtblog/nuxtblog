@@ -9,6 +9,8 @@
     <div :class="sidebarEnabled ? 'grid grid-cols-1 lg:grid-cols-12 gap-8' : 'space-y-12'">
       <div :class="sidebarEnabled ? 'lg:col-span-9 space-y-12' : 'space-y-12'">
 
+        <ClientOnly><ContributionSlot name="public:home-top" /></ClientOnly>
+
         <section v-for="section in activeSections" :key="section.id">
           <!-- Section Header -->
           <div class="flex items-center gap-3 mb-4 md:mb-6">
@@ -58,6 +60,8 @@
             </UButton>
           </div>
         </section>
+
+        <ClientOnly><ContributionSlot name="public:home-bottom" /></ClientOnly>
 
       </div>
 

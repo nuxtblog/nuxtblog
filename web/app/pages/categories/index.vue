@@ -2,6 +2,9 @@
   <div class="min-h-screen pb-16">
     <div :class="[containerClass, 'mx-auto px-4 md:px-6 py-8']">
 
+      <!-- Plugin slot: categories top -->
+      <ClientOnly><ContributionSlot name="public:categories-top" /></ClientOnly>
+
       <!-- Title -->
       <div class="flex items-center gap-2 mb-6">
         <UIcon name="i-tabler-stack-2" class="size-6 text-primary shrink-0" />
@@ -93,6 +96,8 @@
           :items-per-page="pageSize" />
       </div>
 
+      <!-- Plugin slot: categories bottom -->
+      <ClientOnly><ContributionSlot name="public:categories-bottom" /></ClientOnly>
     </div>
   </div>
 </template>

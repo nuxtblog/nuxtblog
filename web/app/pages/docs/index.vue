@@ -34,6 +34,9 @@ onMounted(fetchCollections)
 <template>
   <div class="min-h-screen pb-16">
     <div :class="[containerClass, 'mx-auto px-4 md:px-6 py-8']">
+      <!-- Plugin slot: docs top -->
+      <ClientOnly><ContributionSlot name="public:docs-top" /></ClientOnly>
+
       <!-- Page header -->
       <div class="flex items-center gap-3 mb-8">
         <div class="size-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -83,6 +86,9 @@ onMounted(fetchCollections)
           </div>
         </NuxtLink>
       </div>
+
+      <!-- Plugin slot: docs bottom -->
+      <ClientOnly><ContributionSlot name="public:docs-bottom" /></ClientOnly>
     </div>
   </div>
 </template>

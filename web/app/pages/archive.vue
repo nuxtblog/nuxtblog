@@ -2,6 +2,9 @@
   <div class="min-h-screen pb-16">
     <div :class="[containerClass, 'mx-auto px-4 md:px-6 py-8']">
 
+      <!-- Plugin slot: archive top -->
+      <ClientOnly><ContributionSlot name="public:archive-top" /></ClientOnly>
+
       <!-- Title -->
       <div class="flex items-center gap-2 mb-6">
         <UIcon name="i-tabler-archive" class="size-6 text-primary shrink-0" />
@@ -56,6 +59,9 @@
           </div>
         </div>
       </div>
+
+      <!-- Plugin slot: archive bottom -->
+      <ClientOnly><ContributionSlot name="public:archive-bottom" /></ClientOnly>
     </div>
   </div>
 </template>

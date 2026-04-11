@@ -146,6 +146,9 @@ type Manifest struct {
 	// ── Capabilities ──
 	Capabilities *Capabilities `yaml:"capabilities" json:"capabilities,omitempty"`
 
+	// ── Permissions (frontend API access) ──
+	Permissions []string `yaml:"permissions" json:"permissions,omitempty"`
+
 	// ── YAML plugin specific (declarative logic) ──
 	Webhooks []WebhookDef `yaml:"webhooks" json:"webhooks,omitempty"`
 	Filters  []YAMLFilter `yaml:"filters"  json:"filters,omitempty"`
@@ -220,8 +223,27 @@ type RouteDef struct {
 
 // Contributes declares UI extension points a plugin provides.
 type Contributes struct {
-	Commands []CommandDef           `yaml:"commands" json:"commands,omitempty"`
-	Menus    map[string][]MenuEntry `yaml:"menus"    json:"menus,omitempty"`
+	Commands   []CommandDef           `yaml:"commands"   json:"commands,omitempty"`
+	Menus      map[string][]MenuEntry `yaml:"menus"      json:"menus,omitempty"`
+	Navigation []NavigationDef        `yaml:"navigation" json:"navigation,omitempty"`
+	Views      map[string][]ViewDef   `yaml:"views"      json:"views,omitempty"`
+}
+
+// NavigationDef declares a navigation item injected into a named slot.
+type NavigationDef struct {
+	Slot  string `yaml:"slot"  json:"slot"`
+	Title string `yaml:"title" json:"title"`
+	Icon  string `yaml:"icon"  json:"icon,omitempty"`
+	Route string `yaml:"route" json:"route"`
+	Order int    `yaml:"order" json:"order,omitempty"`
+}
+
+// ViewDef declares a view panel injected into a named slot.
+type ViewDef struct {
+	ID    string `yaml:"id"    json:"id"`
+	Title string `yaml:"title" json:"title"`
+	Type  string `yaml:"type"  json:"type,omitempty"`
+	Icon  string `yaml:"icon"  json:"icon,omitempty"`
 }
 
 // CommandDef declares a command triggered from menus or keyboard shortcuts.

@@ -47,6 +47,17 @@ export interface PluginViewItem {
   icon?: string
 }
 
+export interface PluginContentBlock {
+  pluginId: string
+  slot: string
+  content: string
+  trustLevel: string
+  hasHtmlPermission: boolean
+  order: number
+  /** Optional DOM render function for dynamic UI injection (official/local only). */
+  renderFn?: (container: HTMLElement) => void | (() => void)
+}
+
 export interface PluginContributes {
   commands?: Array<{
     id: string
@@ -79,6 +90,7 @@ export const usePluginContributionsStore = defineStore('plugin-contributions', (
   const navigation = ref<PluginNavItem[]>([])
   const menuItems = ref<PluginMenuItem[]>([])
   const viewItems = ref<PluginViewItem[]>([])
+  const contentBlocks = ref<PluginContentBlock[]>([])
 
   /** Register contributions from a plugin manifest. */
   function registerPlugin(pluginId: string, contributes: PluginContributes) {
@@ -150,12 +162,31 @@ export const usePluginContributionsStore = defineStore('plugin-contributions', (
     }
   }
 
+  /** Register a content block from a plugin script (via slots.render). */
+  function registerContentBlock(block: PluginContentBlock) {
+    // Remove existing block from same plugin + slot to prevent duplicates
+    contentBlocks.value = contentBlocks.value.filter(
+      b => !(b.pluginId === block.pluginId && b.slot === block.slot),
+    )
+    contentBlocks.value.push(block)
+  }
+
+  /** Get content blocks for a specific slot, sorted by order. */
+  function getContentBlocks(slot: string) {
+    return computed(() =>
+      contentBlocks.value
+        .filter(b => b.slot === slot)
+        .sort((a, b) => a.order - b.order),
+    )
+  }
+
   /** Unregister all contributions from a plugin. */
   function unregisterPlugin(pluginId: string) {
     commands.value = commands.value.filter(c => c.pluginId !== pluginId)
     navigation.value = navigation.value.filter(n => n.pluginId !== pluginId)
     menuItems.value = menuItems.value.filter(m => m.pluginId !== pluginId)
     viewItems.value = viewItems.value.filter(v => v.pluginId !== pluginId)
+    contentBlocks.value = contentBlocks.value.filter(b => b.pluginId !== pluginId)
   }
 
   /** Get navigation items for a specific slot, sorted by order. */
@@ -192,6 +223,7 @@ export const usePluginContributionsStore = defineStore('plugin-contributions', (
     navigation.value = []
     menuItems.value = []
     viewItems.value = []
+    contentBlocks.value = []
   }
 
   return {
@@ -199,11 +231,14 @@ export const usePluginContributionsStore = defineStore('plugin-contributions', (
     navigation,
     menuItems,
     viewItems,
+    contentBlocks,
     registerPlugin,
+    registerContentBlock,
     unregisterPlugin,
     getNavigation,
     getMenuItems,
     getViewItems,
+    getContentBlocks,
     getCommand,
     clear,
   }

@@ -141,11 +141,23 @@ type PluginClientItem struct {
 	TrustLevel  string `json:"trust_level"`
 	AdminJS     string `json:"admin_js,omitempty"`
 	PublicJS    string `json:"public_js,omitempty"`
-	Contributes string `json:"contributes,omitempty"` // raw JSON
-	Pages       string `json:"pages,omitempty"`       // raw JSON — Phase 4.2
+	Contributes string `json:"contributes,omitempty"`  // raw JSON
+	Pages       string `json:"pages,omitempty"`        // raw JSON — Phase 4.2
+	Permissions string `json:"permissions,omitempty"`  // raw JSON — frontend API permissions
 }
 
 type PluginClientListRes struct {
+	Items []PluginClientItem `json:"items"`
+}
+
+// ── Public Client Plugins ─────────────────────────────────────────────────
+
+// PluginPublicClientReq returns enabled plugins with public_js info for the
+// public frontend. No auth required — similar to PluginStylesReq.
+type PluginPublicClientReq struct {
+	g.Meta `path:"/plugins/client" method:"get" tags:"Plugin" summary:"Public: enabled plugins with public_js"`
+}
+type PluginPublicClientRes struct {
 	Items []PluginClientItem `json:"items"`
 }
 
@@ -357,4 +369,5 @@ type PluginPreviewRes struct {
 	Settings     []SettingField      `json:"settings"`
 	Webhooks     []WebhookPreview    `json:"webhooks"`
 	Pipelines    []PipelinePreview   `json:"pipelines"`
+	Permissions  []string            `json:"permissions,omitempty"`
 }

@@ -84,6 +84,10 @@
           </div>
         </div>
       </div>
+
+      <ClientOnly>
+        <ContributionSlot name="public:footer-extra" class="col-span-full" />
+      </ClientOnly>
     </div>
   </footer>
 </template>

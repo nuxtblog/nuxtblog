@@ -164,6 +164,7 @@ func registerPublicRoutes(group *ghttp.RouterGroup) {
 		verifycode.NewV1(),
 		follow.NewPublicV1(),
 		site.NewV1(),
+		pluginCtrl.NewPublic(),
 	)
 }
 

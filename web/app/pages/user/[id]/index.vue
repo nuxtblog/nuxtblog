@@ -346,6 +346,9 @@ useHead(() => ({
 
       <!-- Content -->
       <template v-else-if="user">
+        <!-- Plugin slot: user profile top -->
+        <ClientOnly><ContributionSlot name="public:user-profile-top" /></ClientOnly>
+
         <!-- Avatar + actions row -->
         <div class="relative z-10 flex items-end justify-between -mt-14 mb-4">
           <UserAvatarCrop
@@ -576,6 +579,9 @@ useHead(() => ({
           v-else-if="activeTab === 'followers'"
           :user-id="userId"
           type="followers" />
+
+        <!-- Plugin slot: user profile bottom -->
+        <ClientOnly><ContributionSlot name="public:user-profile-bottom" /></ClientOnly>
       </template>
     </div>
   </div>

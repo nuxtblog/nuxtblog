@@ -447,7 +447,90 @@ func (s *sPlugin) ClientList(ctx context.Context) (*v1.PluginClientListRes, erro
 			pb, _ := json.Marshal(mf.Pages)
 			item.Pages = string(pb)
 		}
+		if len(mf.Permissions) > 0 {
+			pb, _ := json.Marshal(mf.Permissions)
+			item.Permissions = string(pb)
+		}
 		items = append(items, item)
 	}
 	return &v1.PluginClientListRes{Items: items}, nil
+}
+
+// ── PublicClientList ─────────────────────────────────────────────────────
+
+// PublicClientList returns enabled plugins with public_js or public-facing
+// contributes. No admin auth required.
+func (s *sPlugin) PublicClientList(ctx context.Context) (*v1.PluginPublicClientRes, error) {
+	type row struct {
+		Id       string `orm:"id"`
+		Title    string `orm:"title"`
+		Icon     string `orm:"icon"`
+		Manifest string `orm:"manifest"`
+	}
+	var rows []row
+	if err := g.DB().Ctx(ctx).Model("plugins").
+		Where("enabled", 1).
+		Fields("id, title, icon, COALESCE(manifest,'{}') as manifest").
+		Scan(&rows); err != nil {
+		return nil, err
+	}
+
+	items := make([]v1.PluginClientItem, 0, len(rows))
+	for _, r := range rows {
+		var mf eng.Manifest
+		_ = json.Unmarshal([]byte(r.Manifest), &mf)
+
+		// Only include plugins that have public_js or public-facing contributes
+		hasPublicJS := mf.PublicJS != ""
+		hasPublicContrib := false
+		if mf.Contributes != nil {
+			for _, nav := range mf.Contributes.Navigation {
+				if strings.HasPrefix(nav.Slot, "public:") {
+					hasPublicContrib = true
+					break
+				}
+			}
+			if !hasPublicContrib {
+				for slot := range mf.Contributes.Views {
+					if strings.HasPrefix(slot, "public:") {
+						hasPublicContrib = true
+						break
+					}
+				}
+			}
+			if !hasPublicContrib {
+				for slot := range mf.Contributes.Menus {
+					if strings.HasPrefix(slot, "public:") {
+						hasPublicContrib = true
+						break
+					}
+				}
+			}
+		}
+
+		if !hasPublicJS && !hasPublicContrib {
+			continue
+		}
+
+		item := v1.PluginClientItem{
+			ID:         r.Id,
+			Title:      r.Title,
+			Icon:       r.Icon,
+			TrustLevel: string(mf.TrustLevel),
+			PublicJS:   mf.PublicJS,
+		}
+		if item.TrustLevel == "" {
+			item.TrustLevel = "community"
+		}
+		if mf.Contributes != nil {
+			cb, _ := json.Marshal(mf.Contributes)
+			item.Contributes = string(cb)
+		}
+		if len(mf.Permissions) > 0 {
+			pb, _ := json.Marshal(mf.Permissions)
+			item.Permissions = string(pb)
+		}
+		items = append(items, item)
+	}
+	return &v1.PluginPublicClientRes{Items: items}, nil
 }

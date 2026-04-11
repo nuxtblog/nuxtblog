@@ -7,6 +7,15 @@ const props = defineProps<{ info: PluginPreviewInfo }>()
 
 const caps = computed(() => props.info.capabilities)
 const hasAnyCap = computed(() => caps.value.http || caps.value.store || caps.value.events || caps.value.db)
+const permissions = computed(() => props.info.permissions ?? [])
+const hasPermissions = computed(() => permissions.value.length > 0)
+
+/** Map permission ID to display icon and color */
+const permissionMeta: Record<string, { icon: string; color: string }> = {
+  'user:read': { icon: 'i-tabler-user-search', color: 'text-info' },
+  'http:auth': { icon: 'i-tabler-lock-access', color: 'text-warning' },
+  'html:inject': { icon: 'i-tabler-code', color: 'text-warning' },
+}
 
 const dbCap = computed(() => {
   const db = caps.value.db
@@ -56,7 +65,7 @@ const httpDomains = computed(() => {
     </div>
     <div class="divide-y divide-default">
       <!-- No capabilities -->
-      <div v-if="!hasAnyCap" class="flex items-center gap-2.5 px-3 py-2.5">
+      <div v-if="!hasAnyCap && !hasPermissions && !info.has_css" class="flex items-center gap-2.5 px-3 py-2.5">
         <UIcon name="i-tabler-shield-check" class="size-4 text-success shrink-0" />
         <span class="text-xs text-muted">{{ $t('admin.plugins.preview_no_caps') }}</span>
       </div>
@@ -115,6 +124,17 @@ const httpDomains = computed(() => {
       <div v-if="info.has_css" class="flex items-center gap-2.5 px-3 py-2.5">
         <UIcon name="i-tabler-brush" class="size-4 text-warning shrink-0" />
         <span class="text-xs text-muted">{{ $t('admin.plugins.preview_has_css') }}</span>
+      </div>
+
+      <!-- Frontend permissions -->
+      <div v-for="perm in permissions" :key="perm" class="flex items-start gap-2.5 px-3 py-2.5">
+        <UIcon
+          :name="permissionMeta[perm]?.icon || 'i-tabler-key'"
+          :class="['size-4 shrink-0 mt-0.5', permissionMeta[perm]?.color || 'text-muted']" />
+        <div>
+          <p class="text-xs font-medium text-highlighted">{{ $t(`admin.plugins.perm_${perm.replace(':', '_')}`) }}</p>
+          <p class="text-xs text-muted mt-0.5">{{ $t(`admin.plugins.perm_${perm.replace(':', '_')}_desc`) }}</p>
+        </div>
       </div>
     </div>
   </div>

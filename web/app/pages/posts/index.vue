@@ -2,6 +2,9 @@
   <div class="min-h-screen pb-16">
     <div :class="[containerClass, 'mx-auto px-4 md:px-6 py-8']">
 
+      <!-- Plugin slot: posts list top -->
+      <ClientOnly><ContributionSlot name="public:posts-top" /></ClientOnly>
+
       <!-- Title -->
       <div class="flex items-center gap-2 mb-6">
         <UIcon name="i-tabler-file-text" class="size-6 text-primary shrink-0" />
@@ -97,6 +100,8 @@
           :items-per-page="pageSize" />
       </div>
 
+      <!-- Plugin slot: posts list bottom -->
+      <ClientOnly><ContributionSlot name="public:posts-bottom" /></ClientOnly>
     </div>
   </div>
 </template>

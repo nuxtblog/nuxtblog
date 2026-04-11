@@ -192,6 +192,8 @@ onMounted(() => {
     <!-- ║  HERO LAYOUT  (顶部大图)               ║ -->
     <!-- ╚═══════════════════════════════════════╝ -->
     <template v-if="effectiveLayout === 'hero'">
+      <ClientOnly><ContributionSlot name="public:post-before-title" :ctx="{ post }" /></ClientOnly>
+
       <!-- Full-bleed hero cover -->
       <div class="relative h-[62vh] min-h-[420px] overflow-hidden">
         <BaseImg
@@ -260,6 +262,8 @@ onMounted(() => {
         </div>
       </div>
 
+      <ClientOnly><ContributionSlot name="public:post-after-title" :ctx="{ post }" /></ClientOnly>
+
       <!-- Body -->
       <div
         :class="
@@ -269,15 +273,19 @@ onMounted(() => {
         ">
         <article :class="effectiveSidebar ? 'lg:col-span-8' : ''">
           <UCard>
+            <ClientOnly><ContributionSlot name="public:post-before-content" :ctx="{ post }" /></ClientOnly>
             <MarkdownContent class="prose-lg" :html="contentHtml" />
             <PostTags :tags="tags" class="mt-10" />
+            <ClientOnly><ContributionSlot name="public:post-after-content" :ctx="{ post }" /></ClientOnly>
           </UCard>
+          <ClientOnly><ContributionSlot name="public:post-before-comments" :ctx="{ post }" /></ClientOnly>
           <UCard id="post-comments" class="mt-4">
             <PostCommentSection
               :object-id="post.id"
               object-type="post"
               :comment-meta="post.metas?.comment_open" />
           </UCard>
+          <ClientOnly><ContributionSlot name="public:post-after-comments" :ctx="{ post }" /></ClientOnly>
         </article>
         <BlogSidebar
           v-if="effectiveSidebar"
@@ -290,6 +298,8 @@ onMounted(() => {
     <!-- ║  HALF LAYOUT  (半图)                   ║ -->
     <!-- ╚═══════════════════════════════════════╝ -->
     <template v-else-if="effectiveLayout === 'half'">
+      <ClientOnly><ContributionSlot name="public:post-before-title" :ctx="{ post }" /></ClientOnly>
+
       <!-- Outer wrapper: same grid logic as body so header + content align -->
       <div
         :class="
@@ -354,18 +364,23 @@ onMounted(() => {
             </div>
           </div>
 
+          <ClientOnly><ContributionSlot name="public:post-after-title" :ctx="{ post }" /></ClientOnly>
           <USeparator class="mb-8" />
 
           <UCard>
+            <ClientOnly><ContributionSlot name="public:post-before-content" :ctx="{ post }" /></ClientOnly>
             <MarkdownContent class="prose-lg" :html="contentHtml" />
             <PostTags :tags="tags" class="mt-10" />
+            <ClientOnly><ContributionSlot name="public:post-after-content" :ctx="{ post }" /></ClientOnly>
           </UCard>
+          <ClientOnly><ContributionSlot name="public:post-before-comments" :ctx="{ post }" /></ClientOnly>
           <UCard id="post-comments" class="mt-4">
             <PostCommentSection
               :object-id="post.id"
               object-type="post"
               :comment-meta="post.metas?.comment_open" />
           </UCard>
+          <ClientOnly><ContributionSlot name="public:post-after-comments" :ctx="{ post }" /></ClientOnly>
         </div>
 
         <BlogSidebar
@@ -379,6 +394,8 @@ onMounted(() => {
     <!-- ║  NONE LAYOUT  (无图)                   ║ -->
     <!-- ╚═══════════════════════════════════════╝ -->
     <template v-else>
+      <ClientOnly><ContributionSlot name="public:post-before-title" :ctx="{ post }" /></ClientOnly>
+
       <div class="pt-8 mb-8">
         <div :class="effectiveSidebar ? '' : 'max-w-3xl mx-auto'">
           <div class="flex flex-wrap gap-2 mb-4">
@@ -424,6 +441,8 @@ onMounted(() => {
         </div>
       </div>
 
+      <ClientOnly><ContributionSlot name="public:post-after-title" :ctx="{ post }" /></ClientOnly>
+
       <div
         :class="
           effectiveSidebar
@@ -432,15 +451,19 @@ onMounted(() => {
         ">
         <article :class="effectiveSidebar ? 'lg:col-span-8' : ''">
           <UCard>
+            <ClientOnly><ContributionSlot name="public:post-before-content" :ctx="{ post }" /></ClientOnly>
             <MarkdownContent class="prose-lg" :html="contentHtml" />
             <PostTags :tags="tags" class="mt-10" />
+            <ClientOnly><ContributionSlot name="public:post-after-content" :ctx="{ post }" /></ClientOnly>
           </UCard>
+          <ClientOnly><ContributionSlot name="public:post-before-comments" :ctx="{ post }" /></ClientOnly>
           <UCard id="post-comments" class="mt-4">
             <PostCommentSection
               :object-id="post.id"
               object-type="post"
               :comment-meta="post.metas?.comment_open" />
           </UCard>
+          <ClientOnly><ContributionSlot name="public:post-after-comments" :ctx="{ post }" /></ClientOnly>
         </article>
         <BlogSidebar
           v-if="effectiveSidebar"

@@ -94,6 +94,8 @@
           </StatCard>
         </div>
 
+        <ClientOnly><ContributionSlot name="admin:dashboard-stats" /></ClientOnly>
+
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
           <!-- 左侧 -->
           <div class="lg:col-span-2 space-y-4 md:space-y-6">
@@ -246,6 +248,8 @@
             </UCard>
           </div>
         </div>
+
+        <ClientOnly><ContributionSlot name="admin:dashboard-bottom" /></ClientOnly>
       </template>
     </AdminPageContent>
   </AdminPageContainer>

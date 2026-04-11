@@ -170,6 +170,8 @@
             </span>
           </div>
 
+          <ContributionSlot name="admin:post-editor-footer" :ctx="{ formData: formData }" class="px-8 sm:px-16 empty:hidden" />
+
           <!-- 摘要 -->
           <div class="px-8 sm:px-16 pb-8">
             <UFormField :label="t('admin.posts.editor.excerpt')">

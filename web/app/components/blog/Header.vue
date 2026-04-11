@@ -44,6 +44,7 @@
 
       <!-- 右侧操作区 -->
       <div class="ml-auto flex items-center gap-1">
+        <ClientOnly><ContributionSlot name="public:header-actions" /></ClientOnly>
         <LangSwitcher />
         <ThemeToggle />
         <NuxtLink v-if="authStore.isLoggedIn" to="/messages" class="relative">

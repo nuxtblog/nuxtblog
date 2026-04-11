@@ -17,3 +17,9 @@ type IPlugin interface {
 	PluginUpdateManifest(ctx context.Context, req *v1.PluginUpdateManifestReq) (res *v1.PluginUpdateManifestRes, err error)
 	PluginClientList(ctx context.Context, req *v1.PluginClientListReq) (res *v1.PluginClientListRes, err error)
 }
+
+// IPluginPublic — public endpoints that do NOT require authentication.
+type IPluginPublic interface {
+	PluginPublicClientList(ctx context.Context, req *v1.PluginPublicClientReq) (res *v1.PluginPublicClientRes, err error)
+	PluginStyles(ctx context.Context, req *v1.PluginStylesReq) (res *v1.PluginStylesRes, err error)
+}

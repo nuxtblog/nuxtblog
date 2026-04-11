@@ -9,3 +9,10 @@
     <BlogBackToTop />
   </div>
 </template>
+
+<script setup lang="ts">
+if (import.meta.client) {
+  const { loadPlugins } = usePublicPluginLoader()
+  onMounted(() => loadPlugins())
+}
+</script>

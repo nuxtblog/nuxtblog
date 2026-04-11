@@ -82,6 +82,10 @@ func (m *Manager) LoadExternal(ctx context.Context, dataDir string) error {
 			continue
 		}
 
+		// Ensure new plugins on disk are registered in DB (disabled by default).
+		// This lets admins see and enable them from the admin panel.
+		m.ensureDBRecordDiscovered(ctx, *pm)
+
 		// Check if enabled
 		if !m.isEnabled(ctx, pm.ID) {
 			g.Log().Infof(ctx, "[pluginmgr] external plugin %s not enabled, skipping", pm.ID)
@@ -322,6 +326,57 @@ func (m *Manager) ensureDBRecordExt(ctx context.Context, mf sdk.Manifest, source
 			"manifest":        manifestJSON,
 		}).Update()
 	}
+}
+
+// ensureDBRecordDiscovered inserts a discovered-but-not-yet-loaded plugin into
+// the DB with enabled=0, so it appears in the admin panel for manual activation.
+// Does nothing if the plugin already exists in the DB.
+func (m *Manager) ensureDBRecordDiscovered(ctx context.Context, mf sdk.Manifest) {
+	db := g.DB()
+	count, _ := db.Ctx(ctx).Model("plugins").Where("id", mf.ID).Count()
+	if count > 0 {
+		return // already in DB, respect existing enabled state
+	}
+
+	schemaJSON := "[]"
+	if len(mf.Settings) > 0 {
+		if b, err := json.Marshal(mf.Settings); err == nil {
+			schemaJSON = string(b)
+		}
+	}
+	defaults := make(map[string]any, len(mf.Settings))
+	for _, s := range mf.Settings {
+		if s.Default != nil {
+			defaults[s.Key] = s.Default
+		}
+	}
+	defaultsJSON := "{}"
+	if b, err := json.Marshal(defaults); err == nil {
+		defaultsJSON = string(b)
+	}
+	manifestJSON := "{}"
+	if b, err := json.Marshal(mf); err == nil {
+		manifestJSON = string(b)
+	}
+
+	_, _ = db.Ctx(ctx).Model("plugins").Data(g.Map{
+		"id":              mf.ID,
+		"title":           mf.Title,
+		"description":     mf.Description,
+		"version":         mf.Version,
+		"author":          mf.Author,
+		"icon":            mf.Icon,
+		"enabled":         0, // disabled by default — admin must enable manually
+		"source":          "external",
+		"script":          "",
+		"settings":        defaultsJSON,
+		"settings_schema": schemaJSON,
+		"manifest":        manifestJSON,
+		"capabilities":    manifestCapsJSON(mf),
+		"installed_at":    time.Now(),
+	}).Insert()
+
+	g.Log().Infof(ctx, "[pluginmgr] discovered new plugin %s, registered as disabled", mf.ID)
 }
 
 // registerMetadataPlugin registers a YAML/UI-only plugin in the DB (no runtime).

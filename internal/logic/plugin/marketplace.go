@@ -261,6 +261,7 @@ func (s *sPlugin) Preview(ctx context.Context, repo string) (*v1.PluginPreviewRe
 			Capabilities eng.PluginCapabilities `json:"capabilities"`
 			Webhooks     []eng.WebhookDef       `json:"webhooks"`
 			Pipelines    []eng.PipelineDef      `json:"pipelines"`
+			Permissions  []string               `json:"permissions"`
 		} `json:"plugin"`
 	}
 	if err = json.Unmarshal(data, &pkg); err != nil || pkg.Plugin == nil {
@@ -342,6 +343,7 @@ func (s *sPlugin) Preview(ctx context.Context, repo string) (*v1.PluginPreviewRe
 		Settings:     settings,
 		Webhooks:     webhooks,
 		Pipelines:    pipelines,
+		Permissions:  pkg.Plugin.Permissions,
 	}
 	previewCache.Store(cacheKey, &previewCacheEntry{res: res, at: time.Now()})
 	return res, nil
@@ -379,6 +381,7 @@ func buildPreviewFromManifest(mf *eng.Manifest) *v1.PluginPreviewRes {
 		HasCSS:       mf.CSS != "",
 		Capabilities: caps,
 		Settings:     settings,
+		Permissions:  mf.Permissions,
 	}
 }
 
