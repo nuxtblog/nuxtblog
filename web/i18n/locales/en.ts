@@ -156,6 +156,7 @@ export default {
       settings_media: "Media",
       settings_notifications: "Notifications",
       settings_oauth: "Login",
+      settings_payment: "Payment",
       settings_permalink: "Permalink",
       docs: 'Docs',
       docs_all: 'All Docs',

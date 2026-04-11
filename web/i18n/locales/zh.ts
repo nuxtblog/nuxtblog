@@ -156,6 +156,7 @@ export default {
       settings_media: "媒体",
       settings_notifications: "通知",
       settings_oauth: "登录",
+      settings_payment: "支付",
       settings_permalink: "固定链接",
       docs: '文档',
       docs_all: '所有文档',

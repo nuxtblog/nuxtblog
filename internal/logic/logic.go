@@ -26,4 +26,5 @@ import (
 	_ "github.com/nuxtblog/nuxtblog/internal/logic/doc"
 	_ "github.com/nuxtblog/nuxtblog/internal/logic/moment"
 	_ "github.com/nuxtblog/nuxtblog/internal/logic/ai"
+	_ "github.com/nuxtblog/nuxtblog/internal/logic/payment"
 )

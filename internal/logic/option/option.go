@@ -2,6 +2,7 @@ package option
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	v1 "github.com/nuxtblog/nuxtblog/api/option/v1"
@@ -15,6 +16,18 @@ import (
 	"github.com/gogf/gf/v2/frame/g"
 )
 
+// secretKeyPrefixes defines option key prefixes that require admin access to read.
+var secretKeyPrefixes = []string{"oauth_", "ai_configs", "ai_active_id", "payment_"}
+
+func isSecretKey(key string) bool {
+	for _, prefix := range secretKeyPrefixes {
+		if strings.HasPrefix(key, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
 type sOption struct{}
 
 func New() service.IOption { return &sOption{} }
@@ -24,6 +37,12 @@ func init() {
 }
 
 func (s *sOption) Get(ctx context.Context, key string) (*v1.OptionItem, error) {
+	if isSecretKey(key) {
+		role := middleware.GetCurrentUserRole(ctx)
+		if role < middleware.RoleAdmin {
+			return nil, gerror.NewCode(gcode.CodeNotAuthorized, "permission denied")
+		}
+	}
 	type OptionRow struct {
 		Key      string `orm:"key"`
 		Value    string `orm:"value"`
@@ -54,8 +73,12 @@ func (s *sOption) GetAutoload(ctx context.Context) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	isAdmin := middleware.GetCurrentUserRole(ctx) >= middleware.RoleAdmin
 	result := make(map[string]string, len(rows))
 	for _, row := range rows {
+		if !isAdmin && isSecretKey(row.Key) {
+			continue
+		}
 		result[row.Key] = row.Value
 	}
 	return result, nil

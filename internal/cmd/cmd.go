@@ -17,6 +17,7 @@ import (
 	"github.com/gogf/gf/v2/text/gstr"
 
 	aiCtrl "github.com/nuxtblog/nuxtblog/internal/controller/ai"
+	paymentCtrl "github.com/nuxtblog/nuxtblog/internal/controller/payment"
 	announcementCtrl "github.com/nuxtblog/nuxtblog/internal/controller/announcement"
 	"github.com/nuxtblog/nuxtblog/internal/controller/auth"
 	docCtrl "github.com/nuxtblog/nuxtblog/internal/controller/doc"
@@ -185,6 +186,7 @@ func registerAdminRoutes(group *ghttp.RouterGroup) {
 			announcementCtrl.NewAdmin(),
 			docCtrl.NewV1(),
 			aiCtrl.New(),
+			paymentCtrl.New(),
 		)
 	})
 }

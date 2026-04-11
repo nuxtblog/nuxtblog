@@ -433,6 +433,12 @@ const ALL_MENU: MenuItem[] = [
         to: "/admin/settings/oauth",
         icon: "i-tabler-brand-oauth",
       },
+      {
+        name: "settings-payment",
+        label: "admin.nav.settings_payment",
+        to: "/admin/settings/payment",
+        icon: "i-tabler-credit-card",
+      },
     ],
   },
 ];
