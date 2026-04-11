@@ -103,15 +103,15 @@ export default defineNuxtConfig({
     },
   },
 
-  // 使用本地图标包，禁用客户端 API fallback
+  // 使用本地图标包；客户端 scan 打包主应用用到的图标，
+  // 插件运行时用到的图标通过 Nuxt 内置 /api/_nuxt_icon/ 按需加载
   icon: {
     serverBundle: {
-      collections: ["tabler", "lucide"],
+      collections: ["tabler"],
     },
     clientBundle: {
       scan: true,
     },
-    fallbackToApi: false,
   },
 
   // 禁用 Google Fonts（网络受限环境）
