@@ -292,6 +292,13 @@ const ALL_MENU: MenuItem[] = [
     cap: "moderate_comments",
   },
   {
+    name: "friendlinks",
+    label: "admin.nav.friendlinks",
+    icon: "i-tabler-link",
+    to: "/admin/friendlinks",
+    cap: "manage_options",
+  },
+  {
     name: "users",
     label: "admin.nav.users",
     icon: "i-tabler-users-group",

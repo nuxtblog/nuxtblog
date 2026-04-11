@@ -19,6 +19,7 @@ import (
 	aiCtrl "github.com/nuxtblog/nuxtblog/internal/controller/ai"
 	paymentCtrl "github.com/nuxtblog/nuxtblog/internal/controller/payment"
 	announcementCtrl "github.com/nuxtblog/nuxtblog/internal/controller/announcement"
+	friendlinkCtrl "github.com/nuxtblog/nuxtblog/internal/controller/friendlink"
 	"github.com/nuxtblog/nuxtblog/internal/controller/auth"
 	docCtrl "github.com/nuxtblog/nuxtblog/internal/controller/doc"
 	momentCtrl "github.com/nuxtblog/nuxtblog/internal/controller/moment"
@@ -166,6 +167,7 @@ func registerPublicRoutes(group *ghttp.RouterGroup) {
 		follow.NewPublicV1(),
 		site.NewV1(),
 		pluginCtrl.NewPublic(),
+		friendlinkCtrl.NewPublic(),
 	)
 }
 
@@ -184,6 +186,7 @@ func registerAdminRoutes(group *ghttp.RouterGroup) {
 			option.NewV1(),
 			pluginCtrl.New(),
 			announcementCtrl.NewAdmin(),
+			friendlinkCtrl.NewAdmin(),
 			docCtrl.NewV1(),
 			aiCtrl.New(),
 			paymentCtrl.New(),
