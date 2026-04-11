@@ -387,6 +387,13 @@ const ALL_MENU: MenuItem[] = [
     ],
   },
   {
+    name: "system",
+    label: "admin.nav.system",
+    icon: "i-tabler-server",
+    to: "/admin/system",
+    cap: "manage_options",
+  },
+  {
     name: "settings",
     label: "admin.nav.settings",
     icon: "i-tabler-settings",

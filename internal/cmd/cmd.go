@@ -37,6 +37,7 @@ import (
 	pluginCtrl "github.com/nuxtblog/nuxtblog/internal/controller/plugin"
 	reportCtrl "github.com/nuxtblog/nuxtblog/internal/controller/report"
 	"github.com/nuxtblog/nuxtblog/internal/controller/site"
+	systemCtrl "github.com/nuxtblog/nuxtblog/internal/controller/system"
 	"github.com/nuxtblog/nuxtblog/internal/controller/taxonomy"
 	"github.com/nuxtblog/nuxtblog/internal/controller/token"
 	"github.com/nuxtblog/nuxtblog/internal/controller/user"
@@ -190,6 +191,7 @@ func registerAdminRoutes(group *ghttp.RouterGroup) {
 			docCtrl.NewV1(),
 			aiCtrl.New(),
 			paymentCtrl.New(),
+			systemCtrl.NewV1(),
 		)
 	})
 }
