@@ -11,6 +11,20 @@
 import * as Vue from 'vue'
 import { reactive } from 'vue'
 import { DEFAULT_THEME, PRIMARY_COLORS, NEUTRAL_COLORS } from '~/config/theme'
+import {
+  // Existing (12)
+  UButton, UCard, UBadge, UIcon, USkeleton, UTable,
+  UInput, USelect, UTabs, UAlert, USwitch, USeparator,
+  // Form (10)
+  UTextarea, UCheckbox, UCheckboxGroup, URadioGroup,
+  UFormField, UForm, UInputNumber, USelectMenu, USlider, UPinInput,
+  // Overlays (7)
+  UModal, UDrawer, USlideover, UPopover, UTooltip, UContextMenu, UDropdownMenu,
+  // Data display (8)
+  UAvatar, UAvatarGroup, UProgress, UPagination, UChip, UKbd, UCollapsible, UAccordion,
+  // Other (2)
+  ULink, UBreadcrumb,
+} from '#components'
 
 function findHex(colors: { name: string; hex: string }[], name: string): string {
   return colors.find(c => c.name === name)?.hex ?? ''
@@ -18,6 +32,15 @@ function findHex(colors: { name: string; hex: string }[], name: string): string 
 
 export default defineNuxtPlugin(() => {
   ;(window as any).__nuxtblog_vue = Vue
+  ;(window as any).__nuxtblog_ui = {
+    UButton, UCard, UBadge, UIcon, USkeleton, UTable,
+    UInput, USelect, UTabs, UAlert, USwitch, USeparator,
+    UTextarea, UCheckbox, UCheckboxGroup, URadioGroup,
+    UFormField, UForm, UInputNumber, USelectMenu, USlider, UPinInput,
+    UModal, UDrawer, USlideover, UPopover, UTooltip, UContextMenu, UDropdownMenu,
+    UAvatar, UAvatarGroup, UProgress, UPagination, UChip, UKbd, UCollapsible, UAccordion,
+    ULink, UBreadcrumb,
+  }
   ;(window as any).__nuxtblog_theme = reactive({
     primary: DEFAULT_THEME.primary,
     neutral: DEFAULT_THEME.neutral,

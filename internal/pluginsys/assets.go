@@ -139,6 +139,66 @@ _init();
 export default window.__nuxtblog_vue;
 `
 
+// uiShimJS is a tiny ES module that re-exports Nuxt UI components from the host's window global.
+// Plugin ESM builds import from '/_shared/ui.mjs' which resolves to this shim.
+const uiShimJS = `// Auto-generated UI shim — re-exports from host window.__nuxtblog_ui
+// Uses lazy Proxy so components resolve at render time, not at module parse time.
+// This avoids timing issues where the shim loads before plugin-shared-deps runs.
+function _lazy(name) {
+  let cached;
+  return new Proxy({}, {
+    get(_, prop) {
+      if (!cached) {
+        const U = window.__nuxtblog_ui;
+        if (!U) throw new Error('[plugin-shim] window.__nuxtblog_ui not found');
+        cached = U[name];
+        if (!cached) throw new Error('[plugin-shim] component ' + name + ' not found on window.__nuxtblog_ui');
+      }
+      return cached[prop];
+    }
+  });
+}
+export const UButton = _lazy('UButton');
+export const UCard = _lazy('UCard');
+export const UBadge = _lazy('UBadge');
+export const UIcon = _lazy('UIcon');
+export const USkeleton = _lazy('USkeleton');
+export const UTable = _lazy('UTable');
+export const UInput = _lazy('UInput');
+export const USelect = _lazy('USelect');
+export const UTabs = _lazy('UTabs');
+export const UAlert = _lazy('UAlert');
+export const USwitch = _lazy('USwitch');
+export const USeparator = _lazy('USeparator');
+export const UTextarea = _lazy('UTextarea');
+export const UCheckbox = _lazy('UCheckbox');
+export const UCheckboxGroup = _lazy('UCheckboxGroup');
+export const URadioGroup = _lazy('URadioGroup');
+export const UFormField = _lazy('UFormField');
+export const UForm = _lazy('UForm');
+export const UInputNumber = _lazy('UInputNumber');
+export const USelectMenu = _lazy('USelectMenu');
+export const USlider = _lazy('USlider');
+export const UPinInput = _lazy('UPinInput');
+export const UModal = _lazy('UModal');
+export const UDrawer = _lazy('UDrawer');
+export const USlideover = _lazy('USlideover');
+export const UPopover = _lazy('UPopover');
+export const UTooltip = _lazy('UTooltip');
+export const UContextMenu = _lazy('UContextMenu');
+export const UDropdownMenu = _lazy('UDropdownMenu');
+export const UAvatar = _lazy('UAvatar');
+export const UAvatarGroup = _lazy('UAvatarGroup');
+export const UProgress = _lazy('UProgress');
+export const UPagination = _lazy('UPagination');
+export const UChip = _lazy('UChip');
+export const UKbd = _lazy('UKbd');
+export const UCollapsible = _lazy('UCollapsible');
+export const UAccordion = _lazy('UAccordion');
+export const ULink = _lazy('ULink');
+export const UBreadcrumb = _lazy('UBreadcrumb');
+`
+
 // RegisterAssetRoutes registers the static asset serving endpoint for plugins.
 // assetsDir is the root directory where plugin assets are stored (e.g. "data/plugins").
 //
@@ -157,6 +217,10 @@ func (m *Manager) RegisterAssetRoutes(s *ghttp.Server, assetsDir string) {
 			r.Response.Header().Set("Content-Type", "application/javascript; charset=utf-8")
 			r.Response.Header().Set("Cache-Control", "public, max-age=86400")
 			r.Response.Write(vueShimJS)
+		case "ui.mjs":
+			r.Response.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+			r.Response.Header().Set("Cache-Control", "public, max-age=86400")
+			r.Response.Write(uiShimJS)
 		default:
 			r.Response.WriteHeader(http.StatusNotFound)
 		}

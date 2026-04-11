@@ -42,6 +42,16 @@ async function loadPluginModule(pluginId: string, moduleFile = 'admin.mjs'): Pro
     (_match, name) => `const ${name} = window.__nuxtblog_vue;`,
   )
 
+  // Rewrite: import { UButton, UCard as Card, ... } from "/_shared/ui.mjs"
+  // To:      const { UButton, UCard: Card, ... } = window.__nuxtblog_ui;
+  source = source.replace(
+    /import\s*\{([^}]+)\}\s*from\s*["'][^"']*ui\.mjs["']\s*;?/g,
+    (_match, imports) => {
+      const fixed = imports.replace(/([\w$]+)\s+as\s+([\w$]+)/g, '$1: $2')
+      return `const {${fixed}} = window.__nuxtblog_ui;`
+    },
+  )
+
   // Inject authenticated fetch: override global fetch for plugin API calls
   // so plugins don't need to manually attach Authorization headers.
   // Token is stored in cookie "blog_token" by the auth store.
