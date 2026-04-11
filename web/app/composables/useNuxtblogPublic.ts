@@ -97,6 +97,15 @@ export function installNuxtblogPublic() {
           themeCallbacks.add(cb)
           return { dispose: () => { themeCallbacks.delete(cb) } }
         },
+        /** Get a snapshot of current theme tokens. */
+        getTokens() {
+          const t = (window as any).__nuxtblog_theme
+          return t ? { ...t } : null
+        },
+        /** Reactive theme tokens object. Changes trigger Vue watchers. */
+        get tokens() {
+          return (window as any).__nuxtblog_theme
+        },
       },
 
       notify: {

@@ -3,9 +3,33 @@
  *
  * Plugins build with `external: ['vue']` and Rollup rewrites imports to
  * `/_shared/vue.mjs`, which re-exports from this window global.
+ *
+ * Also exposes a reactive theme tokens object (`window.__nuxtblog_theme`)
+ * so plugins can programmatically access the current theme configuration
+ * (e.g. primary color hex for SVG charts). Values are synced by theme.client.ts.
  */
 import * as Vue from 'vue'
+import { reactive } from 'vue'
+import { DEFAULT_THEME, PRIMARY_COLORS, NEUTRAL_COLORS } from '~/config/theme'
+
+function findHex(colors: { name: string; hex: string }[], name: string): string {
+  return colors.find(c => c.name === name)?.hex ?? ''
+}
 
 export default defineNuxtPlugin(() => {
   ;(window as any).__nuxtblog_vue = Vue
+  ;(window as any).__nuxtblog_theme = reactive({
+    primary: DEFAULT_THEME.primary,
+    neutral: DEFAULT_THEME.neutral,
+    primaryHex: findHex(PRIMARY_COLORS, DEFAULT_THEME.primary),
+    neutralHex: findHex(NEUTRAL_COLORS, DEFAULT_THEME.neutral),
+    radius: DEFAULT_THEME.radius,
+    colorMode: 'light' as 'light' | 'dark',
+    font: DEFAULT_THEME.font,
+    fontSize: DEFAULT_THEME.fontSize,
+    /** Read a CSS variable's computed value from :root, e.g. getCssVar('--color-primary-300') */
+    getCssVar(name: string): string {
+      return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+    },
+  })
 })

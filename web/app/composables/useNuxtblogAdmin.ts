@@ -184,6 +184,19 @@ export function installNuxtblogAdmin() {
       error(msg: string) { toast.add({ title: msg, color: 'error' }) },
       info(msg: string) { toast.add({ title: msg, color: 'info' }) },
     },
+
+    // ── Theme tokens ────────────────────────────────────
+    theme: {
+      /** Get a snapshot of current theme tokens. */
+      getTokens() {
+        const t = (window as any).__nuxtblog_theme
+        return t ? { ...t } : null
+      },
+      /** Reactive theme tokens object. Changes trigger Vue watchers. */
+      get tokens() {
+        return (window as any).__nuxtblog_theme
+      },
+    },
   }
 
   // Install on window
