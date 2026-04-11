@@ -24,6 +24,7 @@ export interface PluginNavItem {
   icon?: string
   route: string
   order: number
+  parent?: string
 }
 
 export interface PluginMenuItem {
@@ -72,6 +73,7 @@ export interface PluginContributes {
     icon?: string
     route: string
     order?: number
+    parent?: string
   }>
   menus?: Record<string, Array<{
     command: string
@@ -130,6 +132,7 @@ export const usePluginContributionsStore = defineStore('plugin-contributions', (
           icon: nav.icon,
           route: nav.route,
           order: nav.order ?? 100,
+          parent: nav.parent,
         })
       }
     }
@@ -224,6 +227,15 @@ export const usePluginContributionsStore = defineStore('plugin-contributions', (
     )
   }
 
+  /** Get navigation items by parent menu name, sorted by order. */
+  function getChildNavigation(parentName: string) {
+    return computed(() =>
+      navigation.value
+        .filter(n => (n.parent || '') === parentName)
+        .sort((a, b) => a.order - b.order),
+    )
+  }
+
   /** Get menu items for a specific slot. */
   function getMenuItems(slot: string) {
     return computed(() =>
@@ -266,6 +278,7 @@ export const usePluginContributionsStore = defineStore('plugin-contributions', (
     getPluginPage,
     unregisterPlugin,
     getNavigation,
+    getChildNavigation,
     getMenuItems,
     getViewItems,
     getContentBlocks,

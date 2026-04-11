@@ -231,11 +231,12 @@ type Contributes struct {
 
 // NavigationDef declares a navigation item injected into a named slot.
 type NavigationDef struct {
-	Slot  string `yaml:"slot"  json:"slot"`
-	Title string `yaml:"title" json:"title"`
-	Icon  string `yaml:"icon"  json:"icon,omitempty"`
-	Route string `yaml:"route" json:"route"`
-	Order int    `yaml:"order" json:"order,omitempty"`
+	Slot   string `yaml:"slot"   json:"slot"`
+	Title  string `yaml:"title"  json:"title"`
+	Icon   string `yaml:"icon"   json:"icon,omitempty"`
+	Route  string `yaml:"route"  json:"route"`
+	Order  int    `yaml:"order"  json:"order,omitempty"`
+	Parent string `yaml:"parent" json:"parent,omitempty"`
 }
 
 // ViewDef declares a view panel injected into a named slot.

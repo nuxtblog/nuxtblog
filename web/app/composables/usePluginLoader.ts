@@ -61,6 +61,7 @@ export function usePluginLoader() {
               .filter(p => p.slot === 'admin' && p.nav)
               .map(p => ({
                 slot: 'admin:sidebar-nav',
+                parent: p.nav?.group,
                 title: p.title || p.component,
                 icon: p.nav?.icon,
                 route: `/admin/plugin-page/${encodeURIComponent(plugin.id)}/${encodeURIComponent(p.component)}`,

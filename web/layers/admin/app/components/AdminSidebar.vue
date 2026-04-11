@@ -34,7 +34,7 @@
             "
             @click="closeMobile">
             <UIcon :name="item.icon!" class="size-4.5 shrink-0" />
-            <span class="flex-1 truncate">{{ t(item.label) }}</span>
+            <span class="flex-1 truncate">{{ tl(item.label) }}</span>
             <UBadge
               v-if="item.badge && item.badge() > 0"
               :label="String(item.badge())"
@@ -46,7 +46,7 @@
           <!-- 折叠状态（图标模式） -->
           <UTooltip
             v-else
-            :text="t(item.label)"
+            :text="tl(item.label)"
             :popper="{ placement: 'right' }">
             <NuxtLink
               :to="item.to"
@@ -80,7 +80,7 @@
                 : 'text-muted'
             ">
             <UIcon :name="item.icon!" class="size-4.5 shrink-0" />
-            <span class="flex-1 truncate">{{ t(item.label) }}</span>
+            <span class="flex-1 truncate">{{ tl(item.label) }}</span>
             <UIcon
               name="i-tabler-chevron-right"
               class="size-3.5 transition-transform duration-200 group-open/detail:rotate-90" />
@@ -98,7 +98,7 @@
                   : 'text-muted'
               "
               @click="closeMobile">
-              {{ t(child.label) }}
+              {{ tl(child.label) }}
             </NuxtLink>
           </div>
         </details>
@@ -106,9 +106,9 @@
         <!-- 有子菜单 - 折叠状态 -->
         <UDropdownMenu
           v-if="item.children && desktopCollapsed"
-          :items="item.children.map((c) => ({ label: t(c.label), to: c.to }))"
+          :items="item.children.map((c) => ({ label: tl(c.label), to: c.to }))"
           :popper="{ placement: 'right-start' }">
-          <UTooltip :text="t(item.label)" :popper="{ placement: 'right' }">
+          <UTooltip :text="tl(item.label)" :popper="{ placement: 'right' }">
             <button
               class="flex items-center justify-center w-10 h-10 rounded-md mx-auto transition-colors hover:bg-elevated"
               :class="
@@ -122,10 +122,6 @@
         </UDropdownMenu>
       </template>
 
-      <!-- Phase 2.3: Plugin navigation items -->
-      <div v-if="!desktopCollapsed" class="mt-1 pt-1 border-t border-default">
-        <ContributionSlot name="admin:sidebar-nav" />
-      </div>
     </nav>
 
     <!-- 底部：折叠切换按钮 -->
@@ -170,10 +166,13 @@ interface MenuItem {
   children?: MenuItem[];
   badge?: () => number;
   cap?: import("~/config/permissions").Capability; // required capability to show
+  order?: number;
 }
 
 const route = useRoute();
-const { t } = useI18n();
+const { t, te } = useI18n();
+/** Translate label if i18n key exists, otherwise return as-is (for plugin items). */
+const tl = (label: string) => te(label) ? t(label) : label;
 const { desktopCollapsed, closeMobile, toggleDesktop } = useAdminSidebar();
 const { can } = usePermissions();
 
@@ -186,18 +185,21 @@ const ALL_MENU: MenuItem[] = [
     label: "admin.nav.dashboard",
     icon: "i-tabler-layout-grid",
     to: "/admin/dashboard",
+    order: 100,
   },
   {
     name: "posts",
     label: "admin.nav.posts",
     icon: "i-tabler-file-text",
     cap: "edit_posts",
+    order: 200,
     children: [
       {
         name: "posts-all",
         label: "admin.nav.posts_all",
         to: "/admin/posts",
         icon: "i-tabler-list",
+        order: 100,
       },
       {
         name: "posts-new",
@@ -205,6 +207,7 @@ const ALL_MENU: MenuItem[] = [
         to: "/admin/posts/new",
         icon: "i-tabler-plus",
         cap: "publish_posts",
+        order: 200,
       },
       {
         name: "posts-categories",
@@ -212,6 +215,7 @@ const ALL_MENU: MenuItem[] = [
         to: "/admin/posts/categories",
         icon: "i-tabler-folder",
         cap: "manage_categories",
+        order: 300,
       },
       {
         name: "posts-tags",
@@ -219,6 +223,7 @@ const ALL_MENU: MenuItem[] = [
         to: "/admin/posts/tags",
         icon: "i-tabler-tag",
         cap: "manage_categories",
+        order: 400,
       },
     ],
   },
@@ -227,10 +232,11 @@ const ALL_MENU: MenuItem[] = [
     label: "admin.nav.docs",
     icon: "i-tabler-books",
     cap: "edit_posts",
+    order: 300,
     children: [
-      { name: "docs-all", label: "admin.nav.docs_all", to: "/admin/docs", icon: "i-tabler-list" },
-      { name: "docs-new", label: "admin.nav.docs_new", to: "/admin/docs/new", icon: "i-tabler-plus", cap: "publish_posts" },
-      { name: "docs-collections", label: "admin.nav.docs_collections", to: "/admin/docs/collections", icon: "i-tabler-folders", cap: "manage_categories" },
+      { name: "docs-all", label: "admin.nav.docs_all", to: "/admin/docs", icon: "i-tabler-list", order: 100 },
+      { name: "docs-new", label: "admin.nav.docs_new", to: "/admin/docs/new", icon: "i-tabler-plus", cap: "publish_posts", order: 200 },
+      { name: "docs-collections", label: "admin.nav.docs_collections", to: "/admin/docs/collections", icon: "i-tabler-folders", cap: "manage_categories", order: 300 },
     ],
   },
   {
@@ -239,6 +245,7 @@ const ALL_MENU: MenuItem[] = [
     icon: "i-tabler-camera",
     to: "/admin/moments",
     cap: "moderate_comments",
+    order: 400,
   },
   {
     name: "media",
@@ -247,18 +254,21 @@ const ALL_MENU: MenuItem[] = [
     to: "/admin/media",
     cap: "upload_files",
     badge: () => Math.min(mediaCount.value, 99),
+    order: 500,
   },
   {
     name: "pages",
     label: "admin.nav.pages",
     icon: "i-tabler-file",
     cap: "edit_pages",
+    order: 600,
     children: [
       {
         name: "pages-all",
         label: "admin.nav.pages_all",
         to: "/admin/pages",
         icon: "i-tabler-list",
+        order: 100,
       },
       {
         name: "pages-new",
@@ -266,6 +276,7 @@ const ALL_MENU: MenuItem[] = [
         to: "/admin/pages/new",
         icon: "i-tabler-plus",
         cap: "publish_pages",
+        order: 200,
       },
     ],
   },
@@ -276,6 +287,7 @@ const ALL_MENU: MenuItem[] = [
     to: "/admin/comments",
     cap: "moderate_comments",
     badge: () => pendingComments.value,
+    order: 700,
   },
   {
     name: "reports",
@@ -283,6 +295,7 @@ const ALL_MENU: MenuItem[] = [
     icon: "i-tabler-flag",
     to: "/admin/reports",
     cap: "moderate_comments",
+    order: 800,
   },
   {
     name: "announcements",
@@ -290,6 +303,7 @@ const ALL_MENU: MenuItem[] = [
     icon: "i-tabler-speakerphone",
     to: "/admin/announcements",
     cap: "moderate_comments",
+    order: 900,
   },
   {
     name: "friendlinks",
@@ -297,12 +311,14 @@ const ALL_MENU: MenuItem[] = [
     icon: "i-tabler-link",
     to: "/admin/friendlinks",
     cap: "manage_options",
+    order: 1000,
   },
   {
     name: "users",
     label: "admin.nav.users",
     icon: "i-tabler-users-group",
     cap: "list_users",
+    order: 1100,
     children: [
       {
         name: "users-all",
@@ -310,6 +326,7 @@ const ALL_MENU: MenuItem[] = [
         to: "/admin/users",
         icon: "i-tabler-list",
         cap: "list_users",
+        order: 100,
       },
       {
         name: "users-new",
@@ -317,6 +334,7 @@ const ALL_MENU: MenuItem[] = [
         to: "/admin/users/new",
         icon: "i-tabler-user-plus",
         cap: "create_users",
+        order: 200,
       },
       {
         name: "users-roles",
@@ -324,6 +342,7 @@ const ALL_MENU: MenuItem[] = [
         to: "/admin/users/roles",
         icon: "i-tabler-shield-check",
         cap: "manage_roles",
+        order: 300,
       },
     ],
   },
@@ -332,24 +351,28 @@ const ALL_MENU: MenuItem[] = [
     label: "admin.nav.appearance",
     icon: "i-tabler-palette",
     cap: "manage_appearance",
+    order: 1200,
     children: [
       {
         name: "appearance-themes",
         label: "admin.nav.appearance_themes",
         to: "/admin/appearance/themes",
         icon: "i-tabler-paint",
+        order: 100,
       },
       {
         name: "appearance-customize",
         label: "admin.nav.appearance_customize",
         to: "/admin/appearance/customize",
         icon: "i-tabler-settings",
+        order: 200,
       },
       {
         name: "appearance-menus",
         label: "admin.nav.appearance_menus",
         to: "/admin/appearance/menus",
         icon: "i-tabler-menu",
+        order: 300,
       },
     ],
   },
@@ -359,30 +382,35 @@ const ALL_MENU: MenuItem[] = [
     icon: "i-tabler-sparkles",
     to: "/admin/ai",
     cap: "manage_options",
+    order: 1300,
   },
   {
     name: "plugins",
     label: "admin.nav.plugins",
     icon: "i-tabler-plug",
     cap: "manage_options",
+    order: 1400,
     children: [
       {
         name: "plugins-installed",
         label: "admin.nav.plugins_installed",
         to: "/admin/plugins",
         icon: "i-tabler-puzzle",
+        order: 100,
       },
       {
         name: "plugins-marketplace",
         label: "admin.nav.plugins_marketplace",
         to: "/admin/plugins/marketplace",
         icon: "i-tabler-building-store",
+        order: 200,
       },
       {
         name: "plugins-monitor",
         label: "admin.nav.plugins_monitor",
         to: "/admin/plugins/monitor",
         icon: "i-tabler-activity",
+        order: 300,
       },
     ],
   },
@@ -392,66 +420,77 @@ const ALL_MENU: MenuItem[] = [
     icon: "i-tabler-server",
     to: "/admin/system",
     cap: "manage_options",
+    order: 1500,
   },
   {
     name: "settings",
     label: "admin.nav.settings",
     icon: "i-tabler-settings",
     cap: "manage_options",
+    order: 1600,
     children: [
       {
         name: "settings-homepage",
         label: "admin.nav.settings_homepage",
         to: "/admin/settings/homepage",
         icon: "i-tabler-home",
+        order: 100,
       },
       {
         name: "settings-general",
         label: "admin.nav.settings_general",
         to: "/admin/settings/general",
         icon: "i-tabler-adjustments",
+        order: 200,
       },
       {
         name: "settings-writing",
         label: "admin.nav.settings_writing",
         to: "/admin/settings/writing",
         icon: "i-tabler-edit",
+        order: 300,
       },
       {
         name: "settings-reading",
         label: "admin.nav.settings_reading",
         to: "/admin/settings/reading",
         icon: "i-tabler-book",
+        order: 400,
       },
       {
         name: "settings-discussion",
         label: "admin.nav.settings_discussion",
         to: "/admin/settings/discussion",
         icon: "i-tabler-message-circle",
+        order: 500,
       },
       {
         name: "settings-media",
         label: "admin.nav.settings_media",
         to: "/admin/settings/media",
         icon: "i-tabler-photo",
+        order: 600,
       },
       {
         name: "settings-notifications",
         label: "admin.nav.settings_notifications",
         to: "/admin/settings/notifications",
         icon: "i-tabler-bell-ringing",
+        order: 700,
       },
       {
         name: "settings-oauth",
         label: "admin.nav.settings_oauth",
         to: "/admin/settings/oauth",
         icon: "i-tabler-brand-oauth",
+        order: 800,
       },
       {
         name: "settings-payment",
         label: "admin.nav.settings_payment",
         to: "/admin/settings/payment",
         icon: "i-tabler-credit-card",
+        order: 900,
       },
     ],
   },
@@ -467,7 +506,51 @@ const filterItems = (items: MenuItem[]): MenuItem[] =>
     }))
     .filter((item) => !item.children || item.children.length > 0);
 
-const menu = computed(() => filterItems(ALL_MENU));
+const contributionsStore = usePluginContributionsStore();
+
+const menu = computed(() => {
+  const base = filterItems(ALL_MENU);
+
+  // 1. Merge plugin top-level navigation items (no parent)
+  const topLevelPluginItems = contributionsStore.getChildNavigation("").value;
+  const allTopLevel = [
+    ...base,
+    ...topLevelPluginItems.map((nav) => ({
+      name: `plugin-${nav.pluginId}-${nav.route}`,
+      label: nav.title,
+      to: nav.route,
+      icon: nav.icon,
+      order: nav.order,
+    })),
+  ].sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+
+  // 2. For each menu item, merge plugin-contributed children
+  return allTopLevel.map((item) => {
+    const pluginChildren = contributionsStore.getChildNavigation(item.name).value;
+    if (pluginChildren.length === 0) return item;
+
+    const extraChildren: MenuItem[] = pluginChildren.map((nav) => ({
+      name: `plugin-${nav.pluginId}-${nav.route}`,
+      label: nav.title,
+      to: nav.route,
+      icon: nav.icon,
+      order: nav.order,
+    }));
+
+    // Flat menu item auto-upgrades to parent: original `to` becomes first child
+    const existingChildren = item.children || [
+      { name: `${item.name}-index`, label: item.label, to: item.to!, icon: item.icon, order: 0 },
+    ];
+
+    return {
+      ...item,
+      to: undefined,
+      children: [...existingChildren, ...extraChildren].sort(
+        (a, b) => (a.order ?? 999) - (b.order ?? 999),
+      ),
+    };
+  });
+});
 
 const isParentActive = (item: MenuItem) => {
   if (!item.children) return false;

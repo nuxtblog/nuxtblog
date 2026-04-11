@@ -226,11 +226,12 @@ type CommandDef struct {
 
 // NavigationDef declares a navigation item in the admin sidebar or topbar.
 type NavigationDef struct {
-	Slot  string `json:"slot"`            // e.g. "admin:sidebar-nav"
-	Title string `json:"title"`
-	Icon  string `json:"icon,omitempty"`
-	Route string `json:"route"`           // e.g. "/admin/ai"
-	Order int    `json:"order,omitempty"` // sort order within the slot
+	Slot   string `json:"slot"`              // e.g. "admin:sidebar-nav"
+	Title  string `json:"title"`
+	Icon   string `json:"icon,omitempty"`
+	Route  string `json:"route"`             // e.g. "/admin/ai"
+	Order  int    `json:"order,omitempty"`   // sort order within the slot
+	Parent string `json:"parent,omitempty"` // parent menu name, e.g. "moments", "settings"
 }
 
 // MenuEntry references a command by ID and optionally restricts visibility.
