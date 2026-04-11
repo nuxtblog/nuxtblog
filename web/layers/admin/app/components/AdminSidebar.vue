@@ -508,34 +508,42 @@ const filterItems = (items: MenuItem[]): MenuItem[] =>
 
 const contributionsStore = usePluginContributionsStore();
 
+const navToMenuItem = (nav: { pluginId: string; route: string; title: string; icon?: string; order: number }): MenuItem => ({
+  name: `plugin-${nav.pluginId}-${nav.route}`,
+  label: nav.title,
+  to: nav.route,
+  icon: nav.icon,
+  order: nav.order,
+});
+
 const menu = computed(() => {
   const base = filterItems(ALL_MENU);
+  const menuNames = new Set(base.map((i) => i.name));
 
-  // 1. Merge plugin top-level navigation items (no parent)
-  const topLevelPluginItems = contributionsStore.getChildNavigation("").value;
-  const allTopLevel = [
-    ...base,
-    ...topLevelPluginItems.map((nav) => ({
-      name: `plugin-${nav.pluginId}-${nav.route}`,
-      label: nav.title,
-      to: nav.route,
-      icon: nav.icon,
-      order: nav.order,
-    })),
-  ].sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+  // 1. Plugin top-level items: no parent, or parent doesn't match any menu
+  //    Orphaned items (parent set but unmatched) get pushed to the bottom (order 9999)
+  const allPluginNav = contributionsStore.navigation;
+  const topLevelPluginItems = allPluginNav
+    .filter((n) => !n.parent || !menuNames.has(n.parent))
+    .map((n) => {
+      const item = navToMenuItem(n);
+      if (n.parent && !menuNames.has(n.parent)) {
+        item.order = Math.max(n.order, 9999);
+      }
+      return item;
+    });
+
+  const allTopLevel = [...base, ...topLevelPluginItems]
+    .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
 
   // 2. For each menu item, merge plugin-contributed children
   return allTopLevel.map((item) => {
-    const pluginChildren = contributionsStore.getChildNavigation(item.name).value;
+    const pluginChildren = allPluginNav
+      .filter((n) => n.parent === item.name)
+      .sort((a, b) => a.order - b.order);
     if (pluginChildren.length === 0) return item;
 
-    const extraChildren: MenuItem[] = pluginChildren.map((nav) => ({
-      name: `plugin-${nav.pluginId}-${nav.route}`,
-      label: nav.title,
-      to: nav.route,
-      icon: nav.icon,
-      order: nav.order,
-    }));
+    const extraChildren = pluginChildren.map(navToMenuItem);
 
     // Flat menu item auto-upgrades to parent: original `to` becomes first child
     const existingChildren = item.children || [
