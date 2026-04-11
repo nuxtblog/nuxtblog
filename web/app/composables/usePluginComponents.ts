@@ -16,10 +16,11 @@ const loadedModules: Record<string, Record<string, any>> = {}
  * Load a plugin's admin.mjs, rewriting Vue imports to use the host's Vue.
  * Returns the full module namespace (cached).
  */
-async function loadPluginModule(pluginId: string): Promise<Record<string, any>> {
-  if (loadedModules[pluginId]) return loadedModules[pluginId]
+async function loadPluginModule(pluginId: string, moduleFile = 'admin.mjs'): Promise<Record<string, any>> {
+  const cacheKey = `${pluginId}:${moduleFile}`
+  if (loadedModules[cacheKey]) return loadedModules[cacheKey]
 
-  const url = `/api/plugins/${encodeURIComponent(pluginId)}/assets/admin.mjs`
+  const url = `/api/plugins/${encodeURIComponent(pluginId)}/assets/${moduleFile}`
   const resp = await fetch(url)
   if (!resp.ok) throw new Error(`Failed to load plugin "${pluginId}": HTTP ${resp.status}`)
 
@@ -62,7 +63,7 @@ const __pluginFetch = (url, opts = {}) => {
   const blobUrl = URL.createObjectURL(blob)
   try {
     const mod = await import(/* @vite-ignore */ blobUrl)
-    loadedModules[pluginId] = mod
+    loadedModules[cacheKey] = mod
     return mod
   }
   finally {
@@ -74,11 +75,11 @@ const __pluginFetch = (url, opts = {}) => {
  * Load a named export from a plugin's admin.mjs file as a Vue component.
  * Components are cached after first load.
  */
-export async function loadPluginComponent(pluginId: string, componentName: string): Promise<Component> {
-  const key = `${pluginId}:${componentName}`
+export async function loadPluginComponent(pluginId: string, componentName: string, moduleFile = 'admin.mjs'): Promise<Component> {
+  const key = `${pluginId}:${moduleFile}:${componentName}`
   if (loadedComponents[key]) return loadedComponents[key]
 
-  const mod = await loadPluginModule(pluginId)
+  const mod = await loadPluginModule(pluginId, moduleFile)
   const component = mod[componentName] || mod.default
   if (!component) {
     throw new Error(`Component "${componentName}" not found in plugin "${pluginId}"`)
@@ -92,8 +93,8 @@ export async function loadPluginComponent(pluginId: string, componentName: strin
  * Create a defineAsyncComponent wrapper for lazy-loading a plugin component.
  * Returns a component that can be used directly in templates.
  */
-export function createPluginAsyncComponent(pluginId: string, componentName: string): Component {
-  return defineAsyncComponent(() => loadPluginComponent(pluginId, componentName))
+export function createPluginAsyncComponent(pluginId: string, componentName: string, moduleFile = 'admin.mjs'): Component {
+  return defineAsyncComponent(() => loadPluginComponent(pluginId, componentName, moduleFile))
 }
 
 /**

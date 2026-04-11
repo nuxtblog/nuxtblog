@@ -85,12 +85,21 @@ export interface PluginContributes {
   }>>
 }
 
+export interface PluginPageDef {
+  pluginId: string
+  component: string
+  title?: string
+  /** 'admin.mjs' or 'public.mjs' — determines which module to load */
+  moduleFile: string
+}
+
 export const usePluginContributionsStore = defineStore('plugin-contributions', () => {
   const commands = ref<PluginCommand[]>([])
   const navigation = ref<PluginNavItem[]>([])
   const menuItems = ref<PluginMenuItem[]>([])
   const viewItems = ref<PluginViewItem[]>([])
   const contentBlocks = ref<PluginContentBlock[]>([])
+  const pluginPages = ref<PluginPageDef[]>([])
 
   /** Register contributions from a plugin manifest. */
   function registerPlugin(pluginId: string, contributes: PluginContributes) {
@@ -180,6 +189,22 @@ export const usePluginContributionsStore = defineStore('plugin-contributions', (
     )
   }
 
+  /** Register a public plugin page. */
+  function registerPluginPage(page: PluginPageDef) {
+    // Deduplicate
+    pluginPages.value = pluginPages.value.filter(
+      p => !(p.pluginId === page.pluginId && p.component === page.component),
+    )
+    pluginPages.value.push(page)
+  }
+
+  /** Get a plugin page definition by pluginId and component name. */
+  function getPluginPage(pluginId: string, component: string) {
+    return pluginPages.value.find(
+      p => p.pluginId === pluginId && p.component === component,
+    )
+  }
+
   /** Unregister all contributions from a plugin. */
   function unregisterPlugin(pluginId: string) {
     commands.value = commands.value.filter(c => c.pluginId !== pluginId)
@@ -187,6 +212,7 @@ export const usePluginContributionsStore = defineStore('plugin-contributions', (
     menuItems.value = menuItems.value.filter(m => m.pluginId !== pluginId)
     viewItems.value = viewItems.value.filter(v => v.pluginId !== pluginId)
     contentBlocks.value = contentBlocks.value.filter(b => b.pluginId !== pluginId)
+    pluginPages.value = pluginPages.value.filter(p => p.pluginId !== pluginId)
   }
 
   /** Get navigation items for a specific slot, sorted by order. */
@@ -224,6 +250,7 @@ export const usePluginContributionsStore = defineStore('plugin-contributions', (
     menuItems.value = []
     viewItems.value = []
     contentBlocks.value = []
+    pluginPages.value = []
   }
 
   return {
@@ -232,8 +259,11 @@ export const usePluginContributionsStore = defineStore('plugin-contributions', (
     menuItems,
     viewItems,
     contentBlocks,
+    pluginPages,
     registerPlugin,
     registerContentBlock,
+    registerPluginPage,
+    getPluginPage,
     unregisterPlugin,
     getNavigation,
     getMenuItems,

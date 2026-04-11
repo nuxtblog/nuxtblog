@@ -16,6 +16,31 @@ export interface PublicPluginPermissions {
  * Install the nuxtblogPublic global object on window.
  * Returns a factory to create per-plugin API objects with permission-scoped access.
  */
+// ── Module-level event bus (shared across all plugins) ──────────────
+const eventMap = new Map<string, Set<(...args: any[]) => void>>()
+
+function eventOn(eventName: string, handler: (...args: any[]) => void): () => void {
+  let handlers = eventMap.get(eventName)
+  if (!handlers) {
+    handlers = new Set()
+    eventMap.set(eventName, handlers)
+  }
+  handlers.add(handler)
+  return () => { handlers!.delete(handler) }
+}
+
+function eventEmit(eventName: string, ...args: any[]) {
+  const handlers = eventMap.get(eventName)
+  if (!handlers) return
+  for (const handler of handlers) {
+    try { handler(...args) }
+    catch (e) { console.warn('[nuxtblogPublic] event handler error:', e) }
+  }
+}
+
+/** Exposed for sandbox bridge in usePublicPluginLoader */
+export const eventBus = { on: eventOn, emit: eventEmit }
+
 export function installNuxtblogPublic() {
   const route = useRoute()
   const colorMode = useColorMode()
@@ -78,6 +103,26 @@ export function installNuxtblogPublic() {
         success(msg: string) { toast.add({ title: msg, color: 'success' }) },
         error(msg: string) { toast.add({ title: msg, color: 'error' }) },
         info(msg: string) { toast.add({ title: msg, color: 'info' }) },
+      },
+
+      events: {
+        emit(eventName: string, ...args: any[]) {
+          if (!eventName.startsWith(`${meta.pluginId}:`)) {
+            console.warn(`[nuxtblogPublic] plugin "${meta.pluginId}" can only emit events prefixed with "${meta.pluginId}:"`)
+            return
+          }
+          eventEmit(eventName, ...args)
+        },
+        on(eventName: string, handler: (...args: any[]) => void): () => void {
+          return eventOn(eventName, handler)
+        },
+        once(eventName: string, handler: (...args: any[]) => void): () => void {
+          const unsub = eventOn(eventName, (...args: any[]) => {
+            unsub()
+            handler(...args)
+          })
+          return unsub
+        },
       },
 
       slots: {
