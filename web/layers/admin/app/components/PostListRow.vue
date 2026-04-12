@@ -54,7 +54,11 @@
               square
               size="xs"
               class="opacity-0 group-hover:opacity-100 transition-opacity" />
+            <template #item-trailing="{ item }">
+              <slot name="dropdown-trailing" :item="item" />
+            </template>
           </UDropdownMenu>
+          <slot name="row-actions" />
         </div>
       </div>
     </div>

@@ -176,7 +176,14 @@
             :is-selected="selectedPosts.includes(post.id)"
             :actions="getPostActions(post)"
             :filter-status="filterStatus"
-            @toggle-select="toggleSelect(post.id)" />
+            @toggle-select="toggleSelect(post.id)">
+            <template #row-actions>
+              <ContributionSlot
+                name="post-list:row-action"
+                :ctx="{ postId: post.id, postTitle: post.title }"
+                @command="handlePluginCommand" />
+            </template>
+          </PostListRow>
         </div>
 
         <!-- 网格视图 -->
@@ -328,6 +335,8 @@
 </template>
 
 <script setup lang="ts">
+import { eventBus } from '~/composables/useNuxtblogPublic'
+
 interface PostListItem {
   id: number
   post_type: string
@@ -736,6 +745,11 @@ const confirmDelete = async () => {
   } finally {
     deleteLoading.value = false
   }
+}
+
+// ── Plugin contribution commands ──────────────────────────────────────────
+const handlePluginCommand = (commandId: string, ctx?: Record<string, unknown>) => {
+  eventBus.emit(`command:${commandId}`, ctx)
 }
 
 // ── Actions menu ───────────────────────────────────────────────────────────

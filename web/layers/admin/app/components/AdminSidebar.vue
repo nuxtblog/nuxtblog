@@ -157,17 +157,7 @@
 
 <script setup lang="ts">
 import { useRoute } from "vue-router";
-
-interface MenuItem {
-  name: string;
-  label: string;
-  icon?: string;
-  to?: string;
-  children?: MenuItem[];
-  badge?: () => number;
-  cap?: import("~/config/permissions").Capability; // required capability to show
-  order?: number;
-}
+import { ADMIN_MENU, type MenuItem } from "../config/admin-menu";
 
 const route = useRoute();
 const { t, te } = useI18n();
@@ -179,314 +169,19 @@ const { can } = usePermissions();
 const mediaCount = ref(0);
 const pendingComments = ref(0);
 
-const ALL_MENU: MenuItem[] = [
-  {
-    name: "dashboard",
-    label: "admin.nav.dashboard",
-    icon: "i-tabler-layout-grid",
-    to: "/admin/dashboard",
-    order: 100,
-  },
-  {
-    name: "posts",
-    label: "admin.nav.posts",
-    icon: "i-tabler-file-text",
-    cap: "edit_posts",
-    order: 200,
-    children: [
-      {
-        name: "posts-all",
-        label: "admin.nav.posts_all",
-        to: "/admin/posts",
-        icon: "i-tabler-list",
-        order: 100,
-      },
-      {
-        name: "posts-new",
-        label: "admin.nav.posts_new",
-        to: "/admin/posts/new",
-        icon: "i-tabler-plus",
-        cap: "publish_posts",
-        order: 200,
-      },
-      {
-        name: "posts-categories",
-        label: "admin.nav.posts_categories",
-        to: "/admin/posts/categories",
-        icon: "i-tabler-folder",
-        cap: "manage_categories",
-        order: 300,
-      },
-      {
-        name: "posts-tags",
-        label: "admin.nav.posts_tags",
-        to: "/admin/posts/tags",
-        icon: "i-tabler-tag",
-        cap: "manage_categories",
-        order: 400,
-      },
-    ],
-  },
-  {
-    name: "docs",
-    label: "admin.nav.docs",
-    icon: "i-tabler-books",
-    cap: "edit_posts",
-    order: 300,
-    children: [
-      { name: "docs-all", label: "admin.nav.docs_all", to: "/admin/docs", icon: "i-tabler-list", order: 100 },
-      { name: "docs-new", label: "admin.nav.docs_new", to: "/admin/docs/new", icon: "i-tabler-plus", cap: "publish_posts", order: 200 },
-      { name: "docs-collections", label: "admin.nav.docs_collections", to: "/admin/docs/collections", icon: "i-tabler-folders", cap: "manage_categories", order: 300 },
-    ],
-  },
-  {
-    name: "moments",
-    label: "admin.nav.moments",
-    icon: "i-tabler-camera",
-    to: "/admin/moments",
-    cap: "moderate_comments",
-    order: 400,
-  },
-  {
-    name: "media",
-    label: "admin.nav.media",
-    icon: "i-tabler-photo",
-    to: "/admin/media",
-    cap: "upload_files",
-    badge: () => Math.min(mediaCount.value, 99),
-    order: 500,
-  },
-  {
-    name: "pages",
-    label: "admin.nav.pages",
-    icon: "i-tabler-file",
-    cap: "edit_pages",
-    order: 600,
-    children: [
-      {
-        name: "pages-all",
-        label: "admin.nav.pages_all",
-        to: "/admin/pages",
-        icon: "i-tabler-list",
-        order: 100,
-      },
-      {
-        name: "pages-new",
-        label: "admin.nav.pages_new",
-        to: "/admin/pages/new",
-        icon: "i-tabler-plus",
-        cap: "publish_pages",
-        order: 200,
-      },
-    ],
-  },
-  {
-    name: "comments",
-    label: "admin.nav.comments",
-    icon: "i-tabler-message",
-    to: "/admin/comments",
-    cap: "moderate_comments",
-    badge: () => pendingComments.value,
-    order: 700,
-  },
-  {
-    name: "reports",
-    label: "admin.nav.reports",
-    icon: "i-tabler-flag",
-    to: "/admin/reports",
-    cap: "moderate_comments",
-    order: 800,
-  },
-  {
-    name: "announcements",
-    label: "admin.nav.announcements",
-    icon: "i-tabler-speakerphone",
-    to: "/admin/announcements",
-    cap: "moderate_comments",
-    order: 900,
-  },
-  {
-    name: "friendlinks",
-    label: "admin.nav.friendlinks",
-    icon: "i-tabler-link",
-    to: "/admin/friendlinks",
-    cap: "manage_options",
-    order: 1000,
-  },
-  {
-    name: "users",
-    label: "admin.nav.users",
-    icon: "i-tabler-users-group",
-    cap: "list_users",
-    order: 1100,
-    children: [
-      {
-        name: "users-all",
-        label: "admin.nav.users_all",
-        to: "/admin/users",
-        icon: "i-tabler-list",
-        cap: "list_users",
-        order: 100,
-      },
-      {
-        name: "users-new",
-        label: "admin.nav.users_new",
-        to: "/admin/users/new",
-        icon: "i-tabler-user-plus",
-        cap: "create_users",
-        order: 200,
-      },
-      {
-        name: "users-roles",
-        label: "admin.nav.users_roles",
-        to: "/admin/users/roles",
-        icon: "i-tabler-shield-check",
-        cap: "manage_roles",
-        order: 300,
-      },
-    ],
-  },
-  {
-    name: "appearance",
-    label: "admin.nav.appearance",
-    icon: "i-tabler-palette",
-    cap: "manage_appearance",
-    order: 1200,
-    children: [
-      {
-        name: "appearance-themes",
-        label: "admin.nav.appearance_themes",
-        to: "/admin/appearance/themes",
-        icon: "i-tabler-paint",
-        order: 100,
-      },
-      {
-        name: "appearance-customize",
-        label: "admin.nav.appearance_customize",
-        to: "/admin/appearance/customize",
-        icon: "i-tabler-settings",
-        order: 200,
-      },
-      {
-        name: "appearance-menus",
-        label: "admin.nav.appearance_menus",
-        to: "/admin/appearance/menus",
-        icon: "i-tabler-menu",
-        order: 300,
-      },
-    ],
-  },
-  {
-    name: "ai",
-    label: "admin.nav.ai",
-    icon: "i-tabler-sparkles",
-    to: "/admin/ai",
-    cap: "manage_options",
-    order: 1300,
-  },
-  {
-    name: "plugins",
-    label: "admin.nav.plugins",
-    icon: "i-tabler-plug",
-    cap: "manage_options",
-    order: 1400,
-    children: [
-      {
-        name: "plugins-installed",
-        label: "admin.nav.plugins_installed",
-        to: "/admin/plugins",
-        icon: "i-tabler-puzzle",
-        order: 100,
-      },
-      {
-        name: "plugins-marketplace",
-        label: "admin.nav.plugins_marketplace",
-        to: "/admin/plugins/marketplace",
-        icon: "i-tabler-building-store",
-        order: 200,
-      },
-      {
-        name: "plugins-monitor",
-        label: "admin.nav.plugins_monitor",
-        to: "/admin/plugins/monitor",
-        icon: "i-tabler-activity",
-        order: 300,
-      },
-    ],
-  },
-  {
-    name: "settings",
-    label: "admin.nav.settings",
-    icon: "i-tabler-settings",
-    cap: "manage_options",
-    order: 1600,
-    children: [
-      {
-        name: "settings-homepage",
-        label: "admin.nav.settings_homepage",
-        to: "/admin/settings/homepage",
-        icon: "i-tabler-home",
-        order: 100,
-      },
-      {
-        name: "settings-general",
-        label: "admin.nav.settings_general",
-        to: "/admin/settings/general",
-        icon: "i-tabler-adjustments",
-        order: 200,
-      },
-      {
-        name: "settings-writing",
-        label: "admin.nav.settings_writing",
-        to: "/admin/settings/writing",
-        icon: "i-tabler-edit",
-        order: 300,
-      },
-      {
-        name: "settings-reading",
-        label: "admin.nav.settings_reading",
-        to: "/admin/settings/reading",
-        icon: "i-tabler-book",
-        order: 400,
-      },
-      {
-        name: "settings-discussion",
-        label: "admin.nav.settings_discussion",
-        to: "/admin/settings/discussion",
-        icon: "i-tabler-message-circle",
-        order: 500,
-      },
-      {
-        name: "settings-media",
-        label: "admin.nav.settings_media",
-        to: "/admin/settings/media",
-        icon: "i-tabler-photo",
-        order: 600,
-      },
-      {
-        name: "settings-notifications",
-        label: "admin.nav.settings_notifications",
-        to: "/admin/settings/notifications",
-        icon: "i-tabler-bell-ringing",
-        order: 700,
-      },
-      {
-        name: "settings-oauth",
-        label: "admin.nav.settings_oauth",
-        to: "/admin/settings/oauth",
-        icon: "i-tabler-brand-oauth",
-        order: 800,
-      },
-      {
-        name: "settings-payment",
-        label: "admin.nav.settings_payment",
-        to: "/admin/settings/payment",
-        icon: "i-tabler-credit-card",
-        order: 900,
-      },
-    ],
-  },
-];
+// Badge is runtime state — kept in component, keyed by menu item name
+const badgeMap = computed<Record<string, () => number>>(() => ({
+  media: () => Math.min(mediaCount.value, 99),
+  comments: () => pendingComments.value,
+}));
+
+// Attach badges to static menu definitions at runtime
+const ALL_MENU = computed<MenuItem[]>(() =>
+  ADMIN_MENU.map((item) => {
+    const badgeFn = badgeMap.value[item.name];
+    return badgeFn ? { ...item, badge: badgeFn } : item;
+  }),
+);
 
 // Filter menu items by capability
 const filterItems = (items: MenuItem[]): MenuItem[] =>
@@ -509,7 +204,7 @@ const navToMenuItem = (nav: { pluginId: string; route: string; title: string; ic
 });
 
 const menu = computed(() => {
-  const base = filterItems(ALL_MENU);
+  const base = filterItems(ALL_MENU.value);
   const menuNames = new Set(base.map((i) => i.name));
 
   // 1. Plugin top-level items: no parent, or parent doesn't match any menu

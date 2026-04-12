@@ -37,6 +37,7 @@ export default defineNuxtConfig({
         "vue-draggable-plus",
         "marked",
         "highlight.js",
+        "dompurify",
       ],
     },
     server: {
