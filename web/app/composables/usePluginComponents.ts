@@ -52,6 +52,16 @@ async function loadPluginModule(pluginId: string, moduleFile = 'admin.mjs'): Pro
     },
   )
 
+  // Rewrite: import { AdminPageContainer, ... } from "/_shared/admin.mjs"
+  // To:      const { AdminPageContainer, ... } = window.__nuxtblog_admin;
+  source = source.replace(
+    /import\s*\{([^}]+)\}\s*from\s*["'][^"']*admin\.mjs["']\s*;?/g,
+    (_match, imports) => {
+      const fixed = imports.replace(/([\w$]+)\s+as\s+([\w$]+)/g, '$1: $2')
+      return `const {${fixed}} = window.__nuxtblog_admin;`
+    },
+  )
+
   // Inject authenticated fetch: override global fetch for plugin API calls
   // so plugins don't need to manually attach Authorization headers.
   // Token is stored in cookie "blog_token" by the auth store.
