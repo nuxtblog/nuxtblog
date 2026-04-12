@@ -34,6 +34,7 @@ export const useMediaApi = () => {
         ...(query?.mime_type && { mime_type: query.mime_type }),
         ...(query?.uploader_id && { uploader_id: query.uploader_id }),
         ...(query?.category && { category: query.category }),
+        ...(query?.storage_type != null && { storage_type: query.storage_type }),
       },
     });
   };
