@@ -76,8 +76,8 @@ var (
 			// Register event bus listeners that fan out to all plugin layers
 			eng.RegisterEventListeners()
 
-			// Cron: auto-publish scheduled posts every minute
-			if _, err = gcron.Add(ctx, "* * * * *", func(ctx context.Context) {
+			// Cron: auto-publish scheduled posts every minute (GoFrame gcron uses 6-field format: sec min hour day month week)
+			if _, err = gcron.Add(ctx, "0 * * * * *", func(ctx context.Context) {
 				service.Post().PublishScheduled(ctx)
 			}, "publish-scheduled"); err != nil {
 				g.Log().Warningf(ctx, "register publish-scheduled cron: %v", err)
