@@ -136,14 +136,6 @@ export const ADMIN_MENU: MenuItem[] = [
     order: 900,
   },
   {
-    name: 'friendlinks',
-    label: 'admin.nav.friendlinks',
-    icon: 'i-tabler-link',
-    to: '/admin/friendlinks',
-    cap: 'manage_options',
-    order: 1000,
-  },
-  {
     name: 'users',
     label: 'admin.nav.users',
     icon: 'i-tabler-users-group',

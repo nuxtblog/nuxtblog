@@ -595,25 +595,6 @@ CREATE TABLE IF NOT EXISTS user_announcement_cursor (
 );
 
 -- ============================================================
---  FRIENDLINKS
--- ============================================================
-
-CREATE TABLE IF NOT EXISTS friendlinks (
-    id          BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    name        TEXT        NOT NULL,
-    url         TEXT        NOT NULL,
-    logo        TEXT        NOT NULL DEFAULT '',
-    description TEXT        NOT NULL DEFAULT '',
-    sort_order  INTEGER     NOT NULL DEFAULT 0,
-    status      INTEGER     NOT NULL DEFAULT 1,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at  TIMESTAMPTZ,
-    deleted_at  TIMESTAMPTZ
-);
-
-CREATE INDEX IF NOT EXISTS idx_friendlinks_status ON friendlinks (status, sort_order);
-
--- ============================================================
 --  DEFAULT DATA
 --  Default admin user is seeded automatically by autoMigrate()
 --  on first startup: username=admin  password=admin123  role=3
