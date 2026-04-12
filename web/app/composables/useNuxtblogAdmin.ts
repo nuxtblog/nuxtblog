@@ -196,6 +196,24 @@ export function installNuxtblogAdmin() {
           return { ok: false, data: null, error: String(e) }
         }
       },
+      async put(path: string, body: object) {
+        try {
+          const data = await apiFetch<unknown>(path, { method: 'PUT', body })
+          return { ok: true, data }
+        }
+        catch (e: unknown) {
+          return { ok: false, data: null, error: String(e) }
+        }
+      },
+      async delete(path: string, body?: object) {
+        try {
+          const data = await apiFetch<unknown>(path, { method: 'DELETE', body })
+          return { ok: true, data }
+        }
+        catch (e: unknown) {
+          return { ok: false, data: null, error: String(e) }
+        }
+      },
     },
 
     // ── Notifications ──────────────────────────────────

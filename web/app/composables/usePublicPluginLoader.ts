@@ -10,6 +10,7 @@
 import type { PluginContributes } from '~/stores/plugin-contributions'
 import { installNuxtblogPublic, eventBus } from '~/composables/useNuxtblogPublic'
 import type { PublicPluginPermissions } from '~/composables/useNuxtblogPublic'
+import { registerPluginVersion } from '~/composables/usePluginComponents'
 
 interface PluginClientItem {
   id: string
@@ -58,6 +59,9 @@ export function usePublicPluginLoader() {
       const { createPluginApi } = installNuxtblogPublic()
 
       for (const plugin of plugins.value) {
+        // Register version for cache busting
+        registerPluginVersion(plugin.id, plugin.version)
+
         // Register contribution points
         if (plugin.contributes) {
           try {

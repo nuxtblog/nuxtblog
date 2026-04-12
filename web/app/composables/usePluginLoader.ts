@@ -8,7 +8,7 @@
  */
 import type { PluginContributes } from '~/stores/plugin-contributions'
 import { usePluginContributionsStore } from '~/stores/plugin-contributions'
-import { loadPluginModule } from '~/composables/usePluginComponents'
+import { loadPluginModule, registerPluginVersion } from '~/composables/usePluginComponents'
 
 interface PluginClientItem {
   id: string
@@ -43,8 +43,9 @@ export function usePluginLoader() {
       const res = await apiFetch<{ items: PluginClientItem[] }>('/admin/plugins/client')
       plugins.value = res?.items || []
 
-      // Register contribution points
+      // Register plugin versions for cache busting, then contribution points
       for (const plugin of plugins.value) {
+        registerPluginVersion(plugin.id, plugin.version)
         // Merge contributes + page navigation into a single registerPlugin call
         // to avoid the second call wiping out the first via unregisterPlugin().
         let contributes: PluginContributes = {}

@@ -11,16 +11,29 @@ import { defineAsyncComponent, type Component } from 'vue'
 
 const loadedComponents: Record<string, Component> = {}
 const loadedModules: Record<string, Record<string, any>> = {}
+// Version registry — populated by plugin loaders, consumed by component loaders
+const pluginVersions: Record<string, string> = {}
+
+/** Register a plugin's version so component loaders can use it for cache busting. */
+export function registerPluginVersion(pluginId: string, version: string) {
+  pluginVersions[pluginId] = version
+}
+
+/** Get a plugin's registered version. */
+export function getPluginVersion(pluginId: string): string | undefined {
+  return pluginVersions[pluginId]
+}
 
 /**
  * Load a plugin's admin.mjs, rewriting Vue imports to use the host's Vue.
  * Returns the full module namespace (cached).
  */
 export async function loadPluginModule(pluginId: string, moduleFile = 'admin.mjs', version?: string): Promise<Record<string, any>> {
-  const cacheKey = `${pluginId}:${moduleFile}`
+  const ver = version || pluginVersions[pluginId] || ''
+  const cacheKey = `${pluginId}:${moduleFile}:${ver}`
   if (loadedModules[cacheKey]) return loadedModules[cacheKey]
 
-  const qs = version ? `?v=${version}` : ''
+  const qs = ver ? `?v=${ver}` : ''
   const url = `/api/plugins/${encodeURIComponent(pluginId)}/assets/${moduleFile}${qs}`
   const resp = await fetch(url)
   if (!resp.ok) throw new Error(`Failed to load plugin "${pluginId}": HTTP ${resp.status}`)
