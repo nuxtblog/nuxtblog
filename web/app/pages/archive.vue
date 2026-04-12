@@ -1,19 +1,16 @@
 <template>
   <div class="min-h-screen pb-16">
-    <div :class="[containerClass, 'mx-auto px-4 md:px-6 py-8']">
+    <PageHeader
+      icon="i-tabler-archive"
+      :title="$t('site.archive.title')"
+      :subtitle="total ? $t('site.archive.subtitle', { n: total }) : undefined" />
 
-      <!-- Plugin slot: archive top -->
-      <ClientOnly><ContributionSlot name="public:archive-top" /></ClientOnly>
+    <!-- Plugin slot: archive top -->
+    <ClientOnly><ContributionSlot name="public:archive-top" /></ClientOnly>
 
-      <!-- Title -->
-      <div class="flex items-center gap-2 mb-6">
-        <UIcon name="i-tabler-archive" class="size-6 text-primary shrink-0" />
-        <h1 class="text-xl font-bold text-highlighted">{{ $t('site.archive.title') }}</h1>
-        <span v-if="total" class="text-sm text-muted ml-1">{{ $t('site.archive.subtitle', { n: total }) }}</span>
-      </div>
-
+    <PageContent>
       <!-- Loading State -->
-      <div v-if="displayLoading" class="mt-8 space-y-8">
+      <div v-if="displayLoading" class="space-y-8">
         <div v-for="i in 3" :key="i">
           <USkeleton class="h-6 w-24 mb-4 rounded" />
           <div class="space-y-3 pl-4 border-l-2 border-default">
@@ -23,7 +20,7 @@
       </div>
 
       <!-- Empty State -->
-      <div v-else-if="!Object.keys(grouped).length" class="rounded-md bg-default ring-1 ring-default shadow-sm overflow-hidden mt-2">
+      <div v-else-if="!Object.keys(grouped).length" class="rounded-md bg-default ring-1 ring-default shadow-sm overflow-hidden">
         <div class="py-20 flex flex-col items-center gap-3 text-center px-4">
           <div class="size-16 rounded-full bg-muted flex items-center justify-center">
             <UIcon name="i-tabler-inbox" class="size-8 text-muted" />
@@ -33,7 +30,7 @@
       </div>
 
       <!-- Archive List -->
-      <div v-else class="mt-8 space-y-10">
+      <div v-else class="space-y-10">
         <div v-for="(months, year) in grouped" :key="year">
           <h2 class="text-xl font-bold text-highlighted mb-4 flex items-center gap-2">
             <UIcon name="i-tabler-calendar" class="size-5 text-primary" />
@@ -50,8 +47,7 @@
                 </span>
                 <NuxtLink
                   :to="`/posts/${post.slug}`"
-                  class="text-default group-hover:text-primary transition-colors line-clamp-1 flex-1"
-                >
+                  class="text-default group-hover:text-primary transition-colors line-clamp-1 flex-1">
                   {{ post.title }}
                 </NuxtLink>
               </li>
@@ -59,15 +55,14 @@
           </div>
         </div>
       </div>
+    </PageContent>
 
-      <!-- Plugin slot: archive bottom -->
-      <ClientOnly><ContributionSlot name="public:archive-bottom" /></ClientOnly>
-    </div>
+    <!-- Plugin slot: archive bottom -->
+    <ClientOnly><ContributionSlot name="public:archive-bottom" /></ClientOnly>
   </div>
 </template>
 
 <script setup lang="ts">
-const { containerClass } = useContainerWidth()
 const { t } = useI18n()
 import type { PostListItemResponse } from '~/types/api/post'
 

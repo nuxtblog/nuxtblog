@@ -1,28 +1,31 @@
 <template>
   <div class="min-h-screen pb-16">
-    <div :class="[containerClass, 'mx-auto px-4 md:px-6 py-8']">
+    <PageHeader
+      icon="i-tabler-file-text"
+      :title="$t('site.articles.title')"
+      :subtitle="total ? $t('site.articles.subtitle', { n: total }) : undefined">
+      <template #toolbar>
+        <div class="flex flex-col sm:flex-row gap-3">
+          <UInput
+            v-model="searchQuery"
+            :placeholder="$t('site.articles.search_placeholder')"
+            leading-icon="i-tabler-search"
+            class="flex-1"
+            size="md"
+            @keyup.enter="onSearch">
+            <template v-if="searchQuery" #trailing>
+              <UButton icon="i-tabler-x" color="neutral" variant="ghost" size="xs" @click="searchQuery = ''; onSearch()" />
+            </template>
+          </UInput>
+          <UButton @click="onSearch" color="primary">{{ $t('site.articles.search_btn') }}</UButton>
+        </div>
+      </template>
+    </PageHeader>
 
-      <!-- Plugin slot: posts list top -->
-      <ClientOnly><ContributionSlot name="public:posts-top" /></ClientOnly>
+    <!-- Plugin slot: posts list top -->
+    <ClientOnly><ContributionSlot name="public:posts-top" /></ClientOnly>
 
-      <!-- Title -->
-      <div class="flex items-center gap-2 mb-6">
-        <UIcon name="i-tabler-file-text" class="size-6 text-primary shrink-0" />
-        <h1 class="text-xl font-bold text-highlighted">{{ $t('site.articles.title') }}</h1>
-        <span v-if="total" class="text-sm text-muted ml-1">{{ $t('site.articles.subtitle', { n: total }) }}</span>
-      </div>
-
-      <!-- Search -->
-      <div class="flex flex-col sm:flex-row gap-3 mb-4">
-        <UInput
-          v-model="searchQuery"
-          :placeholder="$t('site.articles.search_placeholder')"
-          leading-icon="i-tabler-search"
-          class="flex-1"
-          @keyup.enter="onSearch" />
-        <UButton @click="onSearch" color="primary">{{ $t('site.articles.search_btn') }}</UButton>
-      </div>
-
+    <PageContent>
       <!-- Active tag/category filter hint -->
       <div v-if="activeTagId || activeCategoryId" class="flex items-center gap-2 mb-4">
         <UBadge color="primary" variant="soft" class="flex items-center gap-1">
@@ -36,9 +39,8 @@
 
       <!-- Main card -->
       <div class="rounded-md bg-default ring-1 ring-default shadow-sm overflow-hidden">
-
         <!-- Loading skeleton -->
-        <div v-if="isLoading" class="divide-y divide-default">
+        <div v-if="loading" class="divide-y divide-default">
           <div v-for="i in 5" :key="i" class="flex gap-4 px-4 py-4">
             <USkeleton class="h-20 w-32 rounded-md shrink-0" />
             <div class="flex-1 space-y-2 pt-1">
@@ -91,23 +93,24 @@
           </NuxtLink>
         </div>
       </div>
+    </PageContent>
 
-      <!-- Pagination -->
-      <div v-if="totalPages > 1" class="flex justify-center mt-6">
+    <!-- Pagination -->
+    <PageFooter v-if="totalPages > 1">
+      <div class="flex justify-center">
         <UPagination
           v-model:page="currentPage"
           :total="total"
           :items-per-page="pageSize" />
       </div>
+    </PageFooter>
 
-      <!-- Plugin slot: posts list bottom -->
-      <ClientOnly><ContributionSlot name="public:posts-bottom" /></ClientOnly>
-    </div>
+    <!-- Plugin slot: posts list bottom -->
+    <ClientOnly><ContributionSlot name="public:posts-bottom" /></ClientOnly>
   </div>
 </template>
 
 <script setup lang="ts">
-const { containerClass } = useContainerWidth()
 const { t } = useI18n()
 import type { PostListItemResponse } from '~/types/api/post'
 
@@ -115,7 +118,8 @@ const route = useRoute()
 const postApi = usePostApi()
 const { defaultCover } = usePostCover()
 
-const isLoading = ref(true)
+const rawLoading = ref(true)
+const loading = useMinLoading(rawLoading)
 const posts = ref<PostListItemResponse[]>([])
 const total = ref(0)
 const currentPage = ref(1)
@@ -134,7 +138,7 @@ const activeCategoryId = computed(() => {
 const totalPages = computed(() => Math.ceil(total.value / pageSize))
 
 const fetchPosts = async () => {
-  isLoading.value = true
+  rawLoading.value = true
   try {
     const params: Record<string, any> = {
       status: 'published',
@@ -151,7 +155,7 @@ const fetchPosts = async () => {
   } catch (e) {
     console.error('Failed to load posts:', e)
   } finally {
-    isLoading.value = false
+    rawLoading.value = false
   }
 }
 

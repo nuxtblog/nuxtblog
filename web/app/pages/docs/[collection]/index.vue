@@ -4,7 +4,6 @@ import { useDebounceFn } from '@vueuse/core'
 
 const route = useRoute()
 const docApi = useDocApi()
-const { containerClass } = useContainerWidth()
 
 const rawLoading = ref(true)
 const loading = useMinLoading(rawLoading)
@@ -84,9 +83,9 @@ onMounted(fetchCollection)
 
 <template>
   <div class="min-h-screen pb-16">
-    <div :class="[containerClass, 'mx-auto px-4 md:px-6 py-8']">
-      <!-- Skeleton -->
-      <div v-if="loading" class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+    <!-- Skeleton -->
+    <PageContent v-if="loading">
+      <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div class="lg:col-span-1 space-y-3">
           <USkeleton class="h-6 w-3/4" />
           <USkeleton class="h-4 w-full" />
@@ -101,121 +100,128 @@ onMounted(fetchCollection)
           </div>
         </div>
       </div>
+    </PageContent>
 
-      <div v-else-if="!collection" class="flex flex-col items-center justify-center py-20">
+    <PageContent v-else-if="!collection">
+      <div class="flex flex-col items-center justify-center py-20">
         <div class="size-16 rounded-full bg-muted flex items-center justify-center mb-4">
           <UIcon name="i-tabler-books-off" class="size-8 text-muted" />
         </div>
         <h3 class="text-lg font-medium text-highlighted mb-1">合集不存在</h3>
         <NuxtLink to="/docs" class="text-sm text-primary hover:underline">返回文档列表</NuxtLink>
       </div>
+    </PageContent>
 
-      <div v-else class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <!-- Left sidebar -->
-        <aside class="lg:col-span-1">
-          <!-- Collection info -->
-          <div class="rounded-lg bg-default ring-1 ring-default shadow-sm p-4 mb-4">
-            <div class="flex items-center gap-2 mb-2">
-              <UIcon name="i-tabler-books" class="size-5 text-primary shrink-0" />
-              <h2 class="font-semibold text-highlighted truncate">{{ collection.title }}</h2>
-            </div>
-            <p v-if="collection.description" class="text-sm text-muted line-clamp-3">{{ collection.description }}</p>
-            <div v-if="collection.doc_count != null" class="mt-2">
-              <UBadge :label="`${collection.doc_count} 篇文档`" color="neutral" variant="soft" size="xs" />
-            </div>
-          </div>
+    <template v-else>
+      <PageHeader
+        icon="i-tabler-books"
+        :title="collection.title"
+        :subtitle="collection.description">
+      </PageHeader>
 
-          <!-- Doc tree nav -->
-          <nav class="rounded-lg bg-default ring-1 ring-default shadow-sm p-3">
-            <h3 class="text-xs font-semibold text-muted uppercase tracking-wider mb-2 px-1">目录</h3>
-            <DocNavTree
-              :docs="topLevelDocs"
-              :child-docs-by-parent="childDocsByParent"
-              :collection-slug="collectionSlug"
-              current-slug=""
-            />
-          </nav>
-        </aside>
-
-        <!-- Main content: doc list -->
-        <main class="lg:col-span-3">
-          <div class="mb-6">
-            <h1 class="text-2xl font-bold text-highlighted mb-1">{{ collection.title }}</h1>
-            <p v-if="collection.description" class="text-muted">{{ collection.description }}</p>
-          </div>
-
-          <!-- Search -->
-          <div class="mb-4">
-            <UInput
-              v-model="searchQuery"
-              placeholder="搜索文档..."
-              leading-icon="i-tabler-search"
-              :loading="searching"
-              class="w-full" />
-          </div>
-
-          <!-- Search results -->
-          <template v-if="searchResults !== null">
-            <div v-if="searchResults.length === 0" class="flex flex-col items-center justify-center py-16">
-              <div class="size-16 rounded-full bg-muted flex items-center justify-center mb-4">
-                <UIcon name="i-tabler-search-off" class="size-8 text-muted" />
+      <PageContent>
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <!-- Left sidebar -->
+          <aside class="lg:col-span-1">
+            <!-- Collection info -->
+            <div class="rounded-lg bg-default ring-1 ring-default shadow-sm p-4 mb-4">
+              <div class="flex items-center gap-2 mb-2">
+                <UIcon name="i-tabler-books" class="size-5 text-primary shrink-0" />
+                <h2 class="font-semibold text-highlighted truncate">{{ collection.title }}</h2>
               </div>
-              <p class="text-sm text-muted">未找到相关文档</p>
-            </div>
-            <div v-else class="rounded-lg bg-default ring-1 ring-default shadow-sm overflow-hidden">
-              <div class="divide-y divide-default">
-                <NuxtLink
-                  v-for="item in searchResults" :key="item.id"
-                  :to="`/docs/${collectionSlug}/${item.slug}`"
-                  class="flex items-start gap-4 p-4 hover:bg-elevated transition-colors group">
-                  <div class="flex-1 min-w-0">
-                    <h3 class="font-medium text-highlighted group-hover:text-primary transition-colors truncate">
-                      {{ item.title }}
-                    </h3>
-                    <p v-if="item.excerpt" class="text-sm text-muted line-clamp-2 mt-0.5">{{ item.excerpt }}</p>
-                  </div>
-                  <UIcon name="i-tabler-chevron-right" class="size-4 text-muted shrink-0 mt-1 group-hover:text-primary transition-colors" />
-                </NuxtLink>
+              <p v-if="collection.description" class="text-sm text-muted line-clamp-3">{{ collection.description }}</p>
+              <div v-if="collection.doc_count != null" class="mt-2">
+                <UBadge :label="`${collection.doc_count} 篇文档`" color="neutral" variant="soft" size="xs" />
               </div>
             </div>
-          </template>
 
-          <!-- Normal tree list -->
-          <template v-else>
-            <div v-if="topLevelDocs.length === 0" class="flex flex-col items-center justify-center py-16">
-              <div class="size-16 rounded-full bg-muted flex items-center justify-center mb-4">
-                <UIcon name="i-tabler-file-text-off" class="size-8 text-muted" />
-              </div>
-              <p class="text-sm text-muted">此合集暂无文档</p>
+            <!-- Doc tree nav -->
+            <nav class="rounded-lg bg-default ring-1 ring-default shadow-sm p-3">
+              <h3 class="text-xs font-semibold text-muted uppercase tracking-wider mb-2 px-1">目录</h3>
+              <DocNavTree
+                :docs="topLevelDocs"
+                :child-docs-by-parent="childDocsByParent"
+                :collection-slug="collectionSlug"
+                current-slug=""
+              />
+            </nav>
+          </aside>
+
+          <!-- Main content: doc list -->
+          <main class="lg:col-span-3">
+            <!-- Search -->
+            <div class="mb-4">
+              <UInput
+                v-model="searchQuery"
+                placeholder="搜索文档..."
+                leading-icon="i-tabler-search"
+                :loading="searching"
+                class="w-full" />
             </div>
 
-            <div v-else class="rounded-lg bg-default ring-1 ring-default shadow-sm overflow-hidden">
-              <div class="divide-y divide-default">
-                <NuxtLink
-                  v-for="doc in topLevelDocs" :key="doc.id"
-                  :to="`/docs/${collectionSlug}/${doc.slug}`"
-                  class="flex items-start gap-4 p-4 hover:bg-elevated transition-colors group">
-                  <div class="flex-1 min-w-0">
-                    <h3 class="font-medium text-highlighted group-hover:text-primary transition-colors truncate">
-                      {{ doc.title }}
-                    </h3>
-                    <p v-if="doc.excerpt" class="text-sm text-muted line-clamp-2 mt-0.5">{{ doc.excerpt }}</p>
-                    <div class="flex items-center gap-3 mt-2">
-                      <span v-if="doc.stats?.view_count" class="flex items-center gap-1 text-xs text-muted">
-                        <UIcon name="i-tabler-eye" class="size-3.5" />
-                        {{ doc.stats.view_count }}
-                      </span>
-                      <span v-if="doc.updated_at" class="text-xs text-muted">{{ formatDate(doc.updated_at) }}</span>
-                      <UBadge v-if="childDocsByParent[doc.id]?.length" :label="`${childDocsByParent[doc.id]?.length ?? 0} 子文档`" color="neutral" variant="soft" size="xs" />
+            <!-- Search results -->
+            <template v-if="searchResults !== null">
+              <div v-if="searchResults.length === 0" class="flex flex-col items-center justify-center py-16">
+                <div class="size-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                  <UIcon name="i-tabler-search-off" class="size-8 text-muted" />
+                </div>
+                <p class="text-sm text-muted">未找到相关文档</p>
+              </div>
+              <div v-else class="rounded-lg bg-default ring-1 ring-default shadow-sm overflow-hidden">
+                <div class="divide-y divide-default">
+                  <NuxtLink
+                    v-for="item in searchResults" :key="item.id"
+                    :to="`/docs/${collectionSlug}/${item.slug}`"
+                    class="flex items-start gap-4 p-4 hover:bg-elevated transition-colors group">
+                    <div class="flex-1 min-w-0">
+                      <h3 class="font-medium text-highlighted group-hover:text-primary transition-colors truncate">
+                        {{ item.title }}
+                      </h3>
+                      <p v-if="item.excerpt" class="text-sm text-muted line-clamp-2 mt-0.5">{{ item.excerpt }}</p>
                     </div>
-                  </div>
-                  <UIcon name="i-tabler-chevron-right" class="size-4 text-muted shrink-0 mt-1 group-hover:text-primary transition-colors" />
-                </NuxtLink>
+                    <UIcon name="i-tabler-chevron-right" class="size-4 text-muted shrink-0 mt-1 group-hover:text-primary transition-colors" />
+                  </NuxtLink>
+                </div>
               </div>
-            </div>
-          </template>
-        </main>
-      </div>
-    </div>
+            </template>
+
+            <!-- Normal tree list -->
+            <template v-else>
+              <div v-if="topLevelDocs.length === 0" class="flex flex-col items-center justify-center py-16">
+                <div class="size-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                  <UIcon name="i-tabler-file-text-off" class="size-8 text-muted" />
+                </div>
+                <p class="text-sm text-muted">此合集暂无文档</p>
+              </div>
+
+              <div v-else class="rounded-lg bg-default ring-1 ring-default shadow-sm overflow-hidden">
+                <div class="divide-y divide-default">
+                  <NuxtLink
+                    v-for="doc in topLevelDocs" :key="doc.id"
+                    :to="`/docs/${collectionSlug}/${doc.slug}`"
+                    class="flex items-start gap-4 p-4 hover:bg-elevated transition-colors group">
+                    <div class="flex-1 min-w-0">
+                      <h3 class="font-medium text-highlighted group-hover:text-primary transition-colors truncate">
+                        {{ doc.title }}
+                      </h3>
+                      <p v-if="doc.excerpt" class="text-sm text-muted line-clamp-2 mt-0.5">{{ doc.excerpt }}</p>
+                      <div class="flex items-center gap-3 mt-2">
+                        <span v-if="doc.stats?.view_count" class="flex items-center gap-1 text-xs text-muted">
+                          <UIcon name="i-tabler-eye" class="size-3.5" />
+                          {{ doc.stats.view_count }}
+                        </span>
+                        <span v-if="doc.updated_at" class="text-xs text-muted">{{ formatDate(doc.updated_at) }}</span>
+                        <UBadge v-if="childDocsByParent[doc.id]?.length" :label="`${childDocsByParent[doc.id]?.length ?? 0} 子文档`" color="neutral" variant="soft" size="xs" />
+                      </div>
+                    </div>
+                    <UIcon name="i-tabler-chevron-right" class="size-4 text-muted shrink-0 mt-1 group-hover:text-primary transition-colors" />
+                  </NuxtLink>
+                </div>
+              </div>
+            </template>
+          </main>
+        </div>
+      </PageContent>
+    </template>
   </div>
 </template>

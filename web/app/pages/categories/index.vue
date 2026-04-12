@@ -1,43 +1,59 @@
 <template>
   <div class="min-h-screen pb-16">
-    <div :class="[containerClass, 'mx-auto px-4 md:px-6 py-8']">
-
-      <!-- Plugin slot: categories top -->
-      <ClientOnly><ContributionSlot name="public:categories-top" /></ClientOnly>
-
-      <!-- Title -->
-      <div class="flex items-center gap-2 mb-6">
-        <UIcon name="i-tabler-stack-2" class="size-6 text-primary shrink-0" />
-        <h1 class="text-xl font-bold text-highlighted">{{ $t('site.categories.title') }}</h1>
-        <span class="text-sm text-muted ml-1">{{ $t('site.categories.subtitle', { n: filteredCategories.length }) }}</span>
-      </div>
-
-      <!-- Search and Filter -->
-      <div class="flex flex-col sm:flex-row gap-3 mb-6">
+    <PageHeader
+      icon="i-tabler-stack-2"
+      :title="$t('site.categories.title')"
+      :subtitle="$t('site.categories.subtitle', { n: filteredCategories.length })">
+      <template #actions>
+        <div class="flex items-center gap-1 p-1 bg-default rounded-md ring-1 ring-default">
+          <UButton
+            v-for="opt in sortOptions"
+            :key="opt.value"
+            :variant="sortBy === opt.value ? 'solid' : 'ghost'"
+            :color="sortBy === opt.value ? 'primary' : 'neutral'"
+            size="xs"
+            :class="sortBy === opt.value ? 'shadow-sm' : 'text-muted'"
+            @click="sortBy = opt.value as 'name' | 'count'">
+            {{ opt.label }}
+          </UButton>
+        </div>
+      </template>
+      <template #toolbar>
         <UInput
           v-model="searchQuery"
           :placeholder="$t('site.categories.search_placeholder')"
           leading-icon="i-tabler-search"
-          class="flex-1" />
-        <USelect
-          v-model="sortBy"
-          :items="sortOptions"
-          value-key="value"
-          label-key="label" />
-      </div>
+          class="w-full"
+          size="md">
+          <template v-if="searchQuery" #trailing>
+            <UButton icon="i-tabler-x" color="neutral" variant="ghost" size="xs" @click="searchQuery = ''" />
+          </template>
+        </UInput>
+      </template>
+    </PageHeader>
 
+    <!-- Plugin slot: categories top -->
+    <ClientOnly><ContributionSlot name="public:categories-top" /></ClientOnly>
+
+    <PageContent>
       <!-- Loading skeleton -->
-      <div v-if="isLoading" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
-        <div v-for="i in 8" :key="i" class="rounded-md bg-default ring-1 ring-default shadow-sm p-5">
-          <div class="flex items-start gap-3 mb-2">
-            <USkeleton class="size-12 rounded-md shrink-0" />
-            <div class="flex-1 space-y-2">
-              <USkeleton class="h-4 w-24" />
-              <USkeleton class="h-3 w-16" />
+      <div v-if="loading" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+        <div v-for="i in 8" :key="i" class="rounded-md bg-default ring-1 ring-default shadow-sm">
+          <div class="p-5">
+            <div class="flex items-start gap-3 mb-3">
+              <USkeleton class="size-11 rounded-md shrink-0" />
+              <div class="flex-1 space-y-2">
+                <USkeleton class="h-4 w-24" />
+                <USkeleton class="h-3 w-16" />
+              </div>
+            </div>
+            <USkeleton class="h-3 w-full" />
+            <USkeleton class="h-3 w-3/4 mt-1.5" />
+            <div class="flex items-center justify-between pt-3 mt-3 border-t border-default">
+              <USkeleton class="h-3 w-20" />
+              <USkeleton class="size-4 rounded-full" />
             </div>
           </div>
-          <USkeleton class="h-3 w-full mt-2" />
-          <USkeleton class="h-3 w-3/4 mt-1" />
         </div>
       </div>
 
@@ -54,56 +70,66 @@
         </div>
       </div>
 
+      <!-- Category Cards Grid -->
       <div v-else class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
         <TransitionGroup name="list" tag="div" class="contents">
           <NuxtLink
             v-for="(category, index) in paginatedCategories"
             :key="category.term_taxonomy_id"
             :to="`/categories/${category.slug}`"
-            class="rounded-md ring-1 ring-default bg-default shadow-sm hover:shadow-md transition-shadow group">
+            class="rounded-md ring-1 ring-default bg-default shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
             <div class="p-5">
-              <div class="flex items-start gap-3 mb-2">
+              <div class="flex items-start gap-3 mb-3">
                 <div
-                  class="w-12 h-12 rounded-md flex items-center justify-center shrink-0"
-                  :style="{ backgroundColor: getColor(index) + '20', color: getColor(index) }">
+                  class="size-11 rounded-md flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-110"
+                  :style="{ backgroundColor: getColor(index) + '18', color: getColor(index) }">
                   <UIcon name="i-tabler-category" class="size-5" />
                 </div>
                 <div class="flex-1 min-w-0">
                   <h3 class="font-semibold text-highlighted text-base truncate group-hover:text-primary transition-colors">
                     {{ category.name }}
                   </h3>
-                  <p class="text-sm text-muted">{{ $t('site.categories.post_count', { n: category.count }) }}</p>
+                  <UBadge
+                    :label="$t('site.categories.post_count', { n: category.count })"
+                    variant="subtle"
+                    color="neutral"
+                    size="xs"
+                    class="mt-1" />
                 </div>
               </div>
 
-              <p v-if="category.description" class="text-sm text-muted mb-3 line-clamp-2">
+              <p v-if="category.description" class="text-sm text-muted line-clamp-2 leading-relaxed">
                 {{ category.description }}
               </p>
 
-              <div class="flex items-center justify-between pt-3 border-t border-default mt-auto">
-                <span class="text-xs text-muted">{{ category.slug }}</span>
+              <div class="flex items-center justify-between pt-3 mt-3 border-t border-default">
+                <span class="text-xs text-muted font-mono">{{ category.slug }}</span>
+                <UIcon
+                  name="i-tabler-arrow-right"
+                  class="size-4 text-muted group-hover:text-primary group-hover:translate-x-0.5 transition-all duration-200" />
               </div>
             </div>
           </NuxtLink>
         </TransitionGroup>
       </div>
+    </PageContent>
 
-      <!-- Pagination -->
-      <div v-if="totalPages > 1" class="flex justify-center mt-6">
+    <!-- Pagination -->
+    <PageFooter v-if="totalPages > 1">
+      <div class="flex justify-center">
         <UPagination
           v-model:page="currentPage"
           :total="filteredCategories.length"
           :items-per-page="pageSize" />
       </div>
+    </PageFooter>
 
-      <!-- Plugin slot: categories bottom -->
-      <ClientOnly><ContributionSlot name="public:categories-bottom" /></ClientOnly>
-    </div>
+    <!-- Plugin slot: categories bottom -->
+    <ClientOnly><ContributionSlot name="public:categories-bottom" /></ClientOnly>
   </div>
 </template>
 
 <script setup lang="ts">
-const { containerClass } = useContainerWidth()
 const { t } = useI18n()
 import type { TermDetailResponse } from '~/types/api/term'
 
@@ -120,7 +146,8 @@ const sortOptions = computed(() => [
   { label: t('site.categories.sort_count'), value: 'count' },
 ])
 
-const isLoading = ref(true)
+const rawLoading = ref(true)
+const loading = useMinLoading(rawLoading)
 const searchQuery = ref('')
 const sortBy = ref<'name' | 'count'>('name')
 const categories = ref<TermDetailResponse[]>([])
@@ -157,7 +184,7 @@ onMounted(async () => {
   } catch (e) {
     console.error('Failed to load categories:', e)
   } finally {
-    isLoading.value = false
+    rawLoading.value = false
   }
 })
 </script>

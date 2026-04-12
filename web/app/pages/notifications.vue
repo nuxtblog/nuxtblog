@@ -1,31 +1,32 @@
 <template>
   <div class="min-h-screen pb-16">
-    <div :class="[containerClass, 'mx-auto px-4 md:px-6 py-8']">
-
-      <!-- 标题 -->
-      <div class="flex items-center gap-2 mb-6">
-        <UIcon name="i-tabler-bell" class="size-6 text-primary shrink-0" />
-        <h1 class="text-xl font-bold text-highlighted">{{ $t("site.notifications.title") }}</h1>
-      </div>
-
-      <!-- 统计行 -->
-      <div class="grid grid-cols-3 rounded-md overflow-hidden ring-1 ring-default bg-default shadow-sm mb-4">
-        <div class="flex flex-col items-center py-4">
-          <span class="text-2xl font-bold text-highlighted">{{ totalAll }}</span>
-          <span class="text-xs text-muted mt-0.5">{{ $t("site.notifications.stat_all") }}</span>
+    <PageHeader
+      icon="i-tabler-bell"
+      :title="$t('site.notifications.title')">
+      <template #actions>
+        <div class="flex gap-1">
+          <UButton
+            v-if="unreadCount > 0"
+            variant="ghost"
+            color="neutral"
+            size="sm"
+            icon="i-tabler-checks"
+            @click="handleMarkAllRead">
+            {{ $t("site.notifications.mark_all_read") }}
+          </UButton>
+          <UButton
+            v-if="list.length > 0 && currentFilter !== 'announcement'"
+            variant="ghost"
+            color="neutral"
+            size="sm"
+            icon="i-tabler-trash"
+            class="text-error"
+            @click="handleClearAll">
+            {{ $t("site.notifications.clear") }}
+          </UButton>
         </div>
-        <div class="flex flex-col items-center py-4 border-x border-default">
-          <span class="text-2xl font-bold" :class="unreadCount > 0 ? 'text-primary' : 'text-highlighted'">{{ unreadCount }}</span>
-          <span class="text-xs text-muted mt-0.5">{{ $t("site.notifications.stat_unread") }}</span>
-        </div>
-        <div class="flex flex-col items-center py-4">
-          <span class="text-2xl font-bold text-highlighted">{{ Math.max(0, totalAll - unreadCount) }}</span>
-          <span class="text-xs text-muted mt-0.5">{{ $t("site.notifications.stat_read") }}</span>
-        </div>
-      </div>
-
-      <!-- Pill tabs + 操作 -->
-      <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+      </template>
+      <template #toolbar>
         <div class="flex gap-1 p-1 bg-default rounded-md ring-1 ring-default w-fit">
           <UButton
             v-for="tab in filterItems"
@@ -48,27 +49,23 @@
             </span>
           </UButton>
         </div>
+      </template>
+    </PageHeader>
 
-        <div class="flex gap-1">
-          <UButton
-            v-if="unreadCount > 0"
-            variant="ghost"
-            color="neutral"
-            size="sm"
-            icon="i-tabler-checks"
-            @click="handleMarkAllRead">
-            {{ $t("site.notifications.mark_all_read") }}
-          </UButton>
-          <UButton
-            v-if="list.length > 0 && currentFilter !== 'announcement'"
-            variant="ghost"
-            color="neutral"
-            size="sm"
-            icon="i-tabler-trash"
-            class="text-error"
-            @click="handleClearAll">
-            {{ $t("site.notifications.clear") }}
-          </UButton>
+    <PageContent>
+      <!-- 统计行 -->
+      <div class="grid grid-cols-3 rounded-md overflow-hidden ring-1 ring-default bg-default shadow-sm mb-6">
+        <div class="flex flex-col items-center py-4">
+          <span class="text-2xl font-bold text-highlighted">{{ totalAll }}</span>
+          <span class="text-xs text-muted mt-0.5">{{ $t("site.notifications.stat_all") }}</span>
+        </div>
+        <div class="flex flex-col items-center py-4 border-x border-default">
+          <span class="text-2xl font-bold" :class="unreadCount > 0 ? 'text-primary' : 'text-highlighted'">{{ unreadCount }}</span>
+          <span class="text-xs text-muted mt-0.5">{{ $t("site.notifications.stat_unread") }}</span>
+        </div>
+        <div class="flex flex-col items-center py-4">
+          <span class="text-2xl font-bold text-highlighted">{{ Math.max(0, totalAll - unreadCount) }}</span>
+          <span class="text-xs text-muted mt-0.5">{{ $t("site.notifications.stat_read") }}</span>
         </div>
       </div>
 
@@ -126,7 +123,7 @@
                       <UBadge
                         v-if="item._isAnnouncement"
                         :label="$t('site.notifications.type_announcement')"
-                        :color="annBadgeColor(item._annType)"
+                        :color="annBadgeColor(item._annType) as any"
                         variant="subtle"
                         size="xs" />
                       <span v-if="!item.read" class="size-1.5 rounded-full bg-primary shrink-0" />
@@ -177,16 +174,17 @@
           </UCard>
         </TransitionGroup>
 
-        <div v-if="totalPages > 1" class="flex justify-center pt-2">
-          <UPagination
-            v-model:page="currentPage"
-            :total="currentFilter === 'announcement' ? announcementTotal : currentTotal"
-            :items-per-page="pageSize" />
-        </div>
-
       </BaseCardList>
+    </PageContent>
 
-    </div>
+    <PageFooter v-if="totalPages > 1">
+      <div class="flex justify-center">
+        <UPagination
+          v-model:page="currentPage"
+          :total="currentFilter === 'announcement' ? announcementTotal : currentTotal"
+          :items-per-page="pageSize" />
+      </div>
+    </PageFooter>
   </div>
 </template>
 
@@ -194,7 +192,6 @@
 import type { NotificationItem } from "~/composables/useNotificationApi";
 import type { AnnouncementItem } from "~/composables/useAnnouncementApi";
 
-const { containerClass } = useContainerWidth();
 const { t } = useI18n();
 
 definePageMeta({ middleware: "auth" });
@@ -326,9 +323,7 @@ onMounted(fetchNotifications);
 // ── Actions ───────────────────────────────────────────────────────────────────
 
 async function handleItemClick(item: DisplayItem) {
-  // Announcements have no per-item link — use "mark all read" button instead
   if (item._isAnnouncement) return;
-  // Only navigate (and mark read) if there is a destination link
   if (!item.related_link) return;
   if (!item.read) await handleMarkRead(item);
   await navigateTo(item.related_link);

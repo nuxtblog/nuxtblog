@@ -1,17 +1,44 @@
 <template>
   <div class="min-h-screen pb-16">
-    <div :class="[containerClass, 'mx-auto px-4 md:px-6 py-8']">
+    <PageHeader
+      icon="i-tabler-tags"
+      :title="$t('site.tags.title')"
+      :subtitle="$t('site.tags.subtitle', { n: filteredTags.length })">
+      <template #actions>
+        <div class="flex items-center gap-1 p-1 bg-default rounded-md ring-1 ring-default">
+          <UButton
+            v-for="opt in viewModeOptions"
+            :key="opt.value"
+            :variant="viewMode === opt.value ? 'solid' : 'ghost'"
+            :color="viewMode === opt.value ? 'primary' : 'neutral'"
+            size="xs"
+            :class="viewMode === opt.value ? 'shadow-sm' : 'text-muted'"
+            @click="viewMode = opt.value as typeof viewMode">
+            {{ opt.label }}
+          </UButton>
+        </div>
+      </template>
+      <template #toolbar>
+        <div class="flex flex-col sm:flex-row gap-3">
+          <UInput
+            v-model="searchQuery"
+            :placeholder="$t('site.tags.search_placeholder')"
+            leading-icon="i-tabler-search"
+            class="flex-1"
+            size="md">
+            <template v-if="searchQuery" #trailing>
+              <UButton icon="i-tabler-x" color="neutral" variant="ghost" size="xs" @click="searchQuery = ''" />
+            </template>
+          </UInput>
+          <USelect v-model="sortBy" :items="sortOptions" value-key="value" label-key="label" class="w-auto" />
+        </div>
+      </template>
+    </PageHeader>
 
-      <!-- Plugin slot: tags top -->
-      <ClientOnly><ContributionSlot name="public:tags-top" /></ClientOnly>
+    <!-- Plugin slot: tags top -->
+    <ClientOnly><ContributionSlot name="public:tags-top" /></ClientOnly>
 
-      <!-- Title -->
-      <div class="flex items-center gap-2 mb-6">
-        <UIcon name="i-tabler-tags" class="size-6 text-primary shrink-0" />
-        <h1 class="text-xl font-bold text-highlighted">{{ $t('site.tags.title') }}</h1>
-        <span class="text-sm text-muted ml-1">{{ $t('site.tags.subtitle', { n: tags.length }) }}</span>
-      </div>
-
+    <PageContent>
       <!-- Stats row -->
       <div class="grid grid-cols-4 rounded-md overflow-hidden ring-1 ring-default bg-default shadow-sm mb-6">
         <div class="flex flex-col items-center py-4">
@@ -32,19 +59,8 @@
         </div>
       </div>
 
-      <!-- Search and Filter -->
-      <div class="flex flex-col sm:flex-row gap-3 mb-6">
-        <UInput
-          v-model="searchQuery"
-          :placeholder="$t('site.tags.search_placeholder')"
-          leading-icon="i-tabler-search"
-          class="flex-1" />
-        <USelect v-model="sortBy" :items="sortOptions" value-key="value" label-key="label" class="w-auto" />
-        <USelect v-model="viewMode" :items="viewModeOptions" value-key="value" label-key="label" class="w-auto" />
-      </div>
-
       <!-- Loading skeleton -->
-      <div v-if="isLoading" class="rounded-md bg-default ring-1 ring-default shadow-sm overflow-hidden">
+      <div v-if="loading" class="rounded-md bg-default ring-1 ring-default shadow-sm overflow-hidden">
         <div class="divide-y divide-default">
           <div v-for="i in 6" :key="i" class="flex items-center gap-3 px-4 py-3.5">
             <USkeleton class="size-10 rounded-md shrink-0" />
@@ -140,24 +156,25 @@
             </div>
           </NuxtLink>
         </div>
-
-        <!-- Pagination -->
-        <div v-if="totalPages > 1" class="flex justify-center mt-6">
-          <UPagination
-            v-model:page="currentPage"
-            :total="filteredTags.length"
-            :items-per-page="pageSize" />
-        </div>
       </template>
+    </PageContent>
 
-      <!-- Plugin slot: tags bottom -->
-      <ClientOnly><ContributionSlot name="public:tags-bottom" /></ClientOnly>
-    </div>
+    <!-- Pagination -->
+    <PageFooter v-if="totalPages > 1">
+      <div class="flex justify-center">
+        <UPagination
+          v-model:page="currentPage"
+          :total="filteredTags.length"
+          :items-per-page="pageSize" />
+      </div>
+    </PageFooter>
+
+    <!-- Plugin slot: tags bottom -->
+    <ClientOnly><ContributionSlot name="public:tags-bottom" /></ClientOnly>
   </div>
 </template>
 
 <script setup lang="ts">
-const { containerClass } = useContainerWidth()
 const { t } = useI18n()
 import type { TermDetailResponse } from '~/types/api/term'
 
@@ -179,7 +196,8 @@ const viewModeOptions = computed(() => [
 
 const termApi = useTermApi()
 
-const isLoading = ref(true)
+const rawLoading = ref(true)
+const loading = useMinLoading(rawLoading)
 const searchQuery = ref('')
 const sortBy = ref<'name' | 'count'>('count')
 const viewMode = ref<'cloud' | 'card' | 'list'>('cloud')
@@ -219,13 +237,17 @@ const getTagSize = (count: number) => {
   return minSize + ((count - minCount) / (maxCount - minCount)) * (maxSize - minSize)
 }
 
+watch([searchQuery, sortBy], () => {
+  currentPage.value = 1
+})
+
 onMounted(async () => {
   try {
     tags.value = await termApi.getTerms({ taxonomy: 'tag' })
   } catch (e) {
     console.error('Failed to load tags:', e)
   } finally {
-    isLoading.value = false
+    rawLoading.value = false
   }
 })
 </script>

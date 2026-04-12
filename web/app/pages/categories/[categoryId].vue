@@ -1,54 +1,59 @@
 <template>
   <div class="min-h-screen pb-16">
-    <div :class="[containerClass, 'mx-auto px-4 md:px-6 py-8']">
 
-      <!-- Loading skeleton -->
-      <div v-if="isLoading" class="space-y-6">
-        <div class="flex items-center gap-3 mb-6">
-          <USkeleton class="size-6 rounded-full" />
-          <div class="space-y-2">
-            <USkeleton class="h-6 w-40" />
-            <USkeleton class="h-4 w-24" />
+    <!-- Loading skeleton -->
+    <template v-if="isLoading">
+      <PageContent>
+        <div class="space-y-6">
+          <div class="flex items-center gap-3 mb-6">
+            <USkeleton class="size-6 rounded-full" />
+            <div class="space-y-2">
+              <USkeleton class="h-6 w-40" />
+              <USkeleton class="h-4 w-24" />
+            </div>
           </div>
-        </div>
-        <div class="rounded-md bg-default ring-1 ring-default shadow-sm overflow-hidden divide-y divide-default">
-          <div v-for="i in 5" :key="i" class="flex gap-4 px-4 py-4">
-            <USkeleton class="w-28 h-20 rounded-md shrink-0" />
-            <div class="flex-1 space-y-2 pt-1">
-              <USkeleton class="h-4 w-3/4" />
-              <USkeleton class="h-3 w-full" />
-              <USkeleton class="h-3 w-1/2" />
+          <div class="rounded-md bg-default ring-1 ring-default shadow-sm overflow-hidden divide-y divide-default">
+            <div v-for="i in 5" :key="i" class="flex gap-4 px-4 py-4">
+              <USkeleton class="w-28 h-20 rounded-md shrink-0" />
+              <div class="flex-1 space-y-2 pt-1">
+                <USkeleton class="h-4 w-3/4" />
+                <USkeleton class="h-3 w-full" />
+                <USkeleton class="h-3 w-1/2" />
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </PageContent>
+    </template>
 
-      <!-- Not found -->
-      <div v-else-if="!category" class="rounded-md bg-default ring-1 ring-default shadow-sm overflow-hidden">
-        <div class="py-20 flex flex-col items-center gap-3 text-center px-4">
-          <div class="size-16 rounded-full bg-muted flex items-center justify-center">
-            <UIcon name="i-tabler-folder-off" class="size-8 text-muted" />
+    <!-- Not found -->
+    <template v-else-if="!category">
+      <PageContent>
+        <div class="rounded-md bg-default ring-1 ring-default shadow-sm overflow-hidden">
+          <div class="py-20 flex flex-col items-center gap-3 text-center px-4">
+            <div class="size-16 rounded-full bg-muted flex items-center justify-center">
+              <UIcon name="i-tabler-folder-off" class="size-8 text-muted" />
+            </div>
+            <p class="font-semibold text-highlighted">{{ $t('site.categories.not_found') }}</p>
+            <NuxtLink to="/categories">
+              <UButton color="neutral" variant="outline" size="sm">{{ $t('site.categories.back_to_list') }}</UButton>
+            </NuxtLink>
           </div>
-          <p class="font-semibold text-highlighted">{{ $t('site.categories.not_found') }}</p>
-          <NuxtLink to="/categories">
-            <UButton color="neutral" variant="outline" size="sm">{{ $t('site.categories.back_to_list') }}</UButton>
-          </NuxtLink>
         </div>
-      </div>
+      </PageContent>
+    </template>
 
-      <template v-else>
-        <!-- Plugin slot: category top -->
-        <ClientOnly><ContributionSlot name="public:category-top" /></ClientOnly>
+    <template v-else>
+      <!-- Plugin slot: category top -->
+      <ClientOnly><ContributionSlot name="public:category-top" /></ClientOnly>
 
-        <!-- Title -->
-        <div class="flex items-center gap-2 mb-2">
-          <UIcon name="i-tabler-stack-2" class="size-6 text-primary shrink-0" />
-          <h1 class="text-xl font-bold text-highlighted">{{ category.name }}</h1>
-          <span class="text-sm text-muted ml-1">{{ $t('site.categories.post_count', { n: total || category.count }) }}</span>
-        </div>
-        <p v-if="category.description" class="text-sm text-muted mb-6 ml-8">{{ category.description }}</p>
-        <div v-if="!category.description" class="mb-6" />
+      <PageHeader
+        icon="i-tabler-stack-2"
+        :title="category.name"
+        :subtitle="categorySubtitle">
+      </PageHeader>
 
+      <PageContent>
         <!-- Posts card -->
         <div class="rounded-md bg-default ring-1 ring-default shadow-sm overflow-hidden">
 
@@ -101,25 +106,27 @@
             </NuxtLink>
           </div>
         </div>
+      </PageContent>
 
-        <!-- Pagination -->
-        <div v-if="totalPages > 1" class="flex justify-center mt-6">
+      <!-- Pagination -->
+      <PageFooter v-if="totalPages > 1">
+        <div class="flex justify-center">
           <UPagination v-model:page="currentPage" :total="total" :items-per-page="pageSize" />
         </div>
+      </PageFooter>
 
-        <!-- Plugin slot: category bottom -->
-        <ClientOnly><ContributionSlot name="public:category-bottom" /></ClientOnly>
-      </template>
+      <!-- Plugin slot: category bottom -->
+      <ClientOnly><ContributionSlot name="public:category-bottom" /></ClientOnly>
+    </template>
 
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-const { containerClass } = useContainerWidth()
 import type { TermDetailResponse } from '~/types/api/term'
 import type { PostListItemResponse } from '~/types/api/post'
 
+const { t } = useI18n()
 const route = useRoute()
 const slug = route.params.categoryId as string
 
@@ -138,6 +145,12 @@ const currentPage = ref(1)
 const pageSize = 12
 
 const totalPages = computed(() => Math.ceil(total.value / pageSize))
+
+const categorySubtitle = computed(() => {
+  const count = t('site.categories.post_count', { n: total.value || category.value?.count || 0 })
+  const desc = category.value?.description
+  return desc ? `${desc} · ${count}` : count
+})
 
 const collectDescendantIds = (terms: TermDetailResponse[], rootTaxId: number): number[] => {
   const result: number[] = [rootTaxId]

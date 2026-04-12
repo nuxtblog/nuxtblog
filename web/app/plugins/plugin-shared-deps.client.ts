@@ -26,6 +26,8 @@ import {
   ULink, UBreadcrumb,
   // Admin layout (4)
   AdminPageContainer, AdminPageHeader, AdminPageContent, AdminPageFooter,
+  // Public layout (3)
+  PageHeader, PageContent, PageFooter,
 } from '#components'
 
 function findHex(colors: { name: string; hex: string }[], name: string): string {
@@ -43,6 +45,7 @@ export default defineNuxtPlugin(() => {
     UAvatar, UAvatarGroup, UProgress, UPagination, UChip, UKbd, UCollapsible, UAccordion,
     ULink, UBreadcrumb,
     AdminPageContainer, AdminPageHeader, AdminPageContent, AdminPageFooter,
+    PageHeader, PageContent, PageFooter,
   }
   // Legacy alias — kept for backward compatibility with plugins that import from @nuxtblog/admin
   ;(window as any).__nuxtblog_admin = {
