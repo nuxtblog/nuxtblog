@@ -288,24 +288,6 @@
           </div>
         </UCard>
 
-        <!-- 布局 -->
-        <UCard>
-          <template #header>
-            <h3 class="text-base font-semibold text-highlighted">{{ $t('admin.settings.general.layout') }}</h3>
-          </template>
-          <UFormField :label="$t('admin.settings.general.max_width')">
-            <USelect
-              v-model="form.containerWidth"
-              :items="[
-                { label: $t('admin.settings.general.width_narrow'), value: '5xl' },
-                { label: $t('admin.settings.general.width_medium'), value: '6xl' },
-                { label: $t('admin.settings.general.width_wide'), value: '7xl' },
-              ]"
-              class="w-full" />
-            <p class="text-xs text-muted mt-1">{{ $t('admin.settings.general.max_width_hint') }}</p>
-          </UFormField>
-        </UCard>
-
       </template>
     </AdminPageContent>
   </AdminPageContainer>
@@ -359,7 +341,6 @@ const form = ref({
   socialLinks: [] as SimpleLink[],
   defaultAvatarType: "initials",
   defaultAvatarUrl: "",
-  containerWidth: "7xl",
 });
 
 const addFooterLink = () => {
@@ -399,7 +380,6 @@ const loadSettings = async () => {
     form.value.defaultUserBg = p("default_user_bg") ?? "";
     form.value.defaultAvatarType = p("default_avatar_type") ?? "initials";
     form.value.defaultAvatarUrl = p("default_avatar_url") ?? "";
-    form.value.containerWidth = p("site_container_width") ?? "7xl";
   } catch (e) {
     toast.add({
       title: t("admin.settings.general.load_failed"),
@@ -439,7 +419,6 @@ const saveSettings = async () => {
       ["default_user_bg", form.value.defaultUserBg],
       ["default_avatar_type", form.value.defaultAvatarType],
       ["default_avatar_url", form.value.defaultAvatarUrl],
-      ["site_container_width", form.value.containerWidth],
     ];
     await Promise.all(
       keyMap.map(([key, value]) =>

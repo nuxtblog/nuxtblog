@@ -180,6 +180,25 @@
           </UFormField>
         </UCard>
 
+        <!-- ── 布局 ───────────────────────────────────────────────────────── -->
+        <UCard>
+          <template #header>
+            <h3 class="text-base font-semibold text-highlighted">{{ $t('admin.settings.general.layout') }}</h3>
+          </template>
+
+          <UFormField :label="$t('admin.settings.general.max_width')">
+            <USelect
+              v-model="form.containerWidth"
+              :items="[
+                { label: $t('admin.settings.general.width_narrow'), value: '5xl' },
+                { label: $t('admin.settings.general.width_medium'), value: '6xl' },
+                { label: $t('admin.settings.general.width_wide'), value: '7xl' },
+              ]"
+              class="w-full" />
+            <p class="text-xs text-muted mt-1">{{ $t('admin.settings.general.max_width_hint') }}</p>
+          </UFormField>
+        </UCard>
+
       </template>
     </AdminPageContent>
   </AdminPageContainer>
@@ -215,7 +234,7 @@ const COLOR_MODES = computed(() => [
 
 // ── Form state ─────────────────────────────────────────────────────────────────
 
-type ThemeFormState = Omit<ThemeSettings, 'customCss'>
+type ThemeFormState = Omit<ThemeSettings, 'customCss'> & { containerWidth: string }
 const form = ref<ThemeFormState>({
   primary:   DEFAULT_THEME.primary,
   neutral:   DEFAULT_THEME.neutral,
@@ -223,6 +242,7 @@ const form = ref<ThemeFormState>({
   colorMode: DEFAULT_THEME.colorMode,
   font:      DEFAULT_THEME.font,
   fontSize:  DEFAULT_THEME.fontSize,
+  containerWidth: '7xl',
 })
 
 const primaryHex   = computed(() => PRIMARY_COLORS.find((c) => c.name === form.value.primary)?.hex ?? '#8b5cf6')
@@ -242,6 +262,7 @@ onMounted(async () => {
       colorMode: optionsStore.get('theme_color_mode', DEFAULT_THEME.colorMode),
       font:      optionsStore.get('theme_font',       DEFAULT_THEME.font),
       fontSize:  Number(optionsStore.get('theme_font_size', String(DEFAULT_THEME.fontSize))) || DEFAULT_THEME.fontSize,
+      containerWidth: optionsStore.get('site_container_width', '7xl'),
     }
   } finally {
     rawLoading.value = false
@@ -278,12 +299,13 @@ const setFont = (fontValue: string) => {
 // ── Save ───────────────────────────────────────────────────────────────────────
 
 const OPTION_KEYS: { key: string; field: keyof ThemeFormState }[] = [
-  { key: 'theme_primary',    field: 'primary' },
-  { key: 'theme_neutral',    field: 'neutral' },
-  { key: 'theme_radius',     field: 'radius' },
-  { key: 'theme_color_mode', field: 'colorMode' },
-  { key: 'theme_font',       field: 'font' },
-  { key: 'theme_font_size',  field: 'fontSize' },
+  { key: 'theme_primary',        field: 'primary' },
+  { key: 'theme_neutral',        field: 'neutral' },
+  { key: 'theme_radius',         field: 'radius' },
+  { key: 'theme_color_mode',     field: 'colorMode' },
+  { key: 'theme_font',           field: 'font' },
+  { key: 'theme_font_size',      field: 'fontSize' },
+  { key: 'site_container_width', field: 'containerWidth' },
 ]
 
 const save = async () => {
@@ -294,6 +316,7 @@ const save = async () => {
         optionApi.setOption(key, form.value[field]),
       ),
     )
+    await optionsStore.reload()
     toast.add({ title: t('admin.appearance.themes.saved'), color: 'success' })
   } catch (error: any) {
     toast.add({ title: t('common.save_failed'), description: error?.message, color: 'error' })
@@ -310,6 +333,7 @@ const resetToDefault = () => {
     colorMode: DEFAULT_THEME.colorMode,
     font:      DEFAULT_THEME.font,
     fontSize:  DEFAULT_THEME.fontSize,
+    containerWidth: '7xl',
   }
   setPrimary(DEFAULT_THEME.primary)
   setNeutral(DEFAULT_THEME.neutral)
