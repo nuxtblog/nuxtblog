@@ -16,7 +16,7 @@ const loadedModules: Record<string, Record<string, any>> = {}
  * Load a plugin's admin.mjs, rewriting Vue imports to use the host's Vue.
  * Returns the full module namespace (cached).
  */
-async function loadPluginModule(pluginId: string, moduleFile = 'admin.mjs'): Promise<Record<string, any>> {
+export async function loadPluginModule(pluginId: string, moduleFile = 'admin.mjs'): Promise<Record<string, any>> {
   const cacheKey = `${pluginId}:${moduleFile}`
   if (loadedModules[cacheKey]) return loadedModules[cacheKey]
 
@@ -25,6 +25,13 @@ async function loadPluginModule(pluginId: string, moduleFile = 'admin.mjs'): Pro
   if (!resp.ok) throw new Error(`Failed to load plugin "${pluginId}": HTTP ${resp.status}`)
 
   let source = await resp.text()
+
+  // DEBUG: check if backend serves the activate export
+  if (pluginId.includes('view-counter')) {
+    const hasActivate = source.includes('activate')
+    const lastLine = source.trim().split('\n').slice(-5).join('\n')
+    console.debug(`[loadPluginModule] ${pluginId}: source length=${source.length}, hasActivate=${hasActivate}, tail:\n${lastLine}`)
+  }
 
   // Rewrite: import { ref, computed as r, ... } from "/_shared/vue.mjs"
   // To:      const { ref, computed: r, ... } = window.__nuxtblog_vue;

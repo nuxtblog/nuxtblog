@@ -8,12 +8,13 @@
  *   <ContributionSlot name="post-editor:context" :ctx="editorCtx" />
  */
 import DOMPurify from 'dompurify'
+import type { ContributionSlotName } from '~/config/contribution-slots'
 import { usePluginContextStore } from '~/stores/plugin-context'
 import { usePluginContributionsStore, type PluginContentBlock } from '~/stores/plugin-contributions'
 
 const props = defineProps<{
   /** Slot name matching manifest menus/views keys */
-  name: string
+  name: ContributionSlotName
   /** Optional context passed to command handlers */
   ctx?: Record<string, unknown>
 }>()

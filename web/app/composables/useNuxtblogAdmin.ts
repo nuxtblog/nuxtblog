@@ -6,7 +6,15 @@
  * command handlers registered by plugins.
  */
 
-export interface EditorContext {
+// ── Command context types (by call site) ────────────────────────────────
+export interface PostListCommandContext {
+  source: 'post-list'
+  postId: number
+  postTitle: string
+}
+
+export interface EditorCommandContext {
+  source: 'editor'
   post: { title: string; slug: string; content: string; excerpt: string; status: string }
   selection: string | null
   replace: (text: string) => void
@@ -14,12 +22,22 @@ export interface EditorContext {
   setContent: (html: string) => void
 }
 
+export interface GenericCommandContext {
+  source: string
+  [key: string]: unknown
+}
+
+export type CommandContext = PostListCommandContext | EditorCommandContext | GenericCommandContext
+
+/** @deprecated Use EditorCommandContext instead */
+export type EditorContext = EditorCommandContext
+
 export interface Disposable {
   dispose: () => void
 }
 
 type FieldWatcher = (value: string) => void
-type CommandHandler = (ctx: EditorContext) => void | Promise<void>
+type CommandHandler = (ctx: CommandContext) => void | Promise<void>
 
 const fieldWatchers = new Map<string, Set<FieldWatcher>>()
 const commandHandlers = new Map<string, CommandHandler>()
@@ -68,10 +86,13 @@ export function consumeFieldSet(field: string): string | null {
   return val ?? null
 }
 
-/** Execute a command by ID. Returns false if no handler is registered. */
-export async function executePluginCommand(commandId: string, ctx: EditorContext): Promise<boolean> {
+/** Dispatch a command by ID. Returns false if no handler is registered. */
+export async function dispatchCommand(commandId: string, ctx: CommandContext): Promise<boolean> {
   const handler = commandHandlers.get(commandId)
-  if (!handler) return false
+  if (!handler) {
+    console.warn(`[plugin] no handler for command: ${commandId}`)
+    return false
+  }
   try {
     await handler(ctx)
     return true
@@ -81,6 +102,9 @@ export async function executePluginCommand(commandId: string, ctx: EditorContext
     return false
   }
 }
+
+/** @deprecated Use dispatchCommand instead */
+export const executePluginCommand = dispatchCommand
 
 /** Get all field suggestions (reactive). */
 export function useFieldSuggestions() {
@@ -139,12 +163,8 @@ export function installNuxtblogAdmin() {
           dispose: () => { commandHandlers.delete(id) },
         }
       },
-      async execute(id: string, ...args: unknown[]) {
-        const handler = commandHandlers.get(id)
-        if (handler) {
-          // Create a minimal EditorContext for programmatic execution
-          await handler(args[0] as EditorContext)
-        }
+      async execute(id: string, ctx: CommandContext) {
+        await dispatchCommand(id, ctx)
       },
     },
 

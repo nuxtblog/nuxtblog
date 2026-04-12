@@ -90,7 +90,7 @@ export const CAPABILITIES = Object.fromEntries(
 // ── Capability Zod schema ──────────────────────────────────────────────────────
 
 // Derive the union type the same way as before, then build z.enum from it.
-export type Capability = keyof {
+export type Capability = {
   [G in keyof typeof CAPABILITY_GROUPS]:
     keyof (typeof CAPABILITY_GROUPS)[G]['caps']
 }[keyof typeof CAPABILITY_GROUPS]

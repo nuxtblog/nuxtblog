@@ -176,14 +176,7 @@
             :is-selected="selectedPosts.includes(post.id)"
             :actions="getPostActions(post)"
             :filter-status="filterStatus"
-            @toggle-select="toggleSelect(post.id)">
-            <template #row-actions>
-              <ContributionSlot
-                name="post-list:row-action"
-                :ctx="{ postId: post.id, postTitle: post.title }"
-                @command="handlePluginCommand" />
-            </template>
-          </PostListRow>
+            @toggle-select="toggleSelect(post.id)" />
         </div>
 
         <!-- 网格视图 -->
@@ -335,7 +328,10 @@
 </template>
 
 <script setup lang="ts">
-import { eventBus } from '~/composables/useNuxtblogPublic'
+import { dispatchCommand } from '~/composables/useNuxtblogAdmin'
+import { CONTRIBUTION_SLOTS } from '~/config/contribution-slots'
+import { usePluginContributionsStore } from '~/stores/plugin-contributions'
+import { usePluginContextStore } from '~/stores/plugin-context'
 
 interface PostListItem {
   id: number
@@ -748,8 +744,24 @@ const confirmDelete = async () => {
 }
 
 // ── Plugin contribution commands ──────────────────────────────────────────
-const handlePluginCommand = (commandId: string, ctx?: Record<string, unknown>) => {
-  eventBus.emit(`command:${commandId}`, ctx)
+const contributionsStore = usePluginContributionsStore()
+const contextStore = usePluginContextStore()
+const pluginMenuItems = contributionsStore.getMenuItems(CONTRIBUTION_SLOTS.POST_LIST_ROW_ACTION)
+
+const getPluginActions = (post: PostListItem) => {
+  const items = pluginMenuItems.value.filter(
+    item => !item.when || contextStore.evaluateWhen(item.when),
+  )
+  if (items.length === 0) return []
+  return [items.map(item => ({
+    label: item.title || item.command,
+    icon: item.icon,
+    onClick: () => dispatchCommand(item.command, {
+      source: 'post-list',
+      postId: post.id,
+      postTitle: post.title,
+    }),
+  }))]
 }
 
 // ── Actions menu ───────────────────────────────────────────────────────────
@@ -766,6 +778,7 @@ const getPostActions = (post: PostListItem) => {
       { label: t('common.preview'), icon: 'i-tabler-eye', onClick: () => previewPost(post) },
       { label: t('common.copy'), icon: 'i-tabler-copy', onClick: () => copyPost(post) },
     ],
+    ...getPluginActions(post),
     [{ label: t('admin.posts.trash_action'), icon: 'i-tabler-trash', color: 'error' as const, onClick: () => trashPost(post) }],
   ]
 }

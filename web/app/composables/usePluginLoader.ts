@@ -8,6 +8,7 @@
  */
 import type { PluginContributes } from '~/stores/plugin-contributions'
 import { usePluginContributionsStore } from '~/stores/plugin-contributions'
+import { loadPluginModule } from '~/composables/usePluginComponents'
 
 interface PluginClientItem {
   id: string
@@ -43,17 +44,20 @@ export function usePluginLoader() {
 
       // Register contribution points
       for (const plugin of plugins.value) {
+        // Merge contributes + page navigation into a single registerPlugin call
+        // to avoid the second call wiping out the first via unregisterPlugin().
+        let contributes: PluginContributes = {}
+
         if (plugin.contributes) {
           try {
-            const contributes: PluginContributes = JSON.parse(plugin.contributes)
-            contributionsStore.registerPlugin(plugin.id, contributes)
+            contributes = JSON.parse(plugin.contributes)
           }
           catch (e) {
             console.warn(`[plugin-loader] failed to parse contributes for ${plugin.id}:`, e)
           }
         }
 
-        // Phase 4.2: register page nav items from manifest pages[]
+        // Phase 4.2: merge page nav items into the same contributes object
         if (plugin.pages) {
           try {
             const pages: PageDef[] = JSON.parse(plugin.pages)
@@ -68,12 +72,19 @@ export function usePluginLoader() {
                 order: p.nav?.order ?? 100,
               }))
             if (pageNavItems.length > 0) {
-              contributionsStore.registerPlugin(plugin.id, { navigation: pageNavItems })
+              contributes.navigation = [...(contributes.navigation || []), ...pageNavItems]
             }
           }
           catch (e) {
             console.warn(`[plugin-loader] failed to parse pages for ${plugin.id}:`, e)
           }
+        }
+
+        // Single registration: contributes + page nav merged
+        if (contributes.commands?.length || contributes.navigation?.length
+          || contributes.menus && Object.keys(contributes.menus).length
+          || contributes.views && Object.keys(contributes.views).length) {
+          contributionsStore.registerPlugin(plugin.id, contributes)
         }
 
         // Load admin_js
@@ -94,32 +105,21 @@ export function usePluginLoader() {
 
 /**
  * Load a plugin's admin_js script. The loading method depends on trust_level:
- * - official/local: loaded as inline <script> in main page context
+ * - official/local: loaded via loadPluginModule (source rewriting + activate())
  * - community: loaded in a sandboxed iframe with postMessage bridge
  */
 async function loadAdminScript(plugin: PluginClientItem) {
   // admin_js may include a directory prefix (e.g. "dist/admin.mjs"), but the
   // backend saves assets as flat filenames. Strip any directory prefix.
   const assetFilename = plugin.admin_js!.split('/').pop()!
-  const scriptUrl = `/api/plugins/${encodeURIComponent(plugin.id)}/assets/${assetFilename}`
 
   if (plugin.trust_level === 'official' || plugin.trust_level === 'local') {
-    // Main context — full nuxtblogAdmin access
+    // Main context — load via loadPluginModule (source rewriting + Blob URL import)
     try {
-      const script = document.createElement('script')
-      script.type = 'module'
-      script.src = scriptUrl
-      script.dataset.pluginId = plugin.id
-      document.head.appendChild(script)
-
-      // Wait for script to load, then call activate() if exported
-      await new Promise<void>((resolve, reject) => {
-        script.onload = () => {
-          // activate() is called by the script itself using nuxtblogAdmin
-          resolve()
-        }
-        script.onerror = () => reject(new Error(`Failed to load admin_js for ${plugin.id}`))
-      })
+      const mod = await loadPluginModule(plugin.id, assetFilename)
+      if (typeof mod.activate === 'function') {
+        await mod.activate((window as any).nuxtblogAdmin)
+      }
     }
     catch (e) {
       console.warn(`[plugin-loader] failed to load admin_js for ${plugin.id}:`, e)
@@ -128,6 +128,7 @@ async function loadAdminScript(plugin: PluginClientItem) {
   else {
     // Community plugins: sandboxed iframe
     // The iframe only has access to a restricted postMessage-based API
+    const scriptUrl = `/api/plugins/${encodeURIComponent(plugin.id)}/assets/${assetFilename}`
     loadInSandbox(plugin.id, scriptUrl)
   }
 }
@@ -178,11 +179,15 @@ function loadInSandbox(pluginId: string, scriptUrl: string) {
         info: function(msg) { parent.postMessage({type:'plugin:notify',level:'info',message:msg},'*'); }
       }
     };
-    // Listen for field updates from parent
+    // Listen for messages from parent
     window.addEventListener('message', function(e) {
       if (e.data && e.data.type === 'fieldUpdate' && window.__watchers) {
         var cb = window.__watchers[e.data.watchId];
         if (cb) cb(e.data.value);
+      }
+      if (e.data && e.data.type === 'plugin:executeCommand' && window.__commandHandlers) {
+        var h = window.__commandHandlers[e.data.commandId];
+        if (h) h(e.data.ctx);
       }
     });
     <\/script>
@@ -193,6 +198,9 @@ function loadInSandbox(pluginId: string, scriptUrl: string) {
   iframe.srcdoc = html
   document.body.appendChild(iframe)
 
+  // Track field watchers so we can dispose them on unwatch
+  const sandboxWatchers = new Map<string, { dispose: () => void }>()
+
   // Listen for postMessage from the sandboxed iframe
   window.addEventListener('message', (e) => {
     if (e.source !== iframe.contentWindow) return
@@ -200,12 +208,46 @@ function loadInSandbox(pluginId: string, scriptUrl: string) {
     if (!data || !data.type) return
 
     switch (data.type) {
+      case 'plugin:watch': {
+        const disposable = (window as any).nuxtblogAdmin?.watch(data.field, (value: string) => {
+          iframe.contentWindow?.postMessage(
+            { type: 'fieldUpdate', watchId: data.watchId, value },
+            '*',
+          )
+        })
+        if (disposable) {
+          sandboxWatchers.set(data.watchId, disposable)
+        }
+        break
+      }
+      case 'plugin:unwatch': {
+        const disposable = sandboxWatchers.get(data.watchId)
+        if (disposable) {
+          disposable.dispose()
+          sandboxWatchers.delete(data.watchId)
+        }
+        break
+      }
       case 'plugin:suggest':
         (window as any).nuxtblogAdmin?.suggest(data.field, data.value)
         break
       case 'plugin:notify': {
         const toast = useToast()
         toast.add({ title: data.message, color: data.level || 'info' })
+        break
+      }
+      case 'plugin:registerCommand': {
+        // Bridge: register a handler in the host that forwards execution to the iframe
+        ;(window as any).nuxtblogAdmin?.commands.register(data.commandId, async (ctx: any) => {
+          // Strip function properties before sending to iframe
+          const safe = Object.fromEntries(
+            Object.entries(ctx).filter(([, v]) => typeof v !== 'function'),
+          )
+          iframe.contentWindow?.postMessage(
+            { type: 'plugin:executeCommand', commandId: data.commandId, ctx: safe },
+            '*',
+          )
+        })
         break
       }
     }

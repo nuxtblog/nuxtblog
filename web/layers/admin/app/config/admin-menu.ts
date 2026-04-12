@@ -1,4 +1,4 @@
-import type { Capability } from '../../../../app/config/permissions'
+import type { Capability } from '~/config/permissions'
 
 export interface MenuItem {
   name: string
