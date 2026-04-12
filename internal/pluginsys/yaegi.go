@@ -42,7 +42,6 @@ func (m *Manager) LoadExternal(ctx context.Context, dataDir string) error {
 
 	// Phase 1: Discovery — parse all manifests
 	candidates := make(map[string]*externalCandidate)
-	var jsIDs []string // IDs of JS/full plugins that need activation ordering
 
 	for _, entry := range entries {
 		if !entry.IsDir() {
@@ -97,18 +96,21 @@ func (m *Manager) LoadExternal(ctx context.Context, dataDir string) error {
 		// Register dependencies for JS/full plugins
 		if pm.Type == sdk.TypeJS || pm.Type == sdk.TypeFull {
 			m.graph.Add(pm.ID, pm.Depends)
-			jsIDs = append(jsIDs, pm.ID)
 		}
 	}
 
-	// Phase 2: Build union of already-loaded (builtin) IDs + new JS candidate IDs for sorting
+	// Build union of already-loaded (builtin) IDs + all candidate IDs for sorting
 	m.mu.RLock()
-	allIDs := make([]string, 0, len(m.plugins)+len(jsIDs))
+	candidateIDs := make([]string, 0, len(candidates))
+	for id := range candidates {
+		candidateIDs = append(candidateIDs, id)
+	}
+	allIDs := make([]string, 0, len(m.plugins)+len(candidateIDs))
 	for id := range m.plugins {
 		allIDs = append(allIDs, id)
 	}
 	m.mu.RUnlock()
-	allIDs = append(allIDs, jsIDs...)
+	allIDs = append(allIDs, candidateIDs...)
 
 	versionResolver := func(id string) string {
 		// Check already-loaded plugins
