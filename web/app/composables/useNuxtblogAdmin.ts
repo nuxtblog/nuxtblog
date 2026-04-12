@@ -20,6 +20,9 @@ export interface EditorCommandContext {
   replace: (text: string) => void
   insert: (text: string) => void
   setContent: (html: string) => void
+  setSlug: (text: string) => void
+  setExcerpt: (text: string) => void
+  addTags: (tags: Array<string | { name: string; slug?: string }>) => Promise<void>
 }
 
 export interface GenericCommandContext {
@@ -29,8 +32,6 @@ export interface GenericCommandContext {
 
 export type CommandContext = PostListCommandContext | EditorCommandContext | GenericCommandContext
 
-/** @deprecated Use EditorCommandContext instead */
-export type EditorContext = EditorCommandContext
 
 export interface Disposable {
   dispose: () => void
@@ -103,8 +104,6 @@ export async function dispatchCommand(commandId: string, ctx: CommandContext): P
   }
 }
 
-/** @deprecated Use dispatchCommand instead */
-export const executePluginCommand = dispatchCommand
 
 /** Get all field suggestions (reactive). */
 export function useFieldSuggestions() {
@@ -221,6 +220,14 @@ export function installNuxtblogAdmin() {
       success(msg: string) { toast.add({ title: msg, color: 'success' }) },
       error(msg: string) { toast.add({ title: msg, color: 'error' }) },
       info(msg: string) { toast.add({ title: msg, color: 'info' }) },
+    },
+
+    // ── Editor extensions ─────────────────────────────────
+    editor: {
+      registerExtension(extension: unknown): { dispose: () => void } {
+        const unregister = registerPluginExtension(extension as any)
+        return { dispose: unregister }
+      },
     },
 
     // ── Theme tokens ────────────────────────────────────

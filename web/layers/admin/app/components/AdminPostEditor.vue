@@ -1,10 +1,36 @@
 <template>
   <AdminPageContainer>
     <AdminPageHeader
-      :title="mode === 'create' ? t('admin.posts.editor.create_title') : t('admin.posts.editor.edit_title')"
-      :subtitle="mode === 'create' ? t('admin.posts.editor.create_subtitle') : t('admin.posts.editor.edit_subtitle')">
+      :title="
+        mode === 'create'
+          ? t('admin.posts.editor.create_title')
+          : t('admin.posts.editor.edit_title')
+      "
+      :subtitle="
+        mode === 'create'
+          ? t('admin.posts.editor.create_subtitle')
+          : t('admin.posts.editor.edit_subtitle')
+      ">
       <template #actions>
         <div class="flex items-center gap-3">
+          <UButton
+            v-if="mode === 'edit' && init?.slug"
+            color="neutral"
+            variant="ghost"
+            icon="i-tabler-eye"
+            @click="
+              navigateTo(`/posts/${init!.slug}`, { open: { target: '_blank' } })
+            ">
+            {{ t("admin.posts.editor.view_post") }}
+          </UButton>
+          <UButton
+            v-if="mode === 'create'"
+            color="neutral"
+            variant="ghost"
+            icon="i-tabler-eye"
+            @click="showPreview = true">
+            {{ t("admin.posts.editor.preview_content") }}
+          </UButton>
           <UButton
             v-if="mode === 'edit'"
             color="neutral"
@@ -13,13 +39,25 @@
             @click="showRevisionModal = true">
             {{ t("admin.posts.editor.revisions") }}
           </UButton>
-          <UButton color="neutral" variant="soft" :disabled="submitting" @click="handleSaveDraft">
+          <UButton
+            color="neutral"
+            variant="soft"
+            :disabled="submitting"
+            @click="handleSaveDraft">
             {{ t("admin.posts.editor.save_draft") }}
           </UButton>
-          <UButton color="primary" :loading="submitting" :icon="isFuturePublish ? 'i-tabler-clock' : undefined" @click="handlePublish">
-            {{ isFuturePublish
-              ? t("admin.posts.editor.schedule_btn")
-              : mode === "create" ? t("admin.posts.editor.publish") : t("common.save") }}
+          <UButton
+            color="primary"
+            :loading="submitting"
+            :icon="isFuturePublish ? 'i-tabler-clock' : undefined"
+            @click="handlePublish">
+            {{
+              isFuturePublish
+                ? t("admin.posts.editor.schedule_btn")
+                : mode === "create"
+                  ? t("admin.posts.editor.publish")
+                  : t("common.save")
+            }}
           </UButton>
         </div>
       </template>
@@ -28,23 +66,41 @@
     <AdminPageContent class="p-0 flex flex-col md:flex-row">
       <!-- 主内容区 -->
       <div class="flex-1 min-w-0 max-w-5xl mx-auto">
-        <div class="flex-1 overflow-y-auto bg-default">
-
+        <div class="flex-1 overflow-y-auto bg-default px-2">
           <!-- 草稿恢复提示 -->
-          <div v-if="showDraftRestore" class="px-8 sm:px-16 pt-8 pb-3">
+          <div v-if="showDraftRestore" class="pt-8 pb-3">
             <UAlert
               icon="i-tabler-device-floppy"
               color="warning"
               variant="subtle"
               :title="t('admin.posts.editor.draft_found')">
               <template #description>
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <span class="text-sm text-gray-500">
-                    {{ savedDraft?.savedAt ? t("admin.posts.editor.draft_saved_at", { time: new Date(savedDraft.savedAt).toLocaleString() }) : "" }}
+                <div
+                  class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <span class="text-sm text-muted">
+                    {{
+                      savedDraft?.savedAt
+                        ? t("admin.posts.editor.draft_saved_at", {
+                            time: new Date(savedDraft.savedAt).toLocaleString(),
+                          })
+                        : ""
+                    }}
                   </span>
                   <div class="flex gap-2">
-                    <UButton size="xs" color="primary"  variant="soft"  @click="restoreDraft">{{ t("admin.posts.editor.restore_draft") }}</UButton>
-                    <UButton size="xs" color="neutral"  variant="ghost" @click="discardDraft">{{ t("admin.posts.editor.discard") }}</UButton>
+                    <UButton
+                      size="xs"
+                      color="primary"
+                      variant="soft"
+                      @click="restoreDraft"
+                      >{{ t("admin.posts.editor.restore_draft") }}</UButton
+                    >
+                    <UButton
+                      size="xs"
+                      color="neutral"
+                      variant="ghost"
+                      @click="discardDraft"
+                      >{{ t("admin.posts.editor.discard") }}</UButton
+                    >
                   </div>
                 </div>
               </template>
@@ -52,29 +108,35 @@
           </div>
 
           <!-- 标题 -->
-          <div class="px-8 sm:px-16 pt-8 pb-3">
+          <div class="pt-8 pb-3">
             <input
               v-model="formData.title"
               type="text"
               :placeholder="t('admin.posts.editor.title_placeholder')"
-              class="w-full text-3xl font-bold bg-transparent border-none outline-none placeholder:text-muted" />
+              :aria-label="t('admin.posts.editor.title_placeholder')"
+              class="w-full text-3xl font-bold bg-transparent border-none outline-none placeholder:text-muted focus:border-b-2 focus:border-primary" />
           </div>
 
           <!-- 别名 -->
-          <div class="px-8 sm:px-16 pb-4">
+          <div class="pb-4">
             <input
               v-model="formData.slug"
               type="text"
               :placeholder="t('admin.posts.editor.slug_placeholder')"
+              :aria-label="t('admin.posts.editor.slug_placeholder')"
               class="w-full text-sm bg-transparent border-b border-default pb-2 outline-none placeholder:text-muted focus:border-primary transition-colors" />
           </div>
 
           <!-- 编辑器骨架屏 -->
-          <div v-if="editorLoading" class="px-8 sm:px-16 py-4">
-            <div class="flex items-center gap-2 border-b border-default pb-2 mb-6">
+          <div v-if="editorLoading" class="py-4">
+            <div
+              class="flex items-center gap-2 border-b border-default pb-2 mb-6">
               <USkeleton v-for="i in 8" :key="i" class="h-7 w-7 rounded" />
               <USkeleton class="h-7 w-px mx-1" />
-              <USkeleton v-for="i in 5" :key="'b' + i" class="h-7 w-7 rounded" />
+              <USkeleton
+                v-for="i in 5"
+                :key="'b' + i"
+                class="h-7 w-7 rounded" />
             </div>
             <div class="space-y-4 min-h-[500px]">
               <USkeleton class="h-8 w-2/3" />
@@ -103,14 +165,73 @@
             :extensions="editorExtensions"
             :handlers="editorHandlers"
             :ui="{ base: 'px-8 sm:px-16 py-6' }"
-            class="min-h-[500px] px-8 sm:px-16 pb-4">
-            <div class="border-b border-default sticky top-0 inset-x-0 z-10 bg-default/95 backdrop-blur">
-              <UEditorToolbar
-                :editor="editor"
-                :items="toolbarItems"
-                layout="fixed"
-                class="px-4 py-1.5 overflow-x-auto" />
-              <ContributionSlot name="post-editor:toolbar" :ctx="{ editor }" class="px-4 py-1 empty:hidden" />
+            class="min-h-[500px] pb-4">
+            <div
+              class="border-b border-default sticky top-0 inset-x-0 z-10 bg-default/95 backdrop-blur">
+              <div class="flex items-center">
+                <div
+                  ref="toolbarScrollRef"
+                  class="flex-1 min-w-0 overflow-hidden">
+                  <UEditorToolbar
+                    :editor="editor"
+                    :items="fullToolbarItems"
+                    layout="fixed"
+                    class="px-4 py-1.5" />
+                </div>
+                <div class="shrink-0 flex items-center gap-0.5 mr-1.5">
+                  <UPopover v-if="hasOverflow" :content="{ align: 'end' }">
+                    <UButton
+                      variant="ghost"
+                      color="neutral"
+                      size="xs"
+                      icon="i-tabler-dots" />
+                    <template #content>
+                      <UEditorToolbar
+                        :editor="editor"
+                        :items="overflowItems"
+                        layout="fixed"
+                        class="p-2 flex-wrap max-w-xs" />
+                    </template>
+                  </UPopover>
+                  <UTooltip :text="t('admin.posts.editor.plugin_toolbar')">
+                    <UButton
+                      variant="ghost"
+                      color="neutral"
+                      size="xs"
+                      :icon="
+                        pluginToolbarExpanded
+                          ? 'i-tabler-puzzle'
+                          : 'i-tabler-puzzle-off'
+                      "
+                      @click="pluginToolbarExpanded = !pluginToolbarExpanded" />
+                  </UTooltip>
+                </div>
+              </div>
+              <div
+                v-if="pluginToolbarExpanded"
+                role="toolbar"
+                class="border-t border-default/50 has-[button]:flex hidden items-stretch gap-1.5 px-4 py-1.5">
+                <div role="group" class="flex items-center gap-0.5">
+                  <ContributionSlot
+                    name="post-editor:toolbar"
+                    :ctx="{ editor }"
+                    class="contents"
+                    @command="
+                      (cmdId: string) => handlePluginCommand(cmdId, editor)
+                    ">
+                    <template #menu="{ item, execute }">
+                      <UTooltip :text="item.title">
+                        <UButton
+                          variant="ghost"
+                          color="neutral"
+                          size="xs"
+                          :icon="item.icon"
+                          @click="execute" />
+                      </UTooltip>
+                    </template>
+                  </ContributionSlot>
+                </div>
+              </div>
             </div>
 
             <UEditorToolbar
@@ -118,10 +239,14 @@
               :items="bubbleItems"
               class="z-50"
               layout="bubble"
-              :should-show="({ editor: e, view, state }) => {
-                const { selection } = state;
-                return view.hasFocus() && !selection.empty && !e.isActive('image');
-              }" />
+              :should-show="
+                ({ editor: e, view, state }) => {
+                  const { selection } = state;
+                  return (
+                    view.hasFocus() && !selection.empty && !e.isActive('image')
+                  );
+                }
+              " />
 
             <UEditorDragHandle
               v-slot="{ ui, onClick }"
@@ -133,18 +258,24 @@
                 variant="ghost"
                 size="sm"
                 :class="ui.handle()"
-                @click="(e) => {
-                  e.stopPropagation();
-                  const selected = onClick();
-                  handlers.suggestion?.execute(editor, { pos: selected?.pos }).run();
-                }" />
+                @click="
+                  (e) => {
+                    e.stopPropagation();
+                    const selected = onClick();
+                    handlers.suggestion
+                      ?.execute(editor, { pos: selected?.pos })
+                      .run();
+                  }
+                " />
               <UDropdownMenu
                 v-slot="{ open }"
                 :modal="false"
                 :items="dragHandleItems(editor)"
                 :content="{ side: 'left' }"
                 :ui="{ content: 'w-52', label: 'text-xs' }"
-                @update:open="editor.chain().setMeta('lockDragHandle', $event).run()">
+                @update:open="
+                  editor.chain().setMeta('lockDragHandle', $event).run()
+                ">
                 <UButton
                   color="neutral"
                   variant="ghost"
@@ -156,24 +287,43 @@
               </UDropdownMenu>
             </UEditorDragHandle>
 
-            <UEditorSuggestionMenu :editor="editor" :items="suggestionItems" :append-to="appendToBody" />
-            <UEditorMentionMenu   :editor="editor" :items="[]"             :append-to="appendToBody" />
-            <UEditorEmojiMenu     :editor="editor" :items="emojiItems"     :append-to="appendToBody" />
+            <UEditorSuggestionMenu
+              :editor="editor"
+              :items="suggestionItems"
+              :append-to="appendToBody" />
+            <UEditorMentionMenu
+              :editor="editor"
+              :items="[]"
+              :append-to="appendToBody" />
+            <UEditorEmojiMenu
+              :editor="editor"
+              :items="emojiItems"
+              :append-to="appendToBody" />
           </UEditor>
 
           <!-- 字数统计 -->
-          <div class="px-8 sm:px-16 py-2 flex items-center gap-4 text-xs text-muted border-t border-default">
-            <span>{{ t("admin.posts.editor.char_count",      { n: charCount }) }}</span>
-            <span>{{ t("admin.posts.editor.reading_minutes", { n: readingMinutes }) }}</span>
+          <div
+            class="py-2 flex px-2 items-center gap-4 text-xs text-muted border-t border-default">
+            <span>{{
+              t("admin.posts.editor.char_count", { n: charCount })
+            }}</span>
+            <span>{{
+              t("admin.posts.editor.reading_minutes", { n: readingMinutes })
+            }}</span>
             <span v-if="autoSavedLabel" class="ml-auto flex items-center gap-1">
-              <UIcon name="i-tabler-circle-check" class="size-3 text-success" />{{ autoSavedLabel }}
+              <UIcon
+                name="i-tabler-circle-check"
+                class="size-3 text-success" />{{ autoSavedLabel }}
             </span>
           </div>
 
-          <ContributionSlot name="admin:post-editor-footer" :ctx="{ formData: formData }" class="px-8 sm:px-16 empty:hidden" />
+          <ContributionSlot
+            name="admin:post-editor-footer"
+            :ctx="{ formData: formData }"
+            class="empty:hidden" />
 
           <!-- 摘要 -->
-          <div class="px-8 sm:px-16 pb-8">
+          <div class="pb-8">
             <UFormField :label="t('admin.posts.editor.excerpt')">
               <UTextarea
                 v-model="formData.excerpt"
@@ -182,12 +332,14 @@
                 class="w-full" />
             </UFormField>
           </div>
-
         </div>
       </div>
 
       <!-- 插件上下文插槽（摘要、标签推荐等） -->
-      <ContributionSlot name="post-editor:context" :ctx="{ formData: formData }" class="empty:hidden" />
+      <ContributionSlot
+        name="post-editor:context"
+        :ctx="{ formData: formData }"
+        class="empty:hidden" />
 
       <!-- 右侧边栏 -->
       <PostEditorSidebar
@@ -206,29 +358,37 @@
         v-model:layout="postLayout"
         v-model:sidebar="postSidebar"
         v-model:authorId="formData.author_id" />
-
     </AdminPageContent>
 
     <!-- 版本历史弹窗 -->
     <PostEditorRevisionModal v-model="showRevisionModal" :post-id="init?.id" />
 
-    <!-- 图片上传（隐藏） -->
-    <input
-      ref="imageFileInput"
-      type="file"
-      accept="image/*"
-      class="hidden"
-      @change="handleImageFileSelect" />
-
+    <!-- 预览侧滑面板 -->
+    <USlideover v-model:open="showPreview">
+      <template #content>
+        <div class="p-6 overflow-y-auto h-full">
+          <h1 class="text-2xl font-bold mb-4">
+            {{ formData.title || t("admin.posts.editor.untitled") }}
+          </h1>
+          <MarkdownContent :content="formData.content" />
+          <div
+            v-if="formData.excerpt"
+            class="mt-6 pt-4 border-t border-default text-sm text-muted">
+            {{ formData.excerpt }}
+          </div>
+        </div>
+      </template>
+    </USlideover>
   </AdminPageContainer>
 </template>
 
 <script setup lang="ts">
-import type { EditorToolbarItem } from "@nuxt/ui";
-import type { JSONContent, Editor } from "@tiptap/vue-3";
+import type { Editor } from "@tiptap/vue-3";
+import { dispatchCommand } from "~/composables/useNuxtblogAdmin";
 import { Emoji, gitHubEmojis } from "@tiptap/extension-emoji";
 import { TextAlign } from "@tiptap/extension-text-align";
 import { Markdown } from "tiptap-markdown";
+import { ImageUpload } from "../extensions/ImageUpload";
 import type { TermDetailResponse } from "~/types/api/term";
 import type { CreatePostRequest, UpdatePostRequest } from "~/types/api/post";
 
@@ -254,8 +414,12 @@ export interface PostEditorInitialData {
   isFeatured?: boolean;
   customMetaFields?: { key: string; value: string }[];
   seo?: {
-    meta_title?: string; meta_desc?: string; og_title?: string;
-    og_image?: string;   canonical_url?: string; robots?: string;
+    meta_title?: string;
+    meta_desc?: string;
+    og_title?: string;
+    og_image?: string;
+    canonical_url?: string;
+    robots?: string;
   };
 }
 
@@ -266,254 +430,272 @@ const props = defineProps<{
   simple?: boolean;
 }>();
 
-const emit = defineEmits<{ save: [payload: CreatePostRequest | UpdatePostRequest] }>();
+const emit = defineEmits<{
+  save: [payload: CreatePostRequest | UpdatePostRequest];
+}>();
 
 // ── Editor extensions & emoji ─────────────────────────────────────────────
-const editorExtensions = [
+const { pluginExtensions } = usePluginEditorExtensions();
+const editorExtensions = computed(() => [
   Emoji,
   TextAlign.configure({ types: ["heading", "paragraph"] }),
   Markdown.configure({ transformPastedText: true, transformCopiedText: true }),
-];
+  ImageUpload,
+  ...pluginExtensions.value,
+]);
 const appendToBody = import.meta.client ? () => document.body : undefined;
-const emojiItems   = gitHubEmojis.filter((e) => !e.name.startsWith("regional_indicator_"));
+const emojiItems = gitHubEmojis.filter(
+  (e) => !e.name.startsWith("regional_indicator_"),
+);
 
 // ── Toolbar config (composable) ───────────────────────────────────────────
-const { toolbarItems, bubbleItems, suggestionItems, selectedNode, dragHandleItems } =
-  usePostEditorToolbar();
+const {
+  toolbarItems: fullToolbarItems,
+  bubbleItems,
+  suggestionItems,
+  selectedNode,
+  dragHandleItems,
+  toolbarScrollRef,
+  hasOverflow,
+  overflowItems,
+} = usePostEditorToolbar();
 
-// ── Image upload ──────────────────────────────────────────────────────────
-// Strategy: insert a compressed data URL immediately (persisted in auto-save /
-// localStorage), then upload all data-URL images to the server right before
-// the post is saved/published and replace them with CDN URLs.
-const toast          = useToast();
-const mediaStore     = useMediaStore();
-const imageFileInput = ref<HTMLInputElement | null>(null);
-let   pendingEditor: Editor | null = null;
+// ── Plugin toolbar toggle ─────────────────────────────────────────────────
+const pluginToolbarExpanded = useLocalStorage(
+  "nuxtblog:editor:plugin-toolbar",
+  true,
+);
 
-// Compress + resize to JPEG so the data URL stays small enough for localStorage
-const compressImage = (file: File, maxWidth = 1920, quality = 0.85): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const scale  = Math.min(1, maxWidth / img.width);
-        canvas.width  = Math.round(img.width  * scale);
-        canvas.height = Math.round(img.height * scale);
-        canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL("image/jpeg", quality));
-      };
-      img.onerror = reject;
-      img.src = e.target?.result as string;
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+// ── Plugin command dispatch ───────────────────────────────────────────────
+const handlePluginCommand = (commandId: string, editor: Editor) => {
+  const { state } = editor;
+  const { from, to } = state.selection;
+  const selectedText =
+    from !== to ? state.doc.textBetween(from, to, " ") : null;
 
-const editorHandlers = computed(() => ({
-  image: {
-    canExecute: (editor: Editor) => editor.isEditable,
-    execute: (editor: Editor) => {
-      pendingEditor = editor;
-      nextTick(() => imageFileInput.value?.click());
-      return editor.chain();
+  dispatchCommand(commandId, {
+    source: "editor",
+    post: {
+      title: formData.value.title,
+      slug: formData.value.slug,
+      content: formData.value.content ?? "",
+      excerpt: formData.value.excerpt ?? "",
+      status: formData.value.status === 2 ? "published" : "draft",
     },
-    isActive: (_editor: Editor) => false,
-  },
-}));
-
-const handleImageFileSelect = async (event: Event) => {
-  const file = (event.target as HTMLInputElement).files?.[0];
-  if (!file || !pendingEditor) return;
-  const editor = pendingEditor;
-  pendingEditor = null;
-  try {
-    const dataUrl = await compressImage(file);
-    editor.chain().focus().setImage({ src: dataUrl, alt: file.name.replace(/\.[^.]+$/, "") }).run();
-  } catch {
-    toast.add({ title: t("admin.posts.editor.image_upload_failed"), color: "error" });
-  } finally {
-    if (imageFileInput.value) imageFileInput.value.value = "";
-  }
-};
-
-// Upload every data-URL image embedded in the markdown content, replace with CDN URL
-const dataUrlToFile = (dataUrl: string, name: string): File => {
-  const [header, b64] = dataUrl.split(",");
-  const mime = header.match(/:(.*?);/)?.[1] ?? "image/jpeg";
-  const ext  = mime.split("/")[1] ?? "jpg";
-  const bin  = atob(b64);
-  const arr  = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-  return new File([arr], name.includes(".") ? name : `${name}.${ext}`, { type: mime });
-};
-
-const uploadPendingImages = async (): Promise<void> => {
-  const content = formData.value.content ?? "";
-  const regex   = /!\[([^\]]*)\]\((data:[^)]+)\)/g;
-  const matches: { alt: string; src: string }[] = [];
-  let m: RegExpExecArray | null;
-  while ((m = regex.exec(content)) !== null) matches.push({ alt: m[1], src: m[2] });
-  if (!matches.length) return;
-
-  toast.add({ title: t("admin.posts.editor.image_uploading"), color: "neutral", duration: 0, id: "img-upload" });
-  try {
-    const results = await Promise.all(
-      matches.map(async ({ alt, src }) => {
-        const name   = alt || `image-${Date.now()}`;
-        const result = await mediaStore.uploadMedia(dataUrlToFile(src, name), { title: name, category: "post" });
-        return { src, cdnUrl: result?.cdn_url };
-      }),
-    );
-    let updated = content;
-    for (const { src, cdnUrl } of results) {
-      if (cdnUrl) updated = updated.replaceAll(src, cdnUrl);
-    }
-    formData.value.content = updated;
-    await nextTick();
-  } finally {
-    toast.remove("img-upload");
-  }
+    selection: selectedText,
+    replace: (text: string) => {
+      editor
+        .chain()
+        .focus()
+        .deleteRange({ from, to })
+        .insertContent(text)
+        .run();
+    },
+    insert: (text: string) => {
+      editor.chain().focus().insertContent(text).run();
+    },
+    setContent: (html: string) => {
+      editor.commands.setContent(html);
+    },
+    setExcerpt: (text: string) => {
+      formData.value.excerpt = text;
+    },
+    setSlug: (text: string) => {
+      formData.value.slug = text;
+    },
+    addTags: async (tags: Array<string | { name: string; slug?: string }>) => {
+      for (const item of tags) {
+        const name = (typeof item === "string" ? item : item.name).trim();
+        const slug = typeof item === "string" ? undefined : item.slug;
+        if (!name) continue;
+        if (
+          selectedTags.value.some(
+            (t) => t.name.toLowerCase() === name.toLowerCase(),
+          )
+        )
+          continue;
+        try {
+          const tag = await tagStore.addNewTag({ name, slug });
+          selectedTags.value.push(tag);
+        } catch {
+          // silently skip failed tags
+        }
+      }
+    },
+  });
 };
 
 // ── Form state ────────────────────────────────────────────────────────────
-const optionsStore  = useOptionsStore();
 const categoryStore = useCategoryStore();
-const tagStore      = useTagStore();
-const authStore     = useAuthStore();
+const tagStore = useTagStore();
+const authStore = useAuthStore();
 
 const init = props.initialData;
 
-interface MetaField    { key: string; value: string }
-interface DownloadItem { name: string; url: string; size?: string; desc?: string }
+interface MetaField {
+  key: string;
+  value: string;
+}
+interface DownloadItem {
+  name: string;
+  url: string;
+  size?: string;
+  desc?: string;
+}
 
-const editorLoading  = ref(true);
+const editorLoading = ref(true);
 const sidebarLoading = ref(true);
 
 const publishedAtLocal = ref(
-  init?.publishedAt ? toDatetimeInputValue(init.publishedAt) : toDatetimeInputValue(new Date()),
+  init?.publishedAt
+    ? toDatetimeInputValue(init.publishedAt)
+    : toDatetimeInputValue(new Date()),
 );
-const featuredImageUrl  = ref(init?.featuredImgUrl ?? "");
+const featuredImageUrl = ref(init?.featuredImgUrl ?? "");
 const selectedCategories = ref<number[]>(init?.categoryTaxonomyIds ?? []);
-const selectedTags      = ref<TermDetailResponse[]>(init?.selectedTagObjects ?? []);
-const metaFields        = ref<MetaField[]>(init?.customMetaFields ?? []);
-const isBanner          = ref(init?.isBanner   ?? false);
-const isFeatured        = ref(init?.isFeatured  ?? false);
-const postLayout        = ref<string>(init?.customMetaFields?.find((f) => f.key === "post_layout")?.value   || "auto");
-const postSidebar       = ref<string>(init?.customMetaFields?.find((f) => f.key === "post_sidebar")?.value  || "auto");
+const selectedTags = ref<TermDetailResponse[]>(init?.selectedTagObjects ?? []);
+const metaFields = ref<MetaField[]>(init?.customMetaFields ?? []);
+const isBanner = ref(init?.isBanner ?? false);
+const isFeatured = ref(init?.isFeatured ?? false);
+const postLayout = ref<string>(
+  init?.customMetaFields?.find((f) => f.key === "post_layout")?.value || "auto",
+);
+const postSidebar = ref<string>(
+  init?.customMetaFields?.find((f) => f.key === "post_sidebar")?.value ||
+    "auto",
+);
 
 const parseDownloads = (): DownloadItem[] => {
-  try { return JSON.parse(init?.customMetaFields?.find((f) => f.key === "post_downloads")?.value ?? "[]"); }
-  catch { return []; }
+  try {
+    return JSON.parse(
+      init?.customMetaFields?.find((f) => f.key === "post_downloads")?.value ??
+        "[]",
+    );
+  } catch {
+    return [];
+  }
 };
 const postDownloads = ref<DownloadItem[]>(parseDownloads());
 
 const formData = ref<CreatePostRequest>({
-  post_type:       init?.postType      ?? 1,
-  title:           init?.title         ?? "",
-  slug:            init?.slug          ?? "",
-  content:         init?.content       ?? "",
-  excerpt:         init?.excerpt       ?? "",
+  post_type: init?.postType ?? 1,
+  title: init?.title ?? "",
+  slug: init?.slug ?? "",
+  content: init?.content ?? "",
+  excerpt: init?.excerpt ?? "",
   featured_img_id: init?.featuredImgId,
-  status:          init?.status        ?? 1,
-  published_at:    undefined,
-  password:        "",
-  comment_status:  init?.commentStatus ?? 1,
-  author_id:       init?.authorId ?? authStore.user?.id ?? 1,
+  status: init?.status ?? 1,
+  published_at: undefined,
+  password: "",
+  comment_status: init?.commentStatus ?? 1,
+  author_id: init?.authorId ?? authStore.user?.id ?? 1,
   term_taxonomy_ids: [],
 });
 
 const seoData = ref({
-  meta_title:   init?.seo?.meta_title   ?? "",
-  meta_desc:    init?.seo?.meta_desc    ?? "",
-  og_title:     init?.seo?.og_title     ?? "",
-  og_image:     init?.seo?.og_image     ?? "",
+  meta_title: init?.seo?.meta_title ?? "",
+  meta_desc: init?.seo?.meta_desc ?? "",
+  og_title: init?.seo?.og_title ?? "",
+  og_image: init?.seo?.og_image ?? "",
   canonical_url: init?.seo?.canonical_url ?? "",
-  robots:       init?.seo?.robots       ?? "index,follow",
+  robots: init?.seo?.robots ?? "index,follow",
 });
 
-// ── Unsaved changes ───────────────────────────────────────────────────────
-const hasUnsavedChanges = ref(false);
+// ── Draft & auto-save (composable) ────────────────────────────────────────
+const {
+  autoSaveKey,
+  autoSavedLabel,
+  showDraftRestore,
+  savedDraft,
+  hasUnsavedChanges,
+  restoreDraft,
+  discardDraft,
+  markSaved,
+  startAutoSave,
+} = usePostEditorDraft(formData, {
+  mode: props.mode,
+  postId: init?.id,
+  hasInitialContent: !!init?.content,
+});
+
 watch(
-  [formData, selectedCategories, selectedTags, isBanner, isFeatured, seoData, metaFields],
-  () => { hasUnsavedChanges.value = true; },
+  [
+    formData,
+    selectedCategories,
+    selectedTags,
+    isBanner,
+    isFeatured,
+    seoData,
+    metaFields,
+  ],
+  () => {
+    hasUnsavedChanges.value = true;
+  },
   { deep: true },
 );
-const markSaved = () => {
-  hasUnsavedChanges.value = false;
-  try { localStorage.removeItem(autoSaveKey.value); } catch {}
-};
 
-// ── Auto-save ─────────────────────────────────────────────────────────────
-const autoSaveKey = computed(() =>
-  props.mode === "edit" && init?.id ? `blog:draft:${init.id}` : "blog:draft:new",
-);
-const lastAutoSaved  = ref<Date | null>(null);
-const autoSavedLabel = computed(() => {
-  if (!lastAutoSaved.value) return "";
-  return t("admin.posts.editor.auto_saved", {
-    time: lastAutoSaved.value.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }),
-  });
-});
-const showDraftRestore = ref(false);
-const savedDraft = ref<{ title?: string; content?: string; excerpt?: string; savedAt?: string } | null>(null);
+// ── Image upload (composable) ─────────────────────────────────────────────
+const toast = useToast();
+const editorRef = ref<any>(null);
 
-const doAutoSave = () => {
-  if (!formData.value.title && !formData.value.content) return;
-  try {
-    localStorage.setItem(autoSaveKey.value, JSON.stringify({
-      title: formData.value.title, content: formData.value.content,
-      excerpt: formData.value.excerpt, savedAt: new Date().toISOString(),
-    }));
-    lastAutoSaved.value = new Date();
-  } catch {}
-};
-const restoreDraft = () => {
-  if (!savedDraft.value) return;
-  if (savedDraft.value.title)   formData.value.title   = savedDraft.value.title;
-  if (savedDraft.value.content) formData.value.content = savedDraft.value.content;
-  if (savedDraft.value.excerpt) formData.value.excerpt = savedDraft.value.excerpt;
-  showDraftRestore.value = false;
-  localStorage.removeItem(autoSaveKey.value);
-};
-const discardDraft = () => {
-  localStorage.removeItem(autoSaveKey.value);
-  showDraftRestore.value = false;
-};
+const { editorHandlers, uploadPendingImages, hasPendingUploads } =
+  usePostEditorImageUpload(formData, editorRef);
 
-// ── Revision modal ────────────────────────────────────────────────────────
+// ── Revision modal & preview ──────────────────────────────────────────────
 const showRevisionModal = ref(false);
+const showPreview = ref(false);
 
 // ── Word count ────────────────────────────────────────────────────────────
-const charCount = computed(() =>
-  (formData.value.content ?? "").replace(/[#*`\[\]()>_~\-|]/g, "").replace(/\s+/g, "").trim().length,
+const charCount = computed(
+  () =>
+    (formData.value.content ?? "")
+      .replace(/[#*`\[\]()>_~\-|]/g, "")
+      .replace(/\s+/g, "")
+      .trim().length,
 );
-const readingMinutes = computed(() => Math.max(1, Math.ceil(charCount.value / 400)));
+const readingMinutes = computed(() =>
+  Math.max(1, Math.ceil(charCount.value / 400)),
+);
 
 // ── Build & save ──────────────────────────────────────────────────────────
-const buildPayload = (status: number): CreatePostRequest | UpdatePostRequest => {
+const buildPayload = (
+  status: number,
+): CreatePostRequest | UpdatePostRequest => {
   formData.value.term_taxonomy_ids = [
     ...selectedCategories.value,
     ...selectedTags.value.map((t) => t.term_taxonomy_id),
   ];
   if (publishedAtLocal.value) {
-    formData.value.published_at = new Date(publishedAtLocal.value).toISOString();
+    formData.value.published_at = new Date(
+      publishedAtLocal.value,
+    ).toISOString();
   }
   const metas: Record<string, string> = {};
-  metaFields.value.forEach((field) => { if (field.key) metas[field.key] = field.value; });
-  metas["is_banner"]   = isBanner.value   ? "1" : "";
+  metaFields.value.forEach((field) => {
+    if (field.key) metas[field.key] = field.value;
+  });
+  metas["is_banner"] = isBanner.value ? "1" : "";
   metas["is_featured"] = isFeatured.value ? "1" : "";
-  if (postLayout.value  && postLayout.value  !== "auto") metas["post_layout"]  = postLayout.value;
-  if (postSidebar.value && postSidebar.value !== "auto") metas["post_sidebar"] = postSidebar.value;
+  if (postLayout.value && postLayout.value !== "auto")
+    metas["post_layout"] = postLayout.value;
+  if (postSidebar.value && postSidebar.value !== "auto")
+    metas["post_sidebar"] = postSidebar.value;
   const validDownloads = postDownloads.value.filter((d) => d.name && d.url);
-  if (validDownloads.length > 0) metas["post_downloads"] = JSON.stringify(validDownloads);
+  if (validDownloads.length > 0)
+    metas["post_downloads"] = JSON.stringify(validDownloads);
   else delete metas["post_downloads"];
-  return { ...formData.value, post_type: formData.value.post_type ?? 1, status, metas };
+  return {
+    ...formData.value,
+    post_type: formData.value.post_type ?? 1,
+    status,
+    metas,
+  };
 };
 
 const isFormValid = computed(
-  () => formData.value.title.trim() !== "" && (formData.value.content ?? "").trim() !== "",
+  () =>
+    formData.value.title.trim() !== "" &&
+    (formData.value.content ?? "").trim() !== "",
 );
 
 // True when the selected publishedAt is more than 1 minute in the future.
@@ -523,12 +705,38 @@ const isFuturePublish = computed(() => {
 });
 
 const handleSaveDraft = async () => {
-  if (!isFormValid.value) { toast.add({ title: t("admin.posts.editor.fill_required"), color: "warning" }); return; }
+  if (!isFormValid.value) {
+    toast.add({
+      title: t("admin.posts.editor.fill_required"),
+      color: "warning",
+    });
+    return;
+  }
+  if (hasPendingUploads()) {
+    toast.add({
+      title: t("admin.posts.editor.pending_upload_warning"),
+      color: "warning",
+    });
+    return;
+  }
   await uploadPendingImages();
   emit("save", buildPayload(1));
 };
 const handlePublish = async () => {
-  if (!isFormValid.value) { toast.add({ title: t("admin.posts.editor.fill_required"), color: "warning" }); return; }
+  if (!isFormValid.value) {
+    toast.add({
+      title: t("admin.posts.editor.fill_required"),
+      color: "warning",
+    });
+    return;
+  }
+  if (hasPendingUploads()) {
+    toast.add({
+      title: t("admin.posts.editor.pending_upload_warning"),
+      color: "warning",
+    });
+    return;
+  }
   await uploadPendingImages();
   // If publish time is in the future, save as draft — server cron will auto-publish at that time.
   emit("save", buildPayload(isFuturePublish.value ? 1 : 2));
@@ -536,47 +744,56 @@ const handlePublish = async () => {
 
 const reset = () => {
   formData.value = {
-    post_type: 1, title: "", slug: "", content: "", excerpt: "",
-    featured_img_id: undefined, status: 1, published_at: undefined,
-    password: "", comment_status: 1,
-    author_id: authStore.user?.id ?? 1, term_taxonomy_ids: [],
+    post_type: 1,
+    title: "",
+    slug: "",
+    content: "",
+    excerpt: "",
+    featured_img_id: undefined,
+    status: 1,
+    published_at: undefined,
+    password: "",
+    comment_status: 1,
+    author_id: authStore.user?.id ?? 1,
+    term_taxonomy_ids: [],
   };
   selectedCategories.value = [];
-  selectedTags.value       = [];
-  metaFields.value         = [];
-  isBanner.value           = false;
-  isFeatured.value         = false;
-  featuredImageUrl.value   = "";
-  publishedAtLocal.value   = toDatetimeInputValue(new Date());
-  seoData.value = { meta_title: "", meta_desc: "", og_title: "", og_image: "", canonical_url: "", robots: "index,follow" };
-  hasUnsavedChanges.value  = false;
-  try { localStorage.removeItem(autoSaveKey.value); } catch {}
+  selectedTags.value = [];
+  metaFields.value = [];
+  isBanner.value = false;
+  isFeatured.value = false;
+  featuredImageUrl.value = "";
+  publishedAtLocal.value = toDatetimeInputValue(new Date());
+  seoData.value = {
+    meta_title: "",
+    meta_desc: "",
+    og_title: "",
+    og_image: "",
+    canonical_url: "",
+    robots: "index,follow",
+  };
+  hasUnsavedChanges.value = false;
+  try {
+    localStorage.removeItem(autoSaveKey.value);
+  } catch {}
 };
 
-defineExpose({ reset, isDirty: hasUnsavedChanges, getIsDirty: () => hasUnsavedChanges.value, markSaved, seoData });
+defineExpose({
+  reset,
+  isDirty: hasUnsavedChanges,
+  getIsDirty: () => hasUnsavedChanges.value,
+  markSaved,
+  seoData,
+});
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────
-let autoSaveTimer: ReturnType<typeof setInterval>;
-
 onMounted(async () => {
+  // Small delay to allow plugin extensions to register before editor mounts
+  await new Promise((r) => setTimeout(r, 150));
   editorLoading.value = false;
   await Promise.all([categoryStore.loadCategories(), tagStore.loadTags()]);
   sidebarLoading.value = false;
 
-  if (!init?.content) {
-    try {
-      const saved = localStorage.getItem(autoSaveKey.value);
-      if (saved) {
-        const draft = JSON.parse(saved);
-        if (draft.title || draft.content) { savedDraft.value = draft; showDraftRestore.value = true; }
-      }
-    } catch {}
-  }
-
-  const autoSaveEnabled  = optionsStore.get("auto_save", "true") !== "false";
-  const autoSaveInterval = Math.max(10, Number(optionsStore.get("auto_save_interval", "60"))) * 1000;
-  if (autoSaveEnabled) autoSaveTimer = setInterval(doAutoSave, autoSaveInterval);
+  startAutoSave();
 });
-
-onUnmounted(() => clearInterval(autoSaveTimer));
 </script>

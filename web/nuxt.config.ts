@@ -38,6 +38,7 @@ export default defineNuxtConfig({
         "marked",
         "highlight.js",
         "dompurify",
+        "@tiptap/vue-3",
       ],
     },
     server: {

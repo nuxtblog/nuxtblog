@@ -62,7 +62,8 @@ export const useTagStore = defineStore("tag", () => {
     );
     if (existing) return existing;
 
-    const slug = data.slug || trimmed.toLowerCase().replace(/\s+/g, "-");
+    const raw = data.slug || trimmed.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]+/g, "");
+    const slug = raw || `tag-${Date.now().toString(36)}`;
 
     try {
       const createdTag = await termApi.createTerm({

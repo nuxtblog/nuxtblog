@@ -48,7 +48,8 @@ export const useTermApi = () => {
    * 创建术语（分类/标签）- two-step: POST /terms then POST /taxonomies
    */
   const createTerm = async (data: CreateTermRequest): Promise<TermDetailResponse> => {
-    const slug = data.slug || data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '')
+    let slug = data.slug || data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]+/g, '')
+    if (!slug) slug = `tag-${Date.now().toString(36)}`
     // Step 1: create the term (name + slug)
     const termRes = await apiFetch<{ id: number }>('/terms', {
       method: 'POST',

@@ -187,5 +187,48 @@ export const usePostEditorToolbar = () => {
     ) as DropdownMenuItem[][];
   };
 
-  return { toolbarItems, bubbleItems, suggestionItems, selectedNode, dragHandleItems };
+  // ── Toolbar overflow detection ──────────────────────────────────────────
+  const toolbarScrollRef = ref<HTMLElement>();
+  const overflowFromIndex = ref<number>(Infinity);
+
+  const checkToolbarOverflow = () => {
+    const container = toolbarScrollRef.value;
+    if (!container) return;
+
+    const toolbar = container.querySelector('[role="toolbar"]');
+    if (!toolbar) return;
+
+    const containerRight = container.getBoundingClientRect().right;
+    const groups = toolbar.querySelectorAll(':scope > [role="group"]');
+
+    let cutoff = groups.length;
+    for (let i = 0; i < groups.length; i++) {
+      if (groups[i].getBoundingClientRect().right > containerRight + 1) {
+        cutoff = i;
+        break;
+      }
+    }
+    overflowFromIndex.value = cutoff;
+  };
+
+  useResizeObserver(toolbarScrollRef, checkToolbarOverflow);
+
+  const hasOverflow = computed(
+    () => overflowFromIndex.value < toolbarItems.value.length,
+  );
+
+  const overflowItems = computed(() =>
+    toolbarItems.value.slice(overflowFromIndex.value),
+  );
+
+  return {
+    toolbarItems,
+    bubbleItems,
+    suggestionItems,
+    selectedNode,
+    dragHandleItems,
+    toolbarScrollRef,
+    hasOverflow,
+    overflowItems,
+  };
 };
