@@ -18,28 +18,25 @@
     <AdminPageContent>
       <!-- 筛选工具栏 -->
       <div class="pb-4 border-b border-default">
-        <div class="flex flex-col md:flex-row gap-3 mb-3">
-          <!-- 状态 Tabs -->
-          <div class="flex items-center gap-1 flex-1 overflow-x-auto border-b border-default pb-0">
-            <button
-              v-for="s in statusFilters"
-              :key="s.value"
-              class="px-3 py-2 text-sm font-medium rounded-t transition-colors whitespace-nowrap"
-              :class="filterStatus === s.value ? 'text-primary border-b-2 border-primary' : 'text-muted hover:text-highlighted'"
-              @click="filterStatus = s.value; currentPage = 1">
-              {{ s.label }}
-              <span v-if="s.count !== undefined" class="ml-1 text-xs text-muted">({{ s.count }})</span>
-            </button>
-          </div>
-          <!-- 搜索 -->
-          <UInput
-            v-model="searchQuery"
-            :placeholder="$t('admin.comments.search_placeholder')"
-            leading-icon="i-tabler-search"
-            class="w-56 shrink-0"
-            size="sm" />
+        <!-- 状态 Tabs -->
+        <div class="flex items-center gap-1 overflow-x-auto border-b border-default pb-0 mb-3">
+          <button
+            v-for="s in statusFilters"
+            :key="s.value"
+            class="px-3 py-2 text-sm font-medium rounded-t transition-colors whitespace-nowrap"
+            :class="filterStatus === s.value ? 'text-primary border-b-2 border-primary' : 'text-muted hover:text-highlighted'"
+            @click="filterStatus = s.value; currentPage = 1">
+            {{ s.label }}
+            <span v-if="s.count !== undefined" class="ml-1 text-xs text-muted">({{ s.count }})</span>
+          </button>
         </div>
-
+        <!-- 搜索 -->
+        <UInput
+          v-model="searchQuery"
+          :placeholder="$t('admin.comments.search_placeholder')"
+          leading-icon="i-tabler-search"
+          class="w-56"
+          size="sm" />
       </div>
 
       <!-- 评论列表 -->
