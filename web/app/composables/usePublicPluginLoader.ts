@@ -15,6 +15,7 @@ interface PluginClientItem {
   id: string
   title: string
   icon: string
+  version: string
   trust_level: string
   public_js?: string
   contributes?: string // raw JSON
@@ -139,7 +140,7 @@ async function loadPublicScript(
   backendOrigin: string,
 ) {
   const assetFilename = plugin.public_js!.split('/').pop()!
-  const scriptUrl = `${backendOrigin}/api/plugins/${encodeURIComponent(plugin.id)}/assets/${assetFilename}`
+  const scriptUrl = `${backendOrigin}/api/plugins/${encodeURIComponent(plugin.id)}/assets/${assetFilename}?v=${plugin.version}`
 
   if (plugin.trust_level === 'official' || plugin.trust_level === 'local') {
     try {

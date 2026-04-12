@@ -432,6 +432,7 @@ func (s *sPlugin) ClientList(ctx context.Context) (*v1.PluginClientListRes, erro
 			ID:         r.Id,
 			Title:      r.Title,
 			Icon:       r.Icon,
+			Version:    mf.Version,
 			TrustLevel: string(mf.TrustLevel),
 			AdminJS:    mf.AdminJS,
 			PublicJS:   mf.PublicJS,
@@ -516,6 +517,7 @@ func (s *sPlugin) PublicClientList(ctx context.Context) (*v1.PluginPublicClientR
 			ID:         r.Id,
 			Title:      r.Title,
 			Icon:       r.Icon,
+			Version:    mf.Version,
 			TrustLevel: string(mf.TrustLevel),
 			PublicJS:   mf.PublicJS,
 		}

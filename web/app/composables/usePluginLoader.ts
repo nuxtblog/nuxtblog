@@ -14,6 +14,7 @@ interface PluginClientItem {
   id: string
   title: string
   icon: string
+  version: string
   trust_level: string
   admin_js?: string
   public_js?: string
@@ -116,7 +117,7 @@ async function loadAdminScript(plugin: PluginClientItem) {
   if (plugin.trust_level === 'official' || plugin.trust_level === 'local') {
     // Main context — load via loadPluginModule (source rewriting + Blob URL import)
     try {
-      const mod = await loadPluginModule(plugin.id, assetFilename)
+      const mod = await loadPluginModule(plugin.id, assetFilename, plugin.version)
       if (typeof mod.activate === 'function') {
         await mod.activate((window as any).nuxtblogAdmin)
       }
@@ -128,7 +129,7 @@ async function loadAdminScript(plugin: PluginClientItem) {
   else {
     // Community plugins: sandboxed iframe
     // The iframe only has access to a restricted postMessage-based API
-    const scriptUrl = `/api/plugins/${encodeURIComponent(plugin.id)}/assets/${assetFilename}`
+    const scriptUrl = `/api/plugins/${encodeURIComponent(plugin.id)}/assets/${assetFilename}?v=${plugin.version}`
     loadInSandbox(plugin.id, scriptUrl)
   }
 }

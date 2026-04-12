@@ -138,6 +138,7 @@ type PluginClientItem struct {
 	ID          string `json:"id"`
 	Title       string `json:"title"`
 	Icon        string `json:"icon"`
+	Version     string `json:"version"`
 	TrustLevel  string `json:"trust_level"`
 	AdminJS     string `json:"admin_js,omitempty"`
 	PublicJS    string `json:"public_js,omitempty"`

@@ -275,6 +275,7 @@ export interface PluginClientItem {
   id: string
   title: string
   icon: string
+  version: string
   trust_level: string
   admin_js?: string
   public_js?: string
