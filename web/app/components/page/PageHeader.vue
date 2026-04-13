@@ -1,17 +1,17 @@
 <template>
-  <div :class="[containerClass, 'mx-auto px-4 md:px-6']">
-    <div class="py-6 md:py-8 border-b border-default">
+  <section class="relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen bg-gradient-to-r from-primary/10 via-primary/5 to-transparent shadow-sm">
+    <div :class="[containerClass, 'mx-auto px-4 md:px-6']">
         <!-- Optional breadcrumb -->
-        <div v-if="$slots.breadcrumb" class="mb-3">
+        <div v-if="$slots.breadcrumb" class="pt-4">
           <slot name="breadcrumb" />
         </div>
 
         <!-- Top row: icon + title + actions -->
-        <div class="flex flex-wrap items-start justify-between gap-4">
+        <div class="flex flex-wrap items-center justify-between gap-4 py-6">
           <div class="flex items-center gap-3 min-w-0">
             <slot name="icon">
-              <div v-if="icon" class="size-10 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                <UIcon :name="icon" class="size-5 text-primary" />
+              <div v-if="icon" class="size-12 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shrink-0 shadow-md">
+                <UIcon :name="icon" class="size-6 text-white" />
               </div>
             </slot>
             <div class="min-w-0">
@@ -25,7 +25,7 @@
         </div>
 
         <!-- Optional stats row -->
-        <div v-if="stats?.length" class="flex items-center gap-3 mt-4 flex-wrap">
+        <div v-if="stats?.length" class="flex items-center gap-3 pb-4 flex-wrap">
           <div
             v-for="stat in stats"
             :key="stat.label"
@@ -36,11 +36,13 @@
         </div>
 
         <!-- Toolbar slot (search bar, filters, tabs, etc.) -->
-        <div v-if="$slots.toolbar" class="mt-4">
+        <div v-if="$slots.toolbar" class="pb-4">
           <slot name="toolbar" />
         </div>
+        <!-- Bottom decorative border -->
+        <div class="h-1 bg-gradient-to-r from-primary via-primary/50 to-transparent rounded-full" />
     </div>
-  </div>
+  </section>
 </template>
 
 <script setup lang="ts">
