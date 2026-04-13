@@ -1,6 +1,6 @@
 <template>
   <div
-    class="md:w-80 shrink-0 md:border-l border-default bg-default overflow-y-auto">
+    class="md:w-80 shrink-0 md:border-l border-default bg-default overflow-y-auto md:sticky md:top-0 md:self-start md:max-h-[100dvh]">
     <!-- Screen Options -->
     <div class="flex items-center justify-end px-4 pt-3 pb-1">
       <UPopover>

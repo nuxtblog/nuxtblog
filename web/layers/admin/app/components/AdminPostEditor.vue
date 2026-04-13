@@ -68,7 +68,7 @@
       <div class="flex-1 min-w-0 max-w-5xl mx-auto">
         <div class="flex-1 bg-default px-2">
           <!-- 标题 -->
-          <div class="pt-8 pb-3">
+          <div class="pt-4 pb-3">
             <input
               v-model="formData.title"
               type="text"
@@ -373,7 +373,9 @@ const seoData = ref({
 
 // ── Unsaved changes (tracked via rich editor + form watchers) ─────────────
 const toast = useToast();
-const hasUnsavedChanges = computed(() => richEditorRef.value?.hasUnsavedChanges ?? false);
+const hasUnsavedChanges = computed(
+  () => richEditorRef.value?.hasUnsavedChanges ?? false,
+);
 
 watch(
   [

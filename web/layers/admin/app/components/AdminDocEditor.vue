@@ -44,7 +44,7 @@
       <div class="flex-1 min-w-0 max-w-5xl mx-auto">
         <div class="flex-1 bg-default px-2">
           <!-- 标题 -->
-          <div class="px-8 sm:px-16 pt-8 pb-3">
+          <div class="px-8 sm:px-16 pt-4 pb-3">
             <input
               v-model="formData.title"
               type="text"
@@ -77,7 +77,7 @@
 
       <!-- 右侧边栏 -->
       <div
-        class="md:w-80 shrink-0 border-l border-default bg-default overflow-y-auto">
+        class="md:w-80 shrink-0 border-l border-default bg-default overflow-y-auto md:sticky md:top-0 md:self-start md:max-h-[100dvh]">
         <div class="p-4 space-y-6">
           <!-- 所属合集 -->
           <div class="space-y-3">
@@ -276,7 +276,6 @@
         </div>
       </template>
     </UModal>
-
   </AdminPageContainer>
 </template>
 
@@ -442,7 +441,9 @@ watch(
 );
 
 // ── Unsaved changes (tracked via rich editor) ────────────────────────────
-const hasUnsavedChanges = computed(() => richEditorRef.value?.hasUnsavedChanges ?? false);
+const hasUnsavedChanges = computed(
+  () => richEditorRef.value?.hasUnsavedChanges ?? false,
+);
 
 watch(
   [formData, seoData],

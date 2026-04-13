@@ -4,10 +4,7 @@
     <div class="flex items-center gap-2 border-b border-default pb-2 mb-6">
       <USkeleton v-for="i in 8" :key="i" class="h-7 w-7 rounded" />
       <USkeleton class="h-7 w-px mx-1" />
-      <USkeleton
-        v-for="i in 5"
-        :key="'b' + i"
-        class="h-7 w-7 rounded" />
+      <USkeleton v-for="i in 5" :key="'b' + i" class="h-7 w-7 rounded" />
     </div>
     <div class="space-y-4 min-h-[500px]">
       <USkeleton class="h-8 w-2/3" />
@@ -25,9 +22,9 @@
     </div>
   </div>
 
-  <template v-else>
+  <div v-else>
     <!-- 草稿恢复提示 -->
-    <div v-if="showDraftRestore" class="pt-8 pb-3">
+    <div v-if="showDraftRestore" class="pt-4 pb-3">
       <UAlert
         icon="i-tabler-device-floppy"
         color="warning"
@@ -67,6 +64,7 @@
     </div>
 
     <!-- 编辑器 -->
+    <div class="overflow-y-clip">
     <UEditor
       ref="editorRef"
       v-slot="{ editor, handlers }"
@@ -82,9 +80,7 @@
       <div
         class="border-b border-default sticky top-0 inset-x-0 z-10 bg-default/95 backdrop-blur before:content-[''] before:absolute before:inset-x-0 before:bottom-full before:h-8 before:bg-default">
         <div class="flex items-center">
-          <div
-            ref="toolbarScrollRef"
-            class="flex-1 min-w-0 overflow-hidden">
+          <div ref="toolbarScrollRef" class="flex-1 min-w-0 overflow-hidden">
             <UEditorToolbar
               :editor="editor"
               :items="fullToolbarItems"
@@ -140,9 +136,7 @@
         :should-show="
           ({ editor: e, view, state }) => {
             const { selection } = state;
-            return (
-              view.hasFocus() && !selection.empty && !e.isActive('image')
-            );
+            return view.hasFocus() && !selection.empty && !e.isActive('image');
           }
         " />
 
@@ -158,7 +152,9 @@
         :items="linkBubbleItems"
         class="z-50"
         layout="bubble"
-        :should-show="({ editor: e, state }) => e.isActive('link') && state.selection.empty" />
+        :should-show="
+          ({ editor: e, state }) => e.isActive('link') && state.selection.empty
+        " />
 
       <EditorLinkPopover ref="linkPopoverRef" :editor="editor" />
 
@@ -187,9 +183,7 @@
           :items="dragHandleItems(editor)"
           :content="{ side: 'left' }"
           :ui="{ content: 'w-52', label: 'text-xs' }"
-          @update:open="
-            editor.chain().setMeta('lockDragHandle', $event).run()
-          ">
+          @update:open="editor.chain().setMeta('lockDragHandle', $event).run()">
           <UButton
             color="neutral"
             variant="ghost"
@@ -214,6 +208,7 @@
         :items="emojiItems"
         :append-to="appendToBody" />
     </UEditor>
+    </div>
 
     <!-- 字数统计 -->
     <div
@@ -223,14 +218,14 @@
         t("admin.editor.reading_minutes", { n: readingMinutes })
       }}</span>
       <span v-if="autoSavedLabel" class="ml-auto flex items-center gap-1">
-        <UIcon
-          name="i-tabler-circle-check"
-          class="size-3 text-success" />{{ autoSavedLabel }}
+        <UIcon name="i-tabler-circle-check" class="size-3 text-success" />{{
+          autoSavedLabel
+        }}
       </span>
     </div>
 
     <slot name="footer" />
-  </template>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -321,7 +316,10 @@ const {
 } = useEditorToolbar();
 
 // ── Link popover ──────────────────────────────────────────────────────────
-const linkPopoverRef = ref<{ openForInsert: () => void; openForEdit: () => void } | null>(null);
+const linkPopoverRef = ref<{
+  openForInsert: () => void;
+  openForEdit: () => void;
+} | null>(null);
 
 // ── Plugin toolbar toggle ────────────────────────────────────────────────
 const pluginToolbarExpanded = useLocalStorage(
@@ -345,48 +343,57 @@ watch(
 // ── Image upload ──────────────────────────────────────────────────────────
 const editorRef = ref<any>(null);
 
-const { editorHandlers: baseEditorHandlers, uploadPendingImages, hasPendingUploads } =
-  useEditorImageUpload(formDataRef, editorRef, {
-    imageCategory: props.imageCategory,
-    imageUploader: props.imageUploader,
-  });
+const {
+  editorHandlers: baseEditorHandlers,
+  uploadPendingImages,
+  hasPendingUploads,
+} = useEditorImageUpload(formDataRef, editorRef, {
+  imageCategory: props.imageCategory,
+  imageUploader: props.imageUploader,
+});
 
 const mergedHandlers = computed(() => ({
   ...baseEditorHandlers.value,
   link: {
-    canExecute: (editor: Editor) => editor.can().setLink({ href: '' }) || editor.can().unsetLink(),
+    canExecute: (editor: Editor) =>
+      editor.can().setLink({ href: "" }) || editor.can().unsetLink(),
     execute: (editor: Editor) => {
-      if (editor.isActive('link')) {
-        linkPopoverRef.value?.openForEdit()
+      if (editor.isActive("link")) {
+        linkPopoverRef.value?.openForEdit();
       } else {
-        linkPopoverRef.value?.openForInsert()
+        linkPopoverRef.value?.openForInsert();
       }
-      return editor.chain()
+      return editor.chain();
     },
-    isActive: (editor: Editor) => editor.isActive('link'),
+    isActive: (editor: Editor) => editor.isActive("link"),
   },
   "link-edit": {
-    canExecute: (editor: Editor) => editor.isActive('link'),
+    canExecute: (editor: Editor) => editor.isActive("link"),
     execute: (_editor: Editor) => linkPopoverRef.value?.openForEdit(),
     isActive: (_editor: Editor) => false,
   },
   "link-open": {
-    canExecute: (editor: Editor) => editor.isActive('link'),
+    canExecute: (editor: Editor) => editor.isActive("link"),
     execute: (editor: Editor) => {
-      const href = editor.getAttributes('link').href
-      if (href) window.open(href, '_blank')
+      const href = editor.getAttributes("link").href;
+      if (href) window.open(href, "_blank");
     },
     isActive: (_editor: Editor) => false,
   },
   "link-unlink": {
-    canExecute: (editor: Editor) => editor.isActive('link'),
-    execute: (editor: Editor) => editor.chain().focus().extendMarkRange('link').unsetLink().run(),
+    canExecute: (editor: Editor) => editor.isActive("link"),
+    execute: (editor: Editor) =>
+      editor.chain().focus().extendMarkRange("link").unsetLink().run(),
     isActive: (_editor: Editor) => false,
   },
 }));
 
 // ── Draft & auto-save ────────────────────────────────────────────────────
-const draftFormData = ref<{ title?: string; content?: string; excerpt?: string }>({
+const draftFormData = ref<{
+  title?: string;
+  content?: string;
+  excerpt?: string;
+}>({
   content: props.modelValue,
 });
 watch(
