@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { marked } from "marked";
+import { renderMarkdown } from "~/utils/markdown";
 import { useCurrentPost, type TocItem } from "~/composables/useCurrentPost";
 
 definePageMeta({ layout: "default" });
@@ -85,7 +85,7 @@ const contentHtml = computed(() => {
   }
   toc.value = items;
 
-  let html = marked(markdown) as string;
+  let html = renderMarkdown(markdown);
   let ptr = 0;
   html = html.replace(/<h([234])>([\s\S]*?)<\/h\1>/g, (match, lvl) => {
     if (ptr < items.length && items[ptr].level === parseInt(lvl)) {

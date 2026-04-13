@@ -42,7 +42,7 @@
     <AdminPageContent class="p-0 flex flex-col md:flex-row">
       <!-- 主内容区 -->
       <div class="flex-1 min-w-0 max-w-5xl mx-auto">
-        <div class="flex-1 overflow-y-auto bg-default px-2">
+        <div class="flex-1 bg-default px-2">
           <!-- 草稿恢复提示 -->
           <div v-if="showDraftRestore" class="pt-8 pb-3">
             <UAlert
@@ -137,15 +137,16 @@
             content-type="markdown"
             :placeholder="t('admin.docs.editor.content_placeholder')"
             :extensions="editorExtensions"
+            :starter-kit="{ codeBlock: false, blockquote: false }"
             :handlers="editorHandlers"
-            :ui="{ base: 'px-8 sm:px-16 py-6' }"
+            :ui="{ base: 'px-8 sm:px-16 pt-14 pb-6' }"
             class="min-h-[500px] px-8 sm:px-16 pb-4"
             @ready="editorLoading = false">
             <UEditorToolbar
               :editor="editor"
               :items="toolbarItems"
               layout="fixed"
-              class="border-b border-default sticky top-0 inset-x-0 px-4 py-1.5 z-10 bg-default/95 backdrop-blur overflow-x-auto" />
+              class="border-b border-default sticky top-0 inset-x-0 px-4 py-1.5 z-10 bg-default/95 backdrop-blur overflow-x-auto before:content-[''] before:absolute before:inset-x-0 before:bottom-full before:h-8 before:bg-default" />
 
             <UEditorToolbar
               :editor="editor"
@@ -160,6 +161,22 @@
                   );
                 }
               " />
+
+            <UEditorToolbar
+              :editor="editor"
+              :items="imageBubbleItems"
+              class="z-50"
+              layout="bubble"
+              :should-show="({ editor: e }) => e.isActive('image')" />
+
+            <UEditorToolbar
+              :editor="editor"
+              :items="linkBubbleItems"
+              class="z-50"
+              layout="bubble"
+              :should-show="({ editor: e, state }) => e.isActive('link') && state.selection.empty" />
+
+            <EditorLinkPopover ref="linkPopoverRef" :editor="editor" />
 
             <UEditorDragHandle
               v-slot="{ ui, onClick }"
@@ -448,7 +465,12 @@
 import type { Editor } from "@tiptap/vue-3";
 import { Emoji, gitHubEmojis } from "@tiptap/extension-emoji";
 import { TextAlign } from "@tiptap/extension-text-align";
-import { Markdown } from "tiptap-markdown";
+import { InlineMath } from "@tiptap/extension-mathematics";
+import "katex/dist/katex.min.css";
+import { Callout } from "../extensions/Callout";
+import { CodeBlockWithLang } from "../extensions/CodeBlockWithLang";
+import Blockquote from "@tiptap/extension-blockquote";
+import { MathBlock } from "../extensions/MathBlock";
 import type {
   CreateDocRequest,
   UpdateDocRequest,
@@ -495,7 +517,11 @@ const emit = defineEmits<{
 const editorExtensions = [
   Emoji,
   TextAlign.configure({ types: ["heading", "paragraph"] }),
-  Markdown.configure({ transformPastedText: true, transformCopiedText: true }),
+  Blockquote.extend({ parseMarkdown: null as any }),
+  InlineMath,
+  MathBlock,
+  Callout,
+  CodeBlockWithLang,
 ];
 const appendToBody = import.meta.client ? () => document.body : undefined;
 const emojiItems = gitHubEmojis.filter(
@@ -506,10 +532,15 @@ const emojiItems = gitHubEmojis.filter(
 const {
   toolbarItems,
   bubbleItems,
+  linkBubbleItems,
+  imageBubbleItems,
   suggestionItems,
   selectedNode,
   dragHandleItems,
 } = usePostEditorToolbar();
+
+// ── Link popover ──────────────────────────────────────────────────────────
+const linkPopoverRef = ref<{ openForInsert: () => void; openForEdit: () => void } | null>(null);
 
 // ── Image upload ──────────────────────────────────────────────────────────
 const toast = useToast();
@@ -551,6 +582,95 @@ const editorHandlers = computed(() => ({
       nextTick(() => imageFileInput.value?.click());
       return editor.chain();
     },
+    isActive: (_editor: Editor) => false,
+  },
+  "callout-note": {
+    canExecute: (editor: Editor) => editor.isEditable,
+    execute: (editor: Editor) => editor.chain().focus().setCallout({ type: "note" }).run(),
+    isActive: (editor: Editor) => editor.isActive("callout", { type: "note" }),
+  },
+  "callout-tip": {
+    canExecute: (editor: Editor) => editor.isEditable,
+    execute: (editor: Editor) => editor.chain().focus().setCallout({ type: "tip" }).run(),
+    isActive: (editor: Editor) => editor.isActive("callout", { type: "tip" }),
+  },
+  "callout-important": {
+    canExecute: (editor: Editor) => editor.isEditable,
+    execute: (editor: Editor) => editor.chain().focus().setCallout({ type: "important" }).run(),
+    isActive: (editor: Editor) => editor.isActive("callout", { type: "important" }),
+  },
+  "callout-warning": {
+    canExecute: (editor: Editor) => editor.isEditable,
+    execute: (editor: Editor) => editor.chain().focus().setCallout({ type: "warning" }).run(),
+    isActive: (editor: Editor) => editor.isActive("callout", { type: "warning" }),
+  },
+  "callout-caution": {
+    canExecute: (editor: Editor) => editor.isEditable,
+    execute: (editor: Editor) => editor.chain().focus().setCallout({ type: "caution" }).run(),
+    isActive: (editor: Editor) => editor.isActive("callout", { type: "caution" }),
+  },
+  "math-inline": {
+    canExecute: (editor: Editor) => editor.isEditable,
+    execute: (editor: Editor) => editor.chain().focus().insertContent("$E=mc^2$").run(),
+    isActive: (_editor: Editor) => false,
+  },
+  "math-block": {
+    canExecute: (editor: Editor) => editor.isEditable,
+    execute: (editor: Editor) => editor.chain().focus().setMathBlock({ latex: 'E = mc^2' }).run(),
+    isActive: (editor: Editor) => editor.isActive("blockMath"),
+  },
+  "mermaid-block": {
+    canExecute: (editor: Editor) => editor.isEditable,
+    execute: (editor: Editor) => editor.chain().focus().setCodeBlock({ language: "mermaid" }).run(),
+    isActive: (_editor: Editor) => false,
+  },
+  "download-image": {
+    canExecute: (editor: Editor) => editor.isActive("image"),
+    execute: (editor: Editor) => {
+      const attrs = editor.getAttributes("image");
+      if (attrs.src) {
+        const a = document.createElement("a");
+        a.href = attrs.src;
+        a.download = attrs.alt || "image";
+        a.target = "_blank";
+        a.click();
+      }
+    },
+    isActive: (_editor: Editor) => false,
+  },
+  "remove-image": {
+    canExecute: (editor: Editor) => editor.isActive("image"),
+    execute: (editor: Editor) => editor.chain().focus().deleteSelection().run(),
+    isActive: (_editor: Editor) => false,
+  },
+  link: {
+    canExecute: (editor: Editor) => editor.can().setLink({ href: '' }) || editor.can().unsetLink(),
+    execute: (editor: Editor) => {
+      if (editor.isActive('link')) {
+        linkPopoverRef.value?.openForEdit()
+      } else {
+        linkPopoverRef.value?.openForInsert()
+      }
+      return editor.chain()
+    },
+    isActive: (editor: Editor) => editor.isActive('link'),
+  },
+  "link-edit": {
+    canExecute: (editor: Editor) => editor.isActive('link'),
+    execute: (_editor: Editor) => linkPopoverRef.value?.openForEdit(),
+    isActive: (_editor: Editor) => false,
+  },
+  "link-open": {
+    canExecute: (editor: Editor) => editor.isActive('link'),
+    execute: (editor: Editor) => {
+      const href = editor.getAttributes('link').href
+      if (href) window.open(href, '_blank')
+    },
+    isActive: (_editor: Editor) => false,
+  },
+  "link-unlink": {
+    canExecute: (editor: Editor) => editor.isActive('link'),
+    execute: (editor: Editor) => editor.chain().focus().extendMarkRange('link').unsetLink().run(),
     isActive: (_editor: Editor) => false,
   },
 }));

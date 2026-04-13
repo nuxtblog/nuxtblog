@@ -18,6 +18,65 @@ export function usePostEditorImageUpload(
       },
       isActive: (_editor: Editor) => false,
     },
+    "callout-note": {
+      canExecute: (editor: Editor) => editor.isEditable,
+      execute: (editor: Editor) => editor.chain().focus().setCallout({ type: "note" }).run(),
+      isActive: (editor: Editor) => editor.isActive("callout", { type: "note" }),
+    },
+    "callout-tip": {
+      canExecute: (editor: Editor) => editor.isEditable,
+      execute: (editor: Editor) => editor.chain().focus().setCallout({ type: "tip" }).run(),
+      isActive: (editor: Editor) => editor.isActive("callout", { type: "tip" }),
+    },
+    "callout-important": {
+      canExecute: (editor: Editor) => editor.isEditable,
+      execute: (editor: Editor) => editor.chain().focus().setCallout({ type: "important" }).run(),
+      isActive: (editor: Editor) => editor.isActive("callout", { type: "important" }),
+    },
+    "callout-warning": {
+      canExecute: (editor: Editor) => editor.isEditable,
+      execute: (editor: Editor) => editor.chain().focus().setCallout({ type: "warning" }).run(),
+      isActive: (editor: Editor) => editor.isActive("callout", { type: "warning" }),
+    },
+    "callout-caution": {
+      canExecute: (editor: Editor) => editor.isEditable,
+      execute: (editor: Editor) => editor.chain().focus().setCallout({ type: "caution" }).run(),
+      isActive: (editor: Editor) => editor.isActive("callout", { type: "caution" }),
+    },
+    "math-inline": {
+      canExecute: (editor: Editor) => editor.isEditable,
+      execute: (editor: Editor) => editor.chain().focus().insertContent("$E=mc^2$").run(),
+      isActive: (_editor: Editor) => false,
+    },
+    "math-block": {
+      canExecute: (editor: Editor) => editor.isEditable,
+      execute: (editor: Editor) => editor.chain().focus().setMathBlock({ latex: 'E = mc^2' }).run(),
+      isActive: (editor: Editor) => editor.isActive("blockMath"),
+    },
+    "mermaid-block": {
+      canExecute: (editor: Editor) => editor.isEditable,
+      execute: (editor: Editor) => editor.chain().focus().setCodeBlock({ language: "mermaid" }).run(),
+      isActive: (_editor: Editor) => false,
+    },
+    "download-image": {
+      canExecute: (editor: Editor) => editor.isActive("image"),
+      execute: (editor: Editor) => {
+        const attrs = editor.getAttributes("image");
+        if (attrs.src) {
+          const a = document.createElement("a");
+          a.href = attrs.src;
+          a.download = attrs.alt || "image";
+          a.target = "_blank";
+          a.click();
+        }
+      },
+      isActive: (_editor: Editor) => false,
+    },
+    "remove-image": {
+      canExecute: (editor: Editor) => editor.isActive("image"),
+      execute: (editor: Editor) => editor.chain().focus().deleteSelection().run(),
+      isActive: (_editor: Editor) => false,
+    },
   }));
 
   const dataUrlToFile = (dataUrl: string, name: string): File => {

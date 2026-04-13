@@ -62,6 +62,30 @@ export const usePostEditorToolbar = () => {
     ],
     [
       {
+        icon: "i-tabler-alert-circle",
+        tooltip: { text: t("admin.posts.editor.callout") },
+        content: { align: "start" },
+        items: [
+          { kind: "callout-note",      icon: "i-tabler-info-circle",    label: t("admin.posts.editor.callout_note") },
+          { kind: "callout-tip",       icon: "i-tabler-bulb",           label: t("admin.posts.editor.callout_tip") },
+          { kind: "callout-important", icon: "i-tabler-alert-circle",   label: t("admin.posts.editor.callout_important") },
+          { kind: "callout-warning",   icon: "i-tabler-alert-triangle", label: t("admin.posts.editor.callout_warning") },
+          { kind: "callout-caution",   icon: "i-tabler-flame",          label: t("admin.posts.editor.callout_caution") },
+        ],
+      },
+      {
+        icon: "i-tabler-math",
+        tooltip: { text: t("admin.posts.editor.math") },
+        content: { align: "start" },
+        items: [
+          { kind: "math-inline", icon: "i-tabler-math",          label: t("admin.posts.editor.math_inline") },
+          { kind: "math-block",  icon: "i-tabler-math-function", label: t("admin.posts.editor.math_block") },
+        ],
+      },
+      { kind: "mermaid-block",  icon: "i-tabler-chart-dots-3",  tooltip: { text: t("admin.posts.editor.mermaid") } },
+    ],
+    [
+      {
         icon: "i-tabler-align-justified",
         tooltip: { text: t("admin.posts.editor.alignment") },
         content: { align: "end" },
@@ -132,6 +156,45 @@ export const usePostEditorToolbar = () => {
       { kind: "emoji",          label: "Emoji",                                icon: "i-tabler-mood-smile" },
       { kind: "image",          label: t("admin.posts.editor.image"),          icon: "i-tabler-photo" },
       { kind: "horizontalRule", label: t("admin.posts.editor.horizontal_rule"), icon: "i-tabler-separator-horizontal" },
+      { kind: "callout-note",   label: t("admin.posts.editor.callout"),        icon: "i-tabler-alert-circle" },
+      { kind: "math-inline",    label: t("admin.posts.editor.math_inline"),    icon: "i-tabler-math" },
+      { kind: "math-block",     label: t("admin.posts.editor.math_block"),     icon: "i-tabler-math-function" },
+      { kind: "mermaid-block",  label: t("admin.posts.editor.mermaid"),        icon: "i-tabler-chart-dots-3" },
+    ],
+  ]);
+
+  const linkBubbleItems = computed<EditorToolbarItem[][]>(() => [
+    [
+      {
+        kind: "link-edit",
+        icon: "i-tabler-pencil",
+        tooltip: { text: t("admin.posts.editor.edit_link") },
+      },
+      {
+        kind: "link-open",
+        icon: "i-tabler-external-link",
+        tooltip: { text: t("admin.posts.editor.open_link") },
+      },
+      {
+        kind: "link-unlink",
+        icon: "i-tabler-link-off",
+        tooltip: { text: t("admin.posts.editor.unlink") },
+      },
+    ],
+  ]);
+
+  const imageBubbleItems = computed<EditorToolbarItem[][]>(() => [
+    [
+      {
+        kind: "download-image",
+        icon: "i-tabler-download",
+        tooltip: { text: t("admin.posts.editor.download_image") },
+      },
+      {
+        kind: "remove-image",
+        icon: "i-tabler-trash",
+        tooltip: { text: t("admin.posts.editor.remove_image") },
+      },
     ],
   ]);
 
@@ -224,6 +287,8 @@ export const usePostEditorToolbar = () => {
   return {
     toolbarItems,
     bubbleItems,
+    linkBubbleItems,
+    imageBubbleItems,
     suggestionItems,
     selectedNode,
     dragHandleItems,

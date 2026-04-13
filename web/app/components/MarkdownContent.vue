@@ -1,32 +1,24 @@
 <script setup lang="ts">
-import { marked } from 'marked'
-import hljs from 'highlight.js'
+import { renderMarkdown } from '~/utils/markdown'
 
 const props = defineProps<{
   content?: string
   html?: string
 }>()
 
-// Configure marked to use highlight.js via custom renderer
-const renderer = new marked.Renderer()
-renderer.code = ({ text, lang }: { text: string; lang?: string }) => {
-  const language = lang && hljs.getLanguage(lang) ? lang : 'plaintext'
-  const highlighted = hljs.highlight(text, { language }).value
-  return `<pre><code class="hljs language-${language}">${highlighted}</code></pre>`
-}
-marked.use({ renderer })
-
 const rendered = computed(() =>
-  props.html ?? (props.content ? marked(props.content) as string : '')
+  props.html ?? (props.content ? renderMarkdown(props.content) : '')
 )
 
 const containerRef = ref<HTMLElement>()
 
-// Inject copy buttons after render
+// ── Copy buttons ─────────────────────────────────────────────────────────
 function addCopyButtons() {
   if (!containerRef.value) return
   containerRef.value.querySelectorAll('pre').forEach((pre) => {
     if (pre.querySelector('.copy-btn')) return
+    // Skip mermaid blocks (they will be replaced)
+    if (pre.querySelector('code.language-mermaid')) return
     const btn = document.createElement('button')
     btn.className = 'copy-btn'
     btn.textContent = '复制'
@@ -41,8 +33,72 @@ function addCopyButtons() {
   })
 }
 
-watch(rendered, () => nextTick(addCopyButtons))
-onMounted(() => nextTick(addCopyButtons))
+// ── Mermaid client-side rendering ────────────────────────────────────────
+let mermaidInstance: typeof import('mermaid')['default'] | null = null
+
+async function renderMermaidBlocks() {
+  if (!import.meta.client || !containerRef.value) return
+  const blocks = containerRef.value.querySelectorAll('code.language-mermaid')
+  if (!blocks.length) return
+
+  // Lazy-load mermaid only when needed
+  if (!mermaidInstance) {
+    const mod = await import('mermaid')
+    mermaidInstance = mod.default
+    const isDark = document.documentElement.classList.contains('dark')
+    mermaidInstance.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' })
+  }
+
+  for (const code of blocks) {
+    const pre = code.closest('pre')
+    if (!pre || pre.dataset.mermaidRendered) continue
+    pre.dataset.mermaidRendered = 'true'
+    const source = code.textContent ?? ''
+    try {
+      const id = `mermaid-${Math.random().toString(36).slice(2, 8)}`
+      const { svg } = await mermaidInstance.render(id, source)
+      const wrapper = document.createElement('div')
+      wrapper.className = 'mermaid-diagram'
+      wrapper.innerHTML = svg
+      pre.replaceWith(wrapper)
+    } catch {
+      // Render failed — keep code block visible
+    }
+  }
+}
+
+// ── Image lightbox ───────────────────────────────────────────────────────
+function addImageLightbox() {
+  if (!import.meta.client || !containerRef.value) return
+  containerRef.value.querySelectorAll('img').forEach((img) => {
+    if (img.dataset.lightbox) return
+    img.dataset.lightbox = 'true'
+    img.style.cursor = 'zoom-in'
+    img.addEventListener('click', () => {
+      const overlay = document.createElement('div')
+      overlay.className = 'lightbox-overlay'
+      const clone = document.createElement('img')
+      clone.src = img.src
+      clone.alt = img.alt
+      clone.className = 'lightbox-img'
+      overlay.appendChild(clone)
+      overlay.addEventListener('click', () => {
+        overlay.classList.add('lightbox-closing')
+        overlay.addEventListener('animationend', () => overlay.remove())
+      })
+      document.body.appendChild(overlay)
+    })
+  })
+}
+
+function postRender() {
+  addCopyButtons()
+  addImageLightbox()
+  renderMermaidBlocks()
+}
+
+watch(rendered, () => nextTick(postRender))
+onMounted(() => nextTick(postRender))
 </script>
 
 <template>
@@ -53,6 +109,37 @@ onMounted(() => nextTick(addCopyButtons))
 /* highlight.js theme — GitHub-style, adapts to dark mode */
 @import 'highlight.js/styles/github.css' screen and (prefers-color-scheme: light);
 @import 'highlight.js/styles/github-dark.css' screen and (prefers-color-scheme: dark);
+
+/* Image lightbox (appended to body, must be global) */
+.lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.85);
+  cursor: zoom-out;
+  animation: lightbox-in 0.2s ease;
+}
+.lightbox-overlay.lightbox-closing {
+  animation: lightbox-out 0.15s ease forwards;
+}
+.lightbox-img {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 0.5rem;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+}
+@keyframes lightbox-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes lightbox-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
 </style>
 
 <style scoped>
@@ -145,6 +232,51 @@ onMounted(() => nextTick(addCopyButtons))
   border: none;
   border-top: 1px solid var(--ui-border);
   margin: 2em 0;
+}
+
+/* KaTeX — ensure formula color follows text in dark mode */
+.prose :deep(.katex) {
+  color: inherit;
+}
+/* KaTeX math blocks */
+.prose :deep(.math-block) {
+  text-align: center;
+  margin: 1.5em 0;
+  overflow-x: auto;
+}
+
+/* Mermaid diagrams */
+.prose :deep(.mermaid-diagram) {
+  text-align: center;
+  margin: 1.5em 0;
+  overflow-x: auto;
+}
+.prose :deep(.mermaid-diagram svg) {
+  max-width: 100%;
+  height: auto;
+}
+
+/* GitHub Alerts / Callouts */
+.prose :deep(.markdown-alert) {
+  padding: 0.75em 1.25em;
+  margin: 1.5em 0;
+  border-left: 4px solid;
+  border-radius: 0 0.5rem 0.5rem 0;
+}
+.prose :deep(.markdown-alert-note)      { border-color: var(--ui-primary);    background: color-mix(in srgb, var(--ui-primary) 8%, transparent); }
+.prose :deep(.markdown-alert-tip)       { border-color: var(--ui-success);    background: color-mix(in srgb, var(--ui-success) 8%, transparent); }
+.prose :deep(.markdown-alert-important) { border-color: #a855f7;             background: color-mix(in srgb, #a855f7 8%, transparent); }
+.prose :deep(.markdown-alert-warning)   { border-color: var(--ui-warning);    background: color-mix(in srgb, var(--ui-warning) 8%, transparent); }
+.prose :deep(.markdown-alert-caution)   { border-color: var(--ui-error);      background: color-mix(in srgb, var(--ui-error) 8%, transparent); }
+.prose :deep(.markdown-alert-title) {
+  font-weight: 600;
+  margin-bottom: 0.25em;
+}
+.prose :deep(.markdown-alert p:first-child) {
+  margin-top: 0;
+}
+.prose :deep(.markdown-alert p:last-child) {
+  margin-bottom: 0;
 }
 
 /* Copy button */

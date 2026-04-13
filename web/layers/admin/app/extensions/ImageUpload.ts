@@ -1,12 +1,12 @@
-import { Node, type CommandProps } from "@tiptap/core"
-import { VueNodeViewRenderer } from "@tiptap/vue-3"
-import EditorImageUploadNode from "../components/EditorImageUploadNode.vue"
+import { Node, type CommandProps } from "@tiptap/core";
+import { VueNodeViewRenderer } from "@tiptap/vue-3";
+import EditorImageUploadNode from "../components/EditorImageUploadNode.vue";
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     imageUpload: {
-      setImageUpload: () => ReturnType
-    }
+      setImageUpload: () => ReturnType;
+    };
   }
 }
 
@@ -17,19 +17,19 @@ export const ImageUpload = Node.create({
   draggable: true,
 
   addAttributes() {
-    return {}
+    return {};
   },
 
   parseHTML() {
-    return []
+    return [];
   },
 
   renderHTML() {
-    return ["div", { "data-type": "image-upload" }]
+    return ["div", { "data-type": "image-upload" }];
   },
 
   addNodeView() {
-    return VueNodeViewRenderer(EditorImageUploadNode)
+    return VueNodeViewRenderer(EditorImageUploadNode);
   },
 
   addCommands() {
@@ -37,8 +37,8 @@ export const ImageUpload = Node.create({
       setImageUpload:
         () =>
         ({ commands }: CommandProps) => {
-          return commands.insertContent({ type: this.name })
+          return commands.insertContent({ type: this.name });
         },
-    }
+    };
   },
-})
+});
