@@ -139,6 +139,17 @@ var routeRules = []routeRule{
 	{Method: "PUT",    Pattern: "/api/v1/comments/*",    MinRole: RoleEditor},
 	{Method: "DELETE", Pattern: "/api/v1/comments/*",    MinRole: RoleEditor},
 
+	// ── Commerce admin — admin only ──────────────────────────────────────────
+	{Method: "GET",    Pattern: "/admin/orders",                   MinRole: RoleAdmin},
+	{Method: "POST",   Pattern: "/admin/orders/*/refund",          MinRole: RoleAdmin},
+	{Method: "GET",    Pattern: "/admin/revenue/stats",            MinRole: RoleAdmin},
+	{Method: "POST",   Pattern: "/admin/membership/tiers",         MinRole: RoleAdmin},
+	{Method: "PUT",    Pattern: "/admin/membership/tiers/*",       MinRole: RoleAdmin},
+	{Method: "DELETE", Pattern: "/admin/membership/tiers/*",       MinRole: RoleAdmin},
+	{Method: "GET",    Pattern: "/admin/membership/subscribers",   MinRole: RoleAdmin},
+	{Method: "POST",   Pattern: "/admin/wallet/adjust",            MinRole: RoleAdmin},
+	{Method: "POST",   Pattern: "/admin/credits/adjust",           MinRole: RoleAdmin},
+
 	// ── Media library — GET requires editor+ (media library is admin-facing) ──
 	// POST /medias/upload is whitelisted in AdminWriteRequired for any auth user.
 	{Method: "GET",    Pattern: "/api/v1/medias",        MinRole: RoleEditor},

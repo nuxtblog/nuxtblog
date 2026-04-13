@@ -595,6 +595,180 @@ CREATE TABLE IF NOT EXISTS user_announcement_cursor (
 );
 
 -- ============================================================
+--  COMMERCE: ORDERS
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS orders (
+    id              BIGINT      PRIMARY KEY,
+    order_no        TEXT        NOT NULL UNIQUE,
+    user_id         BIGINT      NOT NULL REFERENCES users (id) ON DELETE RESTRICT,
+    status          INTEGER     NOT NULL DEFAULT 1,   -- 1=pending 2=paid 3=completed 4=cancelled 5=refunded
+    total_amount    INTEGER     NOT NULL DEFAULT 0,   -- cents
+    paid_amount     INTEGER     NOT NULL DEFAULT 0,   -- cents
+    credits_used    INTEGER     NOT NULL DEFAULT 0,
+    balance_used    INTEGER     NOT NULL DEFAULT 0,   -- cents
+    currency        TEXT        NOT NULL DEFAULT 'CNY',
+    expires_at      TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_orders_user     ON orders (user_id);
+CREATE INDEX IF NOT EXISTS idx_orders_status   ON orders (status);
+CREATE INDEX IF NOT EXISTS idx_orders_order_no ON orders (order_no);
+
+CREATE TABLE IF NOT EXISTS order_items (
+    id          BIGINT      PRIMARY KEY,
+    order_id    BIGINT      NOT NULL REFERENCES orders (id) ON DELETE CASCADE,
+    item_type   TEXT        NOT NULL,   -- 'post_unlock','download','membership','product','topup'
+    item_id     TEXT        NOT NULL DEFAULT '',
+    title       TEXT        NOT NULL DEFAULT '',
+    unit_price  INTEGER     NOT NULL DEFAULT 0,   -- cents
+    quantity    INTEGER     NOT NULL DEFAULT 1,
+    snapshot    TEXT        NOT NULL DEFAULT '{}'  -- JSON
+);
+
+CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items (order_id);
+
+CREATE TABLE IF NOT EXISTS transactions (
+    id              BIGINT      PRIMARY KEY,
+    order_id        BIGINT      NOT NULL REFERENCES orders (id) ON DELETE RESTRICT,
+    user_id         BIGINT      NOT NULL REFERENCES users (id) ON DELETE RESTRICT,
+    type            INTEGER     NOT NULL DEFAULT 1,   -- 1=payment 2=refund 3=topup
+    provider        TEXT        NOT NULL DEFAULT '',   -- 'alipay','paypal','balance','credits'
+    provider_tx_id  TEXT        NOT NULL DEFAULT '',
+    amount          INTEGER     NOT NULL DEFAULT 0,   -- cents
+    status          INTEGER     NOT NULL DEFAULT 1,   -- 1=pending 2=success 3=failed
+    raw_notify      TEXT        NOT NULL DEFAULT '',
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_transactions_order    ON transactions (order_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_user     ON transactions (user_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_provider ON transactions (provider, provider_tx_id);
+
+-- ============================================================
+--  COMMERCE: WALLET
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS user_wallets (
+    user_id     BIGINT      PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
+    balance     INTEGER     NOT NULL DEFAULT 0,   -- cents
+    frozen      INTEGER     NOT NULL DEFAULT 0,   -- cents
+    total_topup INTEGER     NOT NULL DEFAULT 0,   -- cents
+    total_spent INTEGER     NOT NULL DEFAULT 0,   -- cents
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS wallet_ledger (
+    id              BIGINT      PRIMARY KEY,
+    user_id         BIGINT      NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    type            INTEGER     NOT NULL,   -- 1=topup 2=spend 3=refund 4=admin_adjust
+    amount          INTEGER     NOT NULL,   -- signed: positive=credit, negative=debit
+    balance_after   INTEGER     NOT NULL,
+    reference_type  TEXT        NOT NULL DEFAULT '',
+    reference_id    TEXT        NOT NULL DEFAULT '',
+    note            TEXT        NOT NULL DEFAULT '',
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_wallet_ledger_user ON wallet_ledger (user_id, created_at);
+
+-- ============================================================
+--  COMMERCE: CREDITS
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS user_credits (
+    user_id      BIGINT      PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
+    balance      INTEGER     NOT NULL DEFAULT 0,
+    total_earned INTEGER     NOT NULL DEFAULT 0,
+    total_spent  INTEGER     NOT NULL DEFAULT 0,
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS credits_ledger (
+    id              BIGINT      PRIMARY KEY,
+    user_id         BIGINT      NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    type            INTEGER     NOT NULL,   -- 1=earn 2=spend 3=expire 4=admin_adjust
+    amount          INTEGER     NOT NULL,   -- signed
+    balance_after   INTEGER     NOT NULL,
+    source          TEXT        NOT NULL DEFAULT '',
+    reference_type  TEXT        NOT NULL DEFAULT '',
+    reference_id    TEXT        NOT NULL DEFAULT '',
+    note            TEXT        NOT NULL DEFAULT '',
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_credits_ledger_user ON credits_ledger (user_id, created_at);
+
+-- ============================================================
+--  COMMERCE: MEMBERSHIP
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS membership_tiers (
+    id              BIGINT      PRIMARY KEY,
+    name            TEXT        NOT NULL,
+    slug            TEXT        NOT NULL UNIQUE,
+    description     TEXT        NOT NULL DEFAULT '',
+    price           INTEGER     NOT NULL DEFAULT 0,   -- cents
+    duration_days   INTEGER     NOT NULL DEFAULT 30,
+    discount_pct    INTEGER     NOT NULL DEFAULT 0,   -- 0-100
+    access_all      INTEGER     NOT NULL DEFAULT 0,   -- 1=all paid content free
+    credits_monthly INTEGER     NOT NULL DEFAULT 0,
+    features        TEXT        NOT NULL DEFAULT '[]', -- JSON
+    status          INTEGER     NOT NULL DEFAULT 1,   -- 1=active 2=disabled
+    sort_order      INTEGER     NOT NULL DEFAULT 0,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS user_memberships (
+    id          BIGINT      PRIMARY KEY,
+    user_id     BIGINT      NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    tier_id     BIGINT      NOT NULL REFERENCES membership_tiers (id) ON DELETE RESTRICT,
+    status      INTEGER     NOT NULL DEFAULT 1,   -- 1=active 2=expired 3=cancelled
+    started_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at  TIMESTAMPTZ NOT NULL,
+    auto_renew  INTEGER     NOT NULL DEFAULT 0,
+    order_id    BIGINT      REFERENCES orders (id),
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_memberships_user   ON user_memberships (user_id, status);
+CREATE INDEX IF NOT EXISTS idx_user_memberships_expire ON user_memberships (expires_at);
+
+-- ============================================================
+--  COMMERCE: PURCHASE RECORDS
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS user_purchases (
+    user_id     BIGINT      NOT NULL,
+    object_type TEXT        NOT NULL,
+    object_id   TEXT        NOT NULL,
+    order_id    BIGINT      REFERENCES orders (id),
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, object_type, object_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_purchases_user ON user_purchases (user_id);
+
+-- ============================================================
+--  COMMERCE: TRIGGERS
+-- ============================================================
+
+CREATE OR REPLACE TRIGGER trg_orders_updated
+    BEFORE UPDATE ON orders FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE OR REPLACE TRIGGER trg_user_wallets_updated
+    BEFORE UPDATE ON user_wallets FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE OR REPLACE TRIGGER trg_user_credits_updated
+    BEFORE UPDATE ON user_credits FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE OR REPLACE TRIGGER trg_membership_tiers_updated
+    BEFORE UPDATE ON membership_tiers FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ============================================================
 --  DEFAULT DATA
 --  Default admin user is seeded automatically by autoMigrate()
 --  on first startup: username=admin  password=admin123  role=3

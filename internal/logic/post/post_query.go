@@ -216,6 +216,73 @@ func (s *sPost) GetBySlug(ctx context.Context, slug string) (*v1.PostDetailEnric
 	// metas
 	item.Metas, _ = s.GetMetas(ctx, int64(post.Id))
 
+	// ── Paywall logic ────────────────────────────────────────────────────
+	if priceStr, ok := item.Metas["post_price"]; ok && priceStr != "" && priceStr != "0" {
+		price, _ := strconv.Atoi(priceStr)
+		if price > 0 {
+			item.IsPaid = true
+			item.Price = price
+			item.PriceType = "one_time"
+			if pt, ok := item.Metas["post_price_type"]; ok && pt != "" {
+				item.PriceType = pt
+			}
+			previewPct := 30
+			if ppStr, ok := item.Metas["post_free_preview_pct"]; ok && ppStr != "" {
+				if pp, err := strconv.Atoi(ppStr); err == nil && pp >= 0 && pp <= 100 {
+					previewPct = pp
+				}
+			}
+			item.FreePreviewPct = previewPct
+
+			// Check if user has access
+			userID, _ := middleware.GetCurrentUserID(ctx)
+			if userID > 0 {
+				// Check direct purchase
+				cnt, _ := g.DB().Ctx(ctx).Model("user_purchases").
+					Where("user_id", userID).
+					Where("object_type", "post_unlock").
+					Where("object_id", strconv.FormatInt(item.Id, 10)).
+					Count()
+				if cnt > 0 {
+					item.IsUnlocked = true
+				}
+
+				// Check membership access
+				if !item.IsUnlocked {
+					var accessAll int
+					err := g.DB().Ctx(ctx).Raw(
+						"SELECT mt.access_all FROM user_memberships um "+
+							"JOIN membership_tiers mt ON mt.id = um.tier_id "+
+							"WHERE um.user_id = ? AND um.status = 1 AND um.expires_at > datetime('now') "+
+							"ORDER BY mt.access_all DESC LIMIT 1", userID).Scan(&accessAll)
+					if err == nil && accessAll == 1 {
+						item.IsUnlocked = true
+					}
+				}
+			}
+
+			// Truncate content if not unlocked (server-side protection)
+			if !item.IsUnlocked && previewPct < 100 {
+				content := item.Content
+				cutoff := len(content) * previewPct / 100
+				// Find a clean break point (newline)
+				if cutoff < len(content) {
+					for i := cutoff; i < len(content) && i < cutoff+200; i++ {
+						if content[i] == '\n' {
+							cutoff = i
+							break
+						}
+					}
+					item.Content = content[:cutoff]
+				}
+			}
+		}
+	}
+	// Remove price meta keys from public response
+	delete(item.Metas, "post_price")
+	delete(item.Metas, "post_price_type")
+	delete(item.Metas, "post_free_preview_pct")
+
 	// Run content.render filter — plugins can modify the markdown before it reaches the frontend
 	if filtered, err := plugin.Filter(ctx, plugin.FilterContentRender, map[string]any{
 		"content": item.Content,

@@ -134,6 +134,8 @@ func autoMigrate(ctx context.Context) error {
 		{"oauth_qq", `{"enabled":false,"clientId":"","clientSecret":"","callbackUrl":"http://localhost:9000/api/v1/auth/oauth/qq/callback"}`},
 		// oauth_providers: list of custom (frontend-added) provider slugs
 		{"oauth_providers", `[]`},
+		// ── Commerce: Credits rules ─────────────────────────────────────
+		{"credits_rules", `{"checkin":10,"comment":5,"comment_daily_limit":10,"credits_per_yuan":10}`},
 	}
 	for _, opt := range defaultOpts {
 		cnt, _ := db.Ctx(ctx).Model("options").Where("key", opt.key).Count()

@@ -37,6 +37,11 @@ const (
 	FilterUserLogin     = "filter:user.login"     // v2: fires before login; abort to block
 	FilterMediaUpload   = "filter:media.upload"
 	FilterContentRender = "filter:content.render"
+
+	// Commerce filters
+	FilterContentAccess  = "filter:content.access"   // check user access to paid content
+	FilterOrderCreate    = "filter:order.create"      // intercept/modify order before creation
+	FilterPriceCalculate = "filter:price.calculate"   // modify price (membership discount etc.)
 )
 
 // ─── Manifest ────────────────────────────────────────────────────────────────

@@ -52,4 +52,27 @@ const (
 	// Plugin lifecycle
 	PluginInstalled   = "plugin.installed"
 	PluginUninstalled = "plugin.uninstalled"
+
+	// Commerce: Orders
+	OrderCreated   = "order.created"
+	OrderPaid      = "order.paid"
+	OrderCompleted = "order.completed"
+	OrderCancelled = "order.cancelled"
+	OrderRefunded  = "order.refunded"
+
+	// Commerce: Wallet
+	WalletTopup = "wallet.topup"
+	WalletSpend = "wallet.spend"
+
+	// Commerce: Credits
+	CreditsEarned = "credits.earned"
+	CreditsSpent  = "credits.spent"
+
+	// Commerce: Membership
+	MembershipActivated = "membership.activated"
+	MembershipExpired   = "membership.expired"
+	MembershipRenewed   = "membership.renewed"
+
+	// Commerce: Content
+	ContentUnlocked = "content.unlocked"
 )

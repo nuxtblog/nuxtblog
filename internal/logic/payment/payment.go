@@ -58,6 +58,7 @@ func init() {
 	// Register built-in providers
 	RegisterProvider(&alipayProvider{})
 	RegisterProvider(&paypalProvider{})
+	RegisterProvider(&balanceProvider{})
 }
 
 func requireAdmin(ctx context.Context) error {

@@ -115,7 +115,8 @@ func AdminWriteRequired(r *ghttp.Request) {
 		path == "/api/v1/auth/register",
 		path == "/api/v1/auth/refresh",
 		path == "/api/v1/auth/logout",
-		path == "/api/v1/comments" && method == "POST", // guest comment creation
+		path == "/api/v1/comments" && method == "POST",    // guest comment creation
+		strings.HasPrefix(path, "/api/v1/payment/notify/"), // payment provider webhooks
 		strings.HasSuffix(path, "/view"),
 		strings.HasSuffix(path, "/verify-password"):
 		r.Middleware.Next()
@@ -129,7 +130,9 @@ func AdminWriteRequired(r *ghttp.Request) {
 	case path == "/api/v1/medias/upload",                         // any user can upload media
 		strings.HasPrefix(path, "/api/v1/users/") && method == "PUT", // users can update own profile
 		strings.HasPrefix(path, "/api/v1/reactions/"),                 // likes / bookmarks
-		strings.HasPrefix(path, "/api/v1/checkin"):                    // checkin
+		strings.HasPrefix(path, "/api/v1/checkin"),                    // checkin
+		strings.HasPrefix(path, "/api/v1/orders"),                     // order create/pay/cancel
+		path == "/api/v1/wallet/topup":                                // wallet topup
 		if uid == 0 {
 			r.Response.WriteJsonExit(g.Map{
 				"code":    401,

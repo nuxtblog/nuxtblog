@@ -174,10 +174,16 @@ type PostDetailEnrichedItem struct {
 	UpdatedAt     string            `json:"updated_at"`
 	ViewCount     int64             `json:"view_count"`
 	CommentCount  int64             `json:"comment_count"`
-	HasPassword   bool              `json:"has_password"`
-	Author        *PostAuthorItem   `json:"author,omitempty"`
-	FeaturedImg   *PostMediaItem    `json:"featured_img,omitempty"`
-	Metas         map[string]string `json:"metas,omitempty"`
+	HasPassword    bool              `json:"has_password"`
+	Author         *PostAuthorItem   `json:"author,omitempty"`
+	FeaturedImg    *PostMediaItem    `json:"featured_img,omitempty"`
+	Metas          map[string]string `json:"metas,omitempty"`
+	// Paywall fields
+	IsPaid         bool   `json:"is_paid"`
+	Price          int    `json:"price,omitempty"`           // cents, 0=free
+	PriceType      string `json:"price_type,omitempty"`      // "one_time" or "membership_only"
+	IsUnlocked     bool   `json:"is_unlocked"`
+	FreePreviewPct int    `json:"free_preview_pct,omitempty"` // 0-100
 }
 
 // ----------------------------------------------------------------
