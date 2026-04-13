@@ -67,46 +67,6 @@
       <!-- 主内容区 -->
       <div class="flex-1 min-w-0 max-w-5xl mx-auto">
         <div class="flex-1 bg-default px-2">
-          <!-- 草稿恢复提示 -->
-          <div v-if="showDraftRestore" class="pt-8 pb-3">
-            <UAlert
-              icon="i-tabler-device-floppy"
-              color="warning"
-              variant="subtle"
-              :title="t('admin.posts.editor.draft_found')">
-              <template #description>
-                <div
-                  class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <span class="text-sm text-muted">
-                    {{
-                      savedDraft?.savedAt
-                        ? t("admin.posts.editor.draft_saved_at", {
-                            time: new Date(savedDraft.savedAt).toLocaleString(),
-                          })
-                        : ""
-                    }}
-                  </span>
-                  <div class="flex gap-2">
-                    <UButton
-                      size="xs"
-                      color="primary"
-                      variant="soft"
-                      @click="restoreDraft"
-                      >{{ t("admin.posts.editor.restore_draft") }}</UButton
-                    >
-                    <UButton
-                      size="xs"
-                      color="neutral"
-                      variant="ghost"
-                      @click="discardDraft"
-                      >{{ t("admin.posts.editor.discard") }}</UButton
-                    >
-                  </div>
-                </div>
-              </template>
-            </UAlert>
-          </div>
-
           <!-- 标题 -->
           <div class="pt-8 pb-3">
             <input
@@ -127,217 +87,44 @@
               class="w-full text-sm bg-transparent border-b border-default pb-2 outline-none placeholder:text-muted focus:border-primary transition-colors" />
           </div>
 
-          <!-- 编辑器骨架屏 -->
-          <div v-if="editorLoading" class="py-4">
-            <div
-              class="flex items-center gap-2 border-b border-default pb-2 mb-6">
-              <USkeleton v-for="i in 8" :key="i" class="h-7 w-7 rounded" />
-              <USkeleton class="h-7 w-px mx-1" />
-              <USkeleton
-                v-for="i in 5"
-                :key="'b' + i"
-                class="h-7 w-7 rounded" />
-            </div>
-            <div class="space-y-4 min-h-[500px]">
-              <USkeleton class="h-8 w-2/3" />
-              <USkeleton class="h-4 w-full" />
-              <USkeleton class="h-4 w-5/6" />
-              <USkeleton class="h-4 w-4/5" />
-              <USkeleton class="h-4 w-full" />
-              <USkeleton class="h-4 w-3/4" />
-              <div class="pt-4 space-y-3">
-                <USkeleton class="h-6 w-48" />
-                <USkeleton class="h-4 w-full" />
-                <USkeleton class="h-4 w-5/6" />
-                <USkeleton class="h-4 w-full" />
-              </div>
-            </div>
-          </div>
-
           <!-- 编辑器 -->
-          <UEditor
-            v-else
-            ref="editorRef"
-            v-slot="{ editor, handlers }"
+          <AdminRichEditor
+            ref="richEditorRef"
             v-model="formData.content"
-            content-type="markdown"
+            image-category="post"
+            draft-key-prefix="blog:draft"
+            :draft-entity-id="init?.id"
+            :draft-mode="mode"
+            :has-initial-content="!!init?.content"
             :placeholder="t('admin.posts.editor.content_placeholder')"
-            :extensions="editorExtensions"
-            :starter-kit="{ codeBlock: false, blockquote: false }"
-            :handlers="editorHandlers"
-            :ui="{ base: 'px-8 sm:px-16 pt-14 pb-6' }"
-            class="min-h-[500px] pb-4">
-            <div
-              class="border-b border-default sticky top-0 inset-x-0 z-10 bg-default/95 backdrop-blur before:content-[''] before:absolute before:inset-x-0 before:bottom-full before:h-8 before:bg-default">
-              <div class="flex items-center">
-                <div
-                  ref="toolbarScrollRef"
-                  class="flex-1 min-w-0 overflow-hidden">
-                  <UEditorToolbar
-                    :editor="editor"
-                    :items="fullToolbarItems"
-                    layout="fixed"
-                    class="px-4 py-1.5" />
-                </div>
-                <div class="shrink-0 flex items-center gap-0.5 mr-1.5">
-                  <UPopover v-if="hasOverflow" :content="{ align: 'end' }">
-                    <UButton
-                      variant="ghost"
-                      color="neutral"
-                      size="xs"
-                      icon="i-tabler-dots" />
-                    <template #content>
-                      <UEditorToolbar
-                        :editor="editor"
-                        :items="overflowItems"
-                        layout="fixed"
-                        class="p-2 flex-wrap max-w-xs" />
-                    </template>
-                  </UPopover>
-                  <UTooltip :text="t('admin.posts.editor.plugin_toolbar')">
-                    <UButton
-                      variant="ghost"
-                      color="neutral"
-                      size="xs"
-                      :icon="
-                        pluginToolbarExpanded
-                          ? 'i-tabler-puzzle'
-                          : 'i-tabler-puzzle-off'
-                      "
-                      @click="pluginToolbarExpanded = !pluginToolbarExpanded" />
-                  </UTooltip>
-                </div>
-              </div>
-              <div
-                v-if="pluginToolbarExpanded"
-                role="toolbar"
-                class="border-t border-default/50 has-[button]:flex hidden items-stretch gap-1.5 px-4 py-1.5">
-                <div role="group" class="flex items-center gap-0.5">
-                  <ContributionSlot
-                    name="post-editor:toolbar"
-                    :ctx="{ editor }"
-                    class="contents"
-                    @command="
-                      (cmdId: string) => handlePluginCommand(cmdId, editor)
-                    ">
-                    <template #menu="{ item, execute }">
-                      <UTooltip :text="item.title">
-                        <UButton
-                          variant="ghost"
-                          color="neutral"
-                          size="xs"
-                          :icon="item.icon"
-                          @click="execute" />
-                      </UTooltip>
-                    </template>
-                  </ContributionSlot>
-                </div>
-              </div>
-            </div>
-
-            <UEditorToolbar
-              :editor="editor"
-              :items="bubbleItems"
-              class="z-50"
-              layout="bubble"
-              :should-show="
-                ({ editor: e, view, state }) => {
-                  const { selection } = state;
-                  return (
-                    view.hasFocus() && !selection.empty && !e.isActive('image')
-                  );
-                }
-              " />
-
-            <UEditorToolbar
-              :editor="editor"
-              :items="imageBubbleItems"
-              class="z-50"
-              layout="bubble"
-              :should-show="({ editor: e }) => e.isActive('image')" />
-
-            <UEditorToolbar
-              :editor="editor"
-              :items="linkBubbleItems"
-              class="z-50"
-              layout="bubble"
-              :should-show="({ editor: e, state }) => e.isActive('link') && state.selection.empty" />
-
-            <EditorLinkPopover ref="linkPopoverRef" :editor="editor" />
-
-            <UEditorDragHandle
-              v-slot="{ ui, onClick }"
-              :editor="editor"
-              @node-change="selectedNode = $event">
-              <UButton
-                icon="i-tabler-plus"
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                :class="ui.handle()"
-                @click="
-                  (e) => {
-                    e.stopPropagation();
-                    const selected = onClick();
-                    handlers.suggestion
-                      ?.execute(editor, { pos: selected?.pos })
-                      .run();
-                  }
-                " />
-              <UDropdownMenu
-                v-slot="{ open }"
-                :modal="false"
-                :items="dragHandleItems(editor)"
-                :content="{ side: 'left' }"
-                :ui="{ content: 'w-52', label: 'text-xs' }"
-                @update:open="
-                  editor.chain().setMeta('lockDragHandle', $event).run()
+            enable-plugin-toolbar>
+            <template #toolbar-extra="{ editor }">
+              <ContributionSlot
+                name="post-editor:toolbar"
+                :ctx="{ editor }"
+                class="contents"
+                @command="
+                  (cmdId: string) => handlePluginCommand(cmdId, editor)
                 ">
-                <UButton
-                  color="neutral"
-                  variant="ghost"
-                  active-variant="soft"
-                  size="sm"
-                  icon="i-tabler-grip-vertical"
-                  :active="open"
-                  :class="ui.handle()" />
-              </UDropdownMenu>
-            </UEditorDragHandle>
-
-            <UEditorSuggestionMenu
-              :editor="editor"
-              :items="suggestionItems"
-              :append-to="appendToBody" />
-            <UEditorMentionMenu
-              :editor="editor"
-              :items="[]"
-              :append-to="appendToBody" />
-            <UEditorEmojiMenu
-              :editor="editor"
-              :items="emojiItems"
-              :append-to="appendToBody" />
-          </UEditor>
-
-          <!-- 字数统计 -->
-          <div
-            class="py-2 flex px-2 items-center gap-4 text-xs text-muted border-t border-default">
-            <span>{{
-              t("admin.posts.editor.char_count", { n: charCount })
-            }}</span>
-            <span>{{
-              t("admin.posts.editor.reading_minutes", { n: readingMinutes })
-            }}</span>
-            <span v-if="autoSavedLabel" class="ml-auto flex items-center gap-1">
-              <UIcon
-                name="i-tabler-circle-check"
-                class="size-3 text-success" />{{ autoSavedLabel }}
-            </span>
-          </div>
-
-          <ContributionSlot
-            name="admin:post-editor-footer"
-            :ctx="{ formData: formData }"
-            class="empty:hidden" />
+                <template #menu="{ item, execute }">
+                  <UTooltip :text="item.title">
+                    <UButton
+                      variant="ghost"
+                      color="neutral"
+                      size="xs"
+                      :icon="item.icon"
+                      @click="execute" />
+                  </UTooltip>
+                </template>
+              </ContributionSlot>
+            </template>
+            <template #footer>
+              <ContributionSlot
+                name="admin:post-editor-footer"
+                :ctx="{ formData: formData }"
+                class="empty:hidden" />
+            </template>
+          </AdminRichEditor>
 
           <!-- 摘要 -->
           <div class="pb-8">
@@ -402,15 +189,6 @@
 <script setup lang="ts">
 import type { Editor } from "@tiptap/vue-3";
 import { dispatchCommand } from "~/composables/useNuxtblogAdmin";
-import { Emoji, gitHubEmojis } from "@tiptap/extension-emoji";
-import { TextAlign } from "@tiptap/extension-text-align";
-import { InlineMath } from "@tiptap/extension-mathematics";
-import "katex/dist/katex.min.css";
-import { ImageUpload } from "../extensions/ImageUpload";
-import { Callout } from "../extensions/Callout";
-import { CodeBlockWithLang } from "../extensions/CodeBlockWithLang";
-import Blockquote from "@tiptap/extension-blockquote";
-import { MathBlock } from "../extensions/MathBlock";
 import type { TermDetailResponse } from "~/types/api/term";
 import type { CreatePostRequest, UpdatePostRequest } from "~/types/api/post";
 
@@ -456,46 +234,8 @@ const emit = defineEmits<{
   save: [payload: CreatePostRequest | UpdatePostRequest];
 }>();
 
-// ── Editor extensions & emoji ─────────────────────────────────────────────
-const { pluginExtensions } = usePluginEditorExtensions();
-const editorExtensions = computed(() => [
-  Emoji,
-  TextAlign.configure({ types: ["heading", "paragraph"] }),
-  Blockquote.extend({ parseMarkdown: null as any }),
-  InlineMath,
-  MathBlock,
-  ImageUpload,
-  Callout,
-  CodeBlockWithLang,
-  ...pluginExtensions.value,
-]);
-const appendToBody = import.meta.client ? () => document.body : undefined;
-const emojiItems = gitHubEmojis.filter(
-  (e) => !e.name.startsWith("regional_indicator_"),
-);
-
-// ── Toolbar config (composable) ───────────────────────────────────────────
-const {
-  toolbarItems: fullToolbarItems,
-  bubbleItems,
-  linkBubbleItems,
-  imageBubbleItems,
-  suggestionItems,
-  selectedNode,
-  dragHandleItems,
-  toolbarScrollRef,
-  hasOverflow,
-  overflowItems,
-} = usePostEditorToolbar();
-
-// ── Link popover ──────────────────────────────────────────────────────────
-const linkPopoverRef = ref<{ openForInsert: () => void; openForEdit: () => void } | null>(null);
-
-// ── Plugin toolbar toggle ─────────────────────────────────────────────────
-const pluginToolbarExpanded = useLocalStorage(
-  "nuxtblog:editor:plugin-toolbar",
-  true,
-);
+// ── Rich editor ref ───────────────────────────────────────────────────────
+const richEditorRef = ref<any>(null);
 
 // ── Plugin command dispatch ───────────────────────────────────────────────
 const handlePluginCommand = (commandId: string, editor: Editor) => {
@@ -574,7 +314,6 @@ interface DownloadItem {
   desc?: string;
 }
 
-const editorLoading = ref(true);
 const sidebarLoading = ref(true);
 
 const publishedAtLocal = ref(
@@ -632,22 +371,9 @@ const seoData = ref({
   robots: init?.seo?.robots ?? "index,follow",
 });
 
-// ── Draft & auto-save (composable) ────────────────────────────────────────
-const {
-  autoSaveKey,
-  autoSavedLabel,
-  showDraftRestore,
-  savedDraft,
-  hasUnsavedChanges,
-  restoreDraft,
-  discardDraft,
-  markSaved,
-  startAutoSave,
-} = usePostEditorDraft(formData, {
-  mode: props.mode,
-  postId: init?.id,
-  hasInitialContent: !!init?.content,
-});
+// ── Unsaved changes (tracked via rich editor + form watchers) ─────────────
+const toast = useToast();
+const hasUnsavedChanges = computed(() => richEditorRef.value?.hasUnsavedChanges ?? false);
 
 watch(
   [
@@ -660,67 +386,14 @@ watch(
     metaFields,
   ],
   () => {
-    hasUnsavedChanges.value = true;
+    if (richEditorRef.value) richEditorRef.value.hasUnsavedChanges = true;
   },
   { deep: true },
 );
 
-// ── Image upload (composable) ─────────────────────────────────────────────
-const toast = useToast();
-const editorRef = ref<any>(null);
-
-const { editorHandlers: baseEditorHandlers, uploadPendingImages, hasPendingUploads } =
-  usePostEditorImageUpload(formData, editorRef);
-
-const editorHandlers = computed(() => ({
-  ...baseEditorHandlers.value,
-  link: {
-    canExecute: (editor: Editor) => editor.can().setLink({ href: '' }) || editor.can().unsetLink(),
-    execute: (editor: Editor) => {
-      if (editor.isActive('link')) {
-        linkPopoverRef.value?.openForEdit()
-      } else {
-        linkPopoverRef.value?.openForInsert()
-      }
-      return editor.chain()
-    },
-    isActive: (editor: Editor) => editor.isActive('link'),
-  },
-  "link-edit": {
-    canExecute: (editor: Editor) => editor.isActive('link'),
-    execute: (_editor: Editor) => linkPopoverRef.value?.openForEdit(),
-    isActive: (_editor: Editor) => false,
-  },
-  "link-open": {
-    canExecute: (editor: Editor) => editor.isActive('link'),
-    execute: (editor: Editor) => {
-      const href = editor.getAttributes('link').href
-      if (href) window.open(href, '_blank')
-    },
-    isActive: (_editor: Editor) => false,
-  },
-  "link-unlink": {
-    canExecute: (editor: Editor) => editor.isActive('link'),
-    execute: (editor: Editor) => editor.chain().focus().extendMarkRange('link').unsetLink().run(),
-    isActive: (_editor: Editor) => false,
-  },
-}));
-
 // ── Revision modal & preview ──────────────────────────────────────────────
 const showRevisionModal = ref(false);
 const showPreview = ref(false);
-
-// ── Word count ────────────────────────────────────────────────────────────
-const charCount = computed(
-  () =>
-    (formData.value.content ?? "")
-      .replace(/[#*`\[\]()>_~\-|]/g, "")
-      .replace(/\s+/g, "")
-      .trim().length,
-);
-const readingMinutes = computed(() =>
-  Math.max(1, Math.ceil(charCount.value / 400)),
-);
 
 // ── Build & save ──────────────────────────────────────────────────────────
 const buildPayload = (
@@ -777,14 +450,14 @@ const handleSaveDraft = async () => {
     });
     return;
   }
-  if (hasPendingUploads()) {
+  if (richEditorRef.value?.hasPendingUploads()) {
     toast.add({
       title: t("admin.posts.editor.pending_upload_warning"),
       color: "warning",
     });
     return;
   }
-  await uploadPendingImages();
+  await richEditorRef.value?.uploadPendingImages();
   emit("save", buildPayload(1));
 };
 const handlePublish = async () => {
@@ -795,14 +468,14 @@ const handlePublish = async () => {
     });
     return;
   }
-  if (hasPendingUploads()) {
+  if (richEditorRef.value?.hasPendingUploads()) {
     toast.add({
       title: t("admin.posts.editor.pending_upload_warning"),
       color: "warning",
     });
     return;
   }
-  await uploadPendingImages();
+  await richEditorRef.value?.uploadPendingImages();
   // If publish time is in the future, save as draft — server cron will auto-publish at that time.
   emit("save", buildPayload(isFuturePublish.value ? 1 : 2));
 };
@@ -837,10 +510,14 @@ const reset = () => {
     canonical_url: "",
     robots: "index,follow",
   };
-  hasUnsavedChanges.value = false;
-  try {
-    localStorage.removeItem(autoSaveKey.value);
-  } catch {}
+  if (richEditorRef.value) {
+    richEditorRef.value.hasUnsavedChanges = false;
+    richEditorRef.value.markSaved();
+  }
+};
+
+const markSaved = () => {
+  richEditorRef.value?.markSaved();
 };
 
 defineExpose({
@@ -853,12 +530,7 @@ defineExpose({
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────
 onMounted(async () => {
-  // Small delay to allow plugin extensions to register before editor mounts
-  await new Promise((r) => setTimeout(r, 150));
-  editorLoading.value = false;
   await Promise.all([categoryStore.loadCategories(), tagStore.loadTags()]);
   sidebarLoading.value = false;
-
-  startAutoSave();
 });
 </script>

@@ -43,46 +43,6 @@
       <!-- 主内容区 -->
       <div class="flex-1 min-w-0 max-w-5xl mx-auto">
         <div class="flex-1 bg-default px-2">
-          <!-- 草稿恢复提示 -->
-          <div v-if="showDraftRestore" class="pt-8 pb-3">
-            <UAlert
-              icon="i-tabler-device-floppy"
-              color="warning"
-              variant="subtle"
-              :title="t('admin.posts.editor.draft_found')">
-              <template #description>
-                <div
-                  class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <span class="text-sm text-gray-500">
-                    {{
-                      savedDraft?.savedAt
-                        ? t("admin.posts.editor.draft_saved_at", {
-                            time: new Date(savedDraft.savedAt).toLocaleString(),
-                          })
-                        : ""
-                    }}
-                  </span>
-                  <div class="flex gap-2">
-                    <UButton
-                      size="xs"
-                      color="primary"
-                      variant="soft"
-                      @click="restoreDraft"
-                      >{{ t("admin.posts.editor.restore_draft") }}</UButton
-                    >
-                    <UButton
-                      size="xs"
-                      color="neutral"
-                      variant="ghost"
-                      @click="discardDraft"
-                      >{{ t("admin.posts.editor.discard") }}</UButton
-                    >
-                  </div>
-                </div>
-              </template>
-            </UAlert>
-          </div>
-
           <!-- 标题 -->
           <div class="px-8 sm:px-16 pt-8 pb-3">
             <input
@@ -101,151 +61,17 @@
               class="w-full text-sm bg-transparent border-b border-default pb-2 outline-none placeholder:text-muted focus:border-primary transition-colors" />
           </div>
 
-          <!-- 编辑器骨架屏 -->
-          <div v-if="editorLoading" class="px-8 sm:px-16 py-4">
-            <div
-              class="flex items-center gap-2 border-b border-default pb-2 mb-6">
-              <USkeleton v-for="i in 8" :key="i" class="h-7 w-7 rounded" />
-              <USkeleton class="h-7 w-px mx-1" />
-              <USkeleton
-                v-for="i in 5"
-                :key="'b' + i"
-                class="h-7 w-7 rounded" />
-            </div>
-            <div class="space-y-4 min-h-[500px]">
-              <USkeleton class="h-8 w-2/3" />
-              <USkeleton class="h-4 w-full" />
-              <USkeleton class="h-4 w-5/6" />
-              <USkeleton class="h-4 w-4/5" />
-              <USkeleton class="h-4 w-full" />
-              <USkeleton class="h-4 w-3/4" />
-              <div class="pt-4 space-y-3">
-                <USkeleton class="h-6 w-48" />
-                <USkeleton class="h-4 w-full" />
-                <USkeleton class="h-4 w-5/6" />
-                <USkeleton class="h-4 w-full" />
-              </div>
-            </div>
-          </div>
-
           <!-- 编辑器 -->
-          <UEditor
-            v-else
-            ref="editorRef"
-            v-slot="{ editor, handlers }"
+          <AdminRichEditor
+            ref="richEditorRef"
             v-model="formData.content"
-            content-type="markdown"
+            image-category="doc"
+            draft-key-prefix="blog:doc:draft"
+            :draft-entity-id="init?.id"
+            :draft-mode="mode"
+            :has-initial-content="!!init?.content"
             :placeholder="t('admin.docs.editor.content_placeholder')"
-            :extensions="editorExtensions"
-            :starter-kit="{ codeBlock: false, blockquote: false }"
-            :handlers="editorHandlers"
-            :ui="{ base: 'px-8 sm:px-16 pt-14 pb-6' }"
-            class="min-h-[500px] px-8 sm:px-16 pb-4"
-            @ready="editorLoading = false">
-            <UEditorToolbar
-              :editor="editor"
-              :items="toolbarItems"
-              layout="fixed"
-              class="border-b border-default sticky top-0 inset-x-0 px-4 py-1.5 z-10 bg-default/95 backdrop-blur overflow-x-auto before:content-[''] before:absolute before:inset-x-0 before:bottom-full before:h-8 before:bg-default" />
-
-            <UEditorToolbar
-              :editor="editor"
-              :items="bubbleItems"
-              class="z-50"
-              layout="bubble"
-              :should-show="
-                ({ editor: e, view, state }) => {
-                  const { selection } = state;
-                  return (
-                    view.hasFocus() && !selection.empty && !e.isActive('image')
-                  );
-                }
-              " />
-
-            <UEditorToolbar
-              :editor="editor"
-              :items="imageBubbleItems"
-              class="z-50"
-              layout="bubble"
-              :should-show="({ editor: e }) => e.isActive('image')" />
-
-            <UEditorToolbar
-              :editor="editor"
-              :items="linkBubbleItems"
-              class="z-50"
-              layout="bubble"
-              :should-show="({ editor: e, state }) => e.isActive('link') && state.selection.empty" />
-
-            <EditorLinkPopover ref="linkPopoverRef" :editor="editor" />
-
-            <UEditorDragHandle
-              v-slot="{ ui, onClick }"
-              :editor="editor"
-              @node-change="selectedNode = $event">
-              <UButton
-                icon="i-tabler-plus"
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                :class="ui.handle()"
-                @click="
-                  (e) => {
-                    e.stopPropagation();
-                    const selected = onClick();
-                    handlers.suggestion
-                      ?.execute(editor, { pos: selected?.pos })
-                      .run();
-                  }
-                " />
-              <UDropdownMenu
-                v-slot="{ open }"
-                :modal="false"
-                :items="dragHandleItems(editor)"
-                :content="{ side: 'left' }"
-                :ui="{ content: 'w-52', label: 'text-xs' }"
-                @update:open="
-                  editor.chain().setMeta('lockDragHandle', $event).run()
-                ">
-                <UButton
-                  color="neutral"
-                  variant="ghost"
-                  active-variant="soft"
-                  size="sm"
-                  icon="i-tabler-grip-vertical"
-                  :active="open"
-                  :class="ui.handle()" />
-              </UDropdownMenu>
-            </UEditorDragHandle>
-
-            <UEditorSuggestionMenu
-              :editor="editor"
-              :items="suggestionItems"
-              :append-to="appendToBody" />
-            <UEditorMentionMenu
-              :editor="editor"
-              :items="[]"
-              :append-to="appendToBody" />
-            <UEditorEmojiMenu
-              :editor="editor"
-              :items="emojiItems"
-              :append-to="appendToBody" />
-          </UEditor>
-
-          <!-- 字数统计 -->
-          <div
-            class="px-8 sm:px-16 py-2 flex items-center gap-4 text-xs text-muted border-t border-default">
-            <span>{{
-              t("admin.posts.editor.char_count", { n: charCount })
-            }}</span>
-            <span>{{
-              t("admin.posts.editor.reading_minutes", { n: readingMinutes })
-            }}</span>
-            <span v-if="autoSavedLabel" class="ml-auto flex items-center gap-1">
-              <UIcon
-                name="i-tabler-circle-check"
-                class="size-3 text-success" />{{ autoSavedLabel }}
-            </span>
-          </div>
+            editor-class="px-8 sm:px-16" />
         </div>
       </div>
 
@@ -451,26 +277,10 @@
       </template>
     </UModal>
 
-    <!-- 图片上传（隐藏） -->
-    <input
-      ref="imageFileInput"
-      type="file"
-      accept="image/*"
-      class="hidden"
-      @change="handleImageFileSelect" />
   </AdminPageContainer>
 </template>
 
 <script setup lang="ts">
-import type { Editor } from "@tiptap/vue-3";
-import { Emoji, gitHubEmojis } from "@tiptap/extension-emoji";
-import { TextAlign } from "@tiptap/extension-text-align";
-import { InlineMath } from "@tiptap/extension-mathematics";
-import "katex/dist/katex.min.css";
-import { Callout } from "../extensions/Callout";
-import { CodeBlockWithLang } from "../extensions/CodeBlockWithLang";
-import Blockquote from "@tiptap/extension-blockquote";
-import { MathBlock } from "../extensions/MathBlock";
 import type {
   CreateDocRequest,
   UpdateDocRequest,
@@ -513,248 +323,16 @@ const emit = defineEmits<{
   save: [payload: CreateDocRequest | UpdateDocRequest];
 }>();
 
-// ── Editor extensions & emoji ─────────────────────────────────────────────
-const editorExtensions = [
-  Emoji,
-  TextAlign.configure({ types: ["heading", "paragraph"] }),
-  Blockquote.extend({ parseMarkdown: null as any }),
-  InlineMath,
-  MathBlock,
-  Callout,
-  CodeBlockWithLang,
-];
-const appendToBody = import.meta.client ? () => document.body : undefined;
-const emojiItems = gitHubEmojis.filter(
-  (e) => !e.name.startsWith("regional_indicator_"),
-);
-
-// ── Toolbar config ────────────────────────────────────────────────────────
-const {
-  toolbarItems,
-  bubbleItems,
-  linkBubbleItems,
-  imageBubbleItems,
-  suggestionItems,
-  selectedNode,
-  dragHandleItems,
-} = usePostEditorToolbar();
-
-// ── Link popover ──────────────────────────────────────────────────────────
-const linkPopoverRef = ref<{ openForInsert: () => void; openForEdit: () => void } | null>(null);
-
-// ── Image upload ──────────────────────────────────────────────────────────
+// ── Rich editor ref ───────────────────────────────────────────────────────
+const richEditorRef = ref<any>(null);
 const toast = useToast();
-const mediaStore = useMediaStore();
-const imageFileInput = ref<HTMLInputElement | null>(null);
-let pendingEditor: Editor | null = null;
-
-const compressImage = (
-  file: File,
-  maxWidth = 1920,
-  quality = 0.85,
-): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const scale = Math.min(1, maxWidth / img.width);
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-        canvas
-          .getContext("2d")!
-          .drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL("image/jpeg", quality));
-      };
-      img.onerror = reject;
-      img.src = e.target?.result as string;
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-
-const editorHandlers = computed(() => ({
-  image: {
-    canExecute: (editor: Editor) => editor.isEditable,
-    execute: (editor: Editor) => {
-      pendingEditor = editor;
-      nextTick(() => imageFileInput.value?.click());
-      return editor.chain();
-    },
-    isActive: (_editor: Editor) => false,
-  },
-  "callout-note": {
-    canExecute: (editor: Editor) => editor.isEditable,
-    execute: (editor: Editor) => editor.chain().focus().setCallout({ type: "note" }).run(),
-    isActive: (editor: Editor) => editor.isActive("callout", { type: "note" }),
-  },
-  "callout-tip": {
-    canExecute: (editor: Editor) => editor.isEditable,
-    execute: (editor: Editor) => editor.chain().focus().setCallout({ type: "tip" }).run(),
-    isActive: (editor: Editor) => editor.isActive("callout", { type: "tip" }),
-  },
-  "callout-important": {
-    canExecute: (editor: Editor) => editor.isEditable,
-    execute: (editor: Editor) => editor.chain().focus().setCallout({ type: "important" }).run(),
-    isActive: (editor: Editor) => editor.isActive("callout", { type: "important" }),
-  },
-  "callout-warning": {
-    canExecute: (editor: Editor) => editor.isEditable,
-    execute: (editor: Editor) => editor.chain().focus().setCallout({ type: "warning" }).run(),
-    isActive: (editor: Editor) => editor.isActive("callout", { type: "warning" }),
-  },
-  "callout-caution": {
-    canExecute: (editor: Editor) => editor.isEditable,
-    execute: (editor: Editor) => editor.chain().focus().setCallout({ type: "caution" }).run(),
-    isActive: (editor: Editor) => editor.isActive("callout", { type: "caution" }),
-  },
-  "math-inline": {
-    canExecute: (editor: Editor) => editor.isEditable,
-    execute: (editor: Editor) => editor.chain().focus().insertContent("$E=mc^2$").run(),
-    isActive: (_editor: Editor) => false,
-  },
-  "math-block": {
-    canExecute: (editor: Editor) => editor.isEditable,
-    execute: (editor: Editor) => editor.chain().focus().setMathBlock({ latex: 'E = mc^2' }).run(),
-    isActive: (editor: Editor) => editor.isActive("blockMath"),
-  },
-  "mermaid-block": {
-    canExecute: (editor: Editor) => editor.isEditable,
-    execute: (editor: Editor) => editor.chain().focus().setCodeBlock({ language: "mermaid" }).run(),
-    isActive: (_editor: Editor) => false,
-  },
-  "download-image": {
-    canExecute: (editor: Editor) => editor.isActive("image"),
-    execute: (editor: Editor) => {
-      const attrs = editor.getAttributes("image");
-      if (attrs.src) {
-        const a = document.createElement("a");
-        a.href = attrs.src;
-        a.download = attrs.alt || "image";
-        a.target = "_blank";
-        a.click();
-      }
-    },
-    isActive: (_editor: Editor) => false,
-  },
-  "remove-image": {
-    canExecute: (editor: Editor) => editor.isActive("image"),
-    execute: (editor: Editor) => editor.chain().focus().deleteSelection().run(),
-    isActive: (_editor: Editor) => false,
-  },
-  link: {
-    canExecute: (editor: Editor) => editor.can().setLink({ href: '' }) || editor.can().unsetLink(),
-    execute: (editor: Editor) => {
-      if (editor.isActive('link')) {
-        linkPopoverRef.value?.openForEdit()
-      } else {
-        linkPopoverRef.value?.openForInsert()
-      }
-      return editor.chain()
-    },
-    isActive: (editor: Editor) => editor.isActive('link'),
-  },
-  "link-edit": {
-    canExecute: (editor: Editor) => editor.isActive('link'),
-    execute: (_editor: Editor) => linkPopoverRef.value?.openForEdit(),
-    isActive: (_editor: Editor) => false,
-  },
-  "link-open": {
-    canExecute: (editor: Editor) => editor.isActive('link'),
-    execute: (editor: Editor) => {
-      const href = editor.getAttributes('link').href
-      if (href) window.open(href, '_blank')
-    },
-    isActive: (_editor: Editor) => false,
-  },
-  "link-unlink": {
-    canExecute: (editor: Editor) => editor.isActive('link'),
-    execute: (editor: Editor) => editor.chain().focus().extendMarkRange('link').unsetLink().run(),
-    isActive: (_editor: Editor) => false,
-  },
-}));
-
-const handleImageFileSelect = async (event: Event) => {
-  const file = (event.target as HTMLInputElement).files?.[0];
-  if (!file || !pendingEditor) return;
-  const editor = pendingEditor;
-  pendingEditor = null;
-  try {
-    const dataUrl = await compressImage(file);
-    editor
-      .chain()
-      .focus()
-      .setImage({ src: dataUrl, alt: file.name.replace(/\.[^.]+$/, "") })
-      .run();
-  } catch {
-    toast.add({
-      title: t("admin.posts.editor.image_upload_failed"),
-      color: "error",
-    });
-  } finally {
-    if (imageFileInput.value) imageFileInput.value.value = "";
-  }
-};
-
-const dataUrlToFile = (dataUrl: string, name: string): File => {
-  const [header = "", b64 = ""] = dataUrl.split(",");
-  const mime = header.match(/:(.*?);/)?.[1] ?? "image/jpeg";
-  const ext = mime.split("/")[1] ?? "jpg";
-  const bin = atob(b64);
-  const arr = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-  return new File([arr], name.includes(".") ? name : `${name}.${ext}`, {
-    type: mime,
-  });
-};
-
-const uploadPendingImages = async (): Promise<void> => {
-  const content = formData.value.content ?? "";
-  const regex = /!\[([^\]]*)\]\((data:[^)]+)\)/g;
-  const matches: { alt: string; src: string }[] = [];
-  let m: RegExpExecArray | null;
-  while ((m = regex.exec(content)) !== null)
-    matches.push({ alt: m[1] ?? "", src: m[2] ?? "" });
-  if (!matches.length) return;
-
-  toast.add({
-    title: t("admin.posts.editor.image_uploading"),
-    color: "neutral",
-    duration: 0,
-    id: "img-upload",
-  });
-  try {
-    const results = await Promise.all(
-      matches.map(async ({ alt, src }) => {
-        const name = alt || `image-${Date.now()}`;
-        const result = await mediaStore.uploadMedia(dataUrlToFile(src, name), {
-          title: name,
-          category: "doc",
-        });
-        return { src, cdnUrl: result?.cdn_url };
-      }),
-    );
-    let updated = content;
-    for (const { src, cdnUrl } of results) {
-      if (cdnUrl) updated = updated.replaceAll(src, cdnUrl);
-    }
-    formData.value.content = updated;
-    await nextTick();
-  } finally {
-    toast.remove("img-upload");
-  }
-};
 
 // ── Form state ────────────────────────────────────────────────────────────
 const docApi = useDocApi();
-const { apiFetch } = useApiFetch();
 
 const init = props.initialData;
 
 const DEFAULT_PUBLISHED_AT = () => new Date().toISOString().slice(0, 16);
-
-const editorLoading = ref(true);
 
 const publishedAtLocal = ref(
   init?.publishedAt
@@ -863,77 +441,19 @@ watch(
   },
 );
 
-// ── Unsaved changes ───────────────────────────────────────────────────────
-const hasUnsavedChanges = ref(false);
+// ── Unsaved changes (tracked via rich editor) ────────────────────────────
+const hasUnsavedChanges = computed(() => richEditorRef.value?.hasUnsavedChanges ?? false);
+
 watch(
   [formData, seoData],
   () => {
-    hasUnsavedChanges.value = true;
+    if (richEditorRef.value) richEditorRef.value.hasUnsavedChanges = true;
   },
   { deep: true },
 );
 
 const markSaved = () => {
-  hasUnsavedChanges.value = false;
-  try {
-    localStorage.removeItem(autoSaveKey.value);
-  } catch {}
-};
-
-// ── Auto-save ─────────────────────────────────────────────────────────────
-const autoSaveKey = computed(() =>
-  props.mode === "edit" && init?.id
-    ? `blog:doc:draft:${init.id}`
-    : "blog:doc:draft:new",
-);
-const lastAutoSaved = ref<Date | null>(null);
-const autoSavedLabel = computed(() => {
-  if (!lastAutoSaved.value) return "";
-  return t("admin.posts.editor.auto_saved", {
-    time: lastAutoSaved.value.toLocaleTimeString(undefined, {
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
-  });
-});
-const showDraftRestore = ref(false);
-const savedDraft = ref<{
-  title?: string;
-  content?: string;
-  excerpt?: string;
-  savedAt?: string;
-} | null>(null);
-
-const doAutoSave = () => {
-  if (!formData.value.title && !formData.value.content) return;
-  try {
-    localStorage.setItem(
-      autoSaveKey.value,
-      JSON.stringify({
-        title: formData.value.title,
-        content: formData.value.content,
-        excerpt: formData.value.excerpt,
-        savedAt: new Date().toISOString(),
-      }),
-    );
-    lastAutoSaved.value = new Date();
-  } catch {}
-};
-
-const restoreDraft = () => {
-  if (!savedDraft.value) return;
-  if (savedDraft.value.title) formData.value.title = savedDraft.value.title;
-  if (savedDraft.value.content)
-    formData.value.content = savedDraft.value.content;
-  if (savedDraft.value.excerpt)
-    formData.value.excerpt = savedDraft.value.excerpt;
-  showDraftRestore.value = false;
-  localStorage.removeItem(autoSaveKey.value);
-};
-
-const discardDraft = () => {
-  localStorage.removeItem(autoSaveKey.value);
-  showDraftRestore.value = false;
+  richEditorRef.value?.markSaved();
 };
 
 // ── Revision modal ────────────────────────────────────────────────────────
@@ -968,18 +488,6 @@ async function handleRestoreRevision(rev: DocRevisionItem) {
   }
 }
 
-// ── Word count ────────────────────────────────────────────────────────────
-const charCount = computed(
-  () =>
-    (formData.value.content ?? "")
-      .replace(/[#*`\[\]()>_~\-|]/g, "")
-      .replace(/\s+/g, "")
-      .trim().length,
-);
-const readingMinutes = computed(() =>
-  Math.max(1, Math.ceil(charCount.value / 400)),
-);
-
 // ── Build & save ──────────────────────────────────────────────────────────
 const isFormValid = computed(
   () => formData.value.title.trim() !== "" && !!formData.value.collection_id,
@@ -1012,7 +520,7 @@ const handleSaveDraft = async () => {
     });
     return;
   }
-  await uploadPendingImages();
+  await richEditorRef.value?.uploadPendingImages();
   emit("save", buildPayload(1));
 };
 
@@ -1024,7 +532,7 @@ const handlePublish = async () => {
     });
     return;
   }
-  await uploadPendingImages();
+  await richEditorRef.value?.uploadPendingImages();
   const status = props.mode === "create" ? 2 : formData.value.status;
   emit("save", buildPayload(status));
 };
@@ -1037,10 +545,7 @@ defineExpose({
 });
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────
-let autoSaveTimer: ReturnType<typeof setInterval>;
-
 onMounted(async () => {
-  editorLoading.value = false;
   await fetchCollections();
 
   if (init?.collectionId) {
@@ -1050,22 +555,5 @@ onMounted(async () => {
   if (props.mode === "edit" && init?.id) {
     loadRevisions();
   }
-
-  if (!init?.content) {
-    try {
-      const saved = localStorage.getItem(autoSaveKey.value);
-      if (saved) {
-        const draft = JSON.parse(saved);
-        if (draft.title || draft.content) {
-          savedDraft.value = draft;
-          showDraftRestore.value = true;
-        }
-      }
-    } catch {}
-  }
-
-  autoSaveTimer = setInterval(doAutoSave, 60_000);
 });
-
-onUnmounted(() => clearInterval(autoSaveTimer));
 </script>
