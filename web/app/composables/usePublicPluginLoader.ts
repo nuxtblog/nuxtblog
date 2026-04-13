@@ -34,6 +34,12 @@ interface PageDef {
 
 // Module-level flag — safe because this only runs on the client (guarded by import.meta.client)
 let _loaded = false
+// Cached createPluginApi — installed once in setup sync context, reused in async _doLoad()
+let _createPluginApi: ((meta: PublicPluginPermissions) => Record<string, any>) | null = null
+/** Reactive flag — true once public plugins have finished loading. */
+export const publicPluginsLoaded = ref(false)
+/** Resolves when public plugins have been loaded (or immediately if already done). */
+export let pluginsLoadedPromise: Promise<void> | null = null
 
 export function usePublicPluginLoader() {
   const plugins = ref<PluginClientItem[]>([])
@@ -43,9 +49,21 @@ export function usePublicPluginLoader() {
   // Extract backend origin for asset URLs (e.g. "http://localhost:9000" from "http://localhost:9000/api/v1")
   const backendOrigin = apiBase.replace(/\/api\/v\d+$/, '')
 
+  // Install nuxtblogPublic in setup sync context (only once) — must happen before any await
+  // so that Vue composables (useRoute, useColorMode, useToast, etc.) have access to the component instance.
+  if (!_createPluginApi) {
+    const { createPluginApi } = installNuxtblogPublic()
+    _createPluginApi = createPluginApi
+  }
+
   async function loadPlugins() {
     if (_loaded) return
+    if (pluginsLoadedPromise) return pluginsLoadedPromise
+    pluginsLoadedPromise = _doLoad()
+    return pluginsLoadedPromise
+  }
 
+  async function _doLoad() {
     try {
       const res = await $fetch<{ code: number; data: { items: PluginClientItem[] } }>(`${apiBase}/plugins/client`)
       plugins.value = res?.data?.items || []
@@ -55,53 +73,61 @@ export function usePublicPluginLoader() {
         return
       }
 
-      // Install the nuxtblogPublic global API
-      const { createPluginApi } = installNuxtblogPublic()
-
       for (const plugin of plugins.value) {
         // Register version for cache busting
         registerPluginVersion(plugin.id, plugin.version)
 
-        // Register contribution points
+        // Parse contributes
+        let contributes: PluginContributes = {}
         if (plugin.contributes) {
           try {
-            const contributes: PluginContributes = JSON.parse(plugin.contributes)
-            contributionsStore.registerPlugin(plugin.id, contributes)
+            contributes = JSON.parse(plugin.contributes)
           }
           catch (e) {
             console.warn(`[public-plugin-loader] failed to parse contributes for ${plugin.id}:`, e)
           }
         }
 
-        // Register public plugin pages
+        // Parse public pages, merge nav items into contributes
+        let parsedPages: PageDef[] = []
         if (plugin.pages) {
           try {
-            const pages: PageDef[] = JSON.parse(plugin.pages)
-            for (const page of pages) {
-              if (page.slot !== 'public') continue
-              contributionsStore.registerPluginPage({
-                pluginId: plugin.id,
-                component: page.component,
-                title: page.title,
-                moduleFile: 'public.mjs',
-              })
-              // Register nav item if page has nav config
-              if (page.nav) {
-                contributionsStore.registerPlugin(plugin.id, {
-                  navigation: [{
-                    slot: page.nav.slot || 'public:header-actions',
-                    title: page.title || page.component,
-                    icon: page.nav.icon,
-                    route: `/p/${encodeURIComponent(plugin.id)}/${encodeURIComponent(page.component)}`,
-                    order: page.nav.order ?? 100,
-                  }],
-                })
-              }
+            const allPages: PageDef[] = JSON.parse(plugin.pages)
+            parsedPages = allPages.filter(p => p.slot === 'public')
+            const pageNavItems = parsedPages
+              .filter(p => p.nav)
+              .map(p => ({
+                slot: p.nav!.slot || 'public:header-actions',
+                title: p.title || p.component,
+                icon: p.nav!.icon,
+                route: p.path || `/p/${encodeURIComponent(plugin.id)}/${encodeURIComponent(p.component)}`,
+                order: p.nav!.order ?? 100,
+              }))
+            if (pageNavItems.length > 0) {
+              contributes.navigation = [...(contributes.navigation || []), ...pageNavItems]
             }
           }
           catch (e) {
             console.warn(`[public-plugin-loader] failed to parse pages for ${plugin.id}:`, e)
           }
+        }
+
+        // Single registerPlugin call (calls unregisterPlugin internally, which clears pluginPages)
+        if (contributes.commands?.length || contributes.navigation?.length
+          || contributes.menus && Object.keys(contributes.menus).length
+          || contributes.views && Object.keys(contributes.views).length) {
+          contributionsStore.registerPlugin(plugin.id, contributes)
+        }
+
+        // Register public pages AFTER registerPlugin to avoid being wiped by unregisterPlugin()
+        for (const page of parsedPages) {
+          contributionsStore.registerPluginPage({
+            pluginId: plugin.id,
+            component: page.component,
+            title: page.title,
+            path: page.path,
+            moduleFile: 'public.mjs',
+          })
         }
 
         // Parse permissions
@@ -118,11 +144,12 @@ export function usePublicPluginLoader() {
             trustLevel: plugin.trust_level,
             permissions,
           }
-          await loadPublicScript(plugin, meta, createPluginApi, backendOrigin)
+          await loadPublicScript(plugin, meta, _createPluginApi!, backendOrigin)
         }
       }
 
       _loaded = true
+      publicPluginsLoaded.value = true
     }
     catch (e) {
       console.warn('[public-plugin-loader] failed to load plugins:', e)

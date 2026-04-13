@@ -30,6 +30,11 @@ interface PageDef {
   nav?: { group?: string; icon?: string; order?: number }
 }
 
+/** Resolves when admin plugins have been loaded (or immediately if already done). */
+export let adminPluginsLoadedPromise: Promise<void> | null = null
+/** Reactive flag — true once admin plugins have finished loading. */
+export const adminPluginsLoaded = ref(false)
+
 export function usePluginLoader() {
   const { apiFetch } = useApiFetch()
   const contributionsStore = usePluginContributionsStore()
@@ -38,7 +43,12 @@ export function usePluginLoader() {
 
   async function loadPlugins() {
     if (loaded.value) return
+    if (adminPluginsLoadedPromise) return adminPluginsLoadedPromise
+    adminPluginsLoadedPromise = _doLoad()
+    return adminPluginsLoadedPromise
+  }
 
+  async function _doLoad() {
     try {
       const res = await apiFetch<{ items: PluginClientItem[] }>('/admin/plugins/client')
       plugins.value = res?.items || []
@@ -59,18 +69,19 @@ export function usePluginLoader() {
           }
         }
 
-        // Phase 4.2: merge page nav items into the same contributes object
+        // Phase 4.2: parse pages, merge nav items into contributes
+        let parsedPages: PageDef[] = []
         if (plugin.pages) {
           try {
-            const pages: PageDef[] = JSON.parse(plugin.pages)
-            const pageNavItems = pages
+            parsedPages = JSON.parse(plugin.pages)
+            const pageNavItems = parsedPages
               .filter(p => p.slot === 'admin' && p.nav)
               .map(p => ({
                 slot: 'admin:sidebar-nav',
                 parent: p.nav?.group,
                 title: p.title || p.component,
                 icon: p.nav?.icon,
-                route: `/admin/plugin-page/${encodeURIComponent(plugin.id)}/${encodeURIComponent(p.component)}`,
+                route: p.path || `/admin/plugin-page/${encodeURIComponent(plugin.id)}/${encodeURIComponent(p.component)}`,
                 order: p.nav?.order ?? 100,
               }))
             if (pageNavItems.length > 0) {
@@ -83,10 +94,24 @@ export function usePluginLoader() {
         }
 
         // Single registration: contributes + page nav merged
+        // NOTE: registerPlugin() calls unregisterPlugin() internally, which clears pluginPages.
+        // So registerPluginPage() MUST come AFTER this call.
         if (contributes.commands?.length || contributes.navigation?.length
           || contributes.menus && Object.keys(contributes.menus).length
           || contributes.views && Object.keys(contributes.views).length) {
           contributionsStore.registerPlugin(plugin.id, contributes)
+        }
+
+        // Register admin pages AFTER registerPlugin to avoid being wiped by unregisterPlugin()
+        for (const p of parsedPages) {
+          if (p.slot !== 'admin') continue
+          contributionsStore.registerPluginPage({
+            pluginId: plugin.id,
+            component: p.component,
+            title: p.title,
+            path: p.path,
+            moduleFile: 'admin.mjs',
+          })
         }
 
         // Load admin_js
@@ -96,6 +121,7 @@ export function usePluginLoader() {
       }
 
       loaded.value = true
+      adminPluginsLoaded.value = true
     }
     catch (e) {
       console.warn('[plugin-loader] failed to load plugins:', e)

@@ -93,6 +93,8 @@ export interface PluginPageDef {
   pluginId: string
   component: string
   title?: string
+  /** Custom route path declared in plugin.yaml (e.g. '/shop', '/admin/shop/products') */
+  path?: string
   /** 'admin.mjs' or 'public.mjs' — determines which module to load */
   moduleFile: string
 }

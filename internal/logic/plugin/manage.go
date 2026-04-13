@@ -520,7 +520,15 @@ func (s *sPlugin) PublicClientList(ctx context.Context) (*v1.PluginPublicClientR
 			}
 		}
 
-		if !hasPublicJS && !hasPublicContrib {
+		hasPublicPages := false
+		for _, pg := range mf.Pages {
+			if pg.Slot == "public" {
+				hasPublicPages = true
+				break
+			}
+		}
+
+		if !hasPublicJS && !hasPublicContrib && !hasPublicPages {
 			continue
 		}
 
@@ -538,6 +546,10 @@ func (s *sPlugin) PublicClientList(ctx context.Context) (*v1.PluginPublicClientR
 		if mf.Contributes != nil {
 			cb, _ := json.Marshal(mf.Contributes)
 			item.Contributes = string(cb)
+		}
+		if len(mf.Pages) > 0 {
+			pb, _ := json.Marshal(mf.Pages)
+			item.Pages = string(pb)
 		}
 		if len(mf.Permissions) > 0 {
 			pb, _ := json.Marshal(mf.Permissions)
