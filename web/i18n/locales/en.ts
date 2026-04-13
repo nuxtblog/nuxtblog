@@ -582,7 +582,6 @@ export default {
         move_up: "Move Up",
         move_down: "Move Down",
         delete: "Delete",
-        insert: "Insert",
         mention: "Mention User",
         styles: "Styles",
         view_post: "View Post",
@@ -946,6 +945,7 @@ export default {
       editor: "Editor",
       user: "User",
       admin: "Admin",
+      subscriber: "Subscriber",
     },
     appearance: {
       themes: {
