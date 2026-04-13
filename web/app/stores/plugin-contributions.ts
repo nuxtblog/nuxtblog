@@ -32,6 +32,7 @@ export interface PluginMenuItem {
   slot: string
   command: string
   when?: string
+  group?: string
   // Resolved from commands registry:
   title?: string
   titleEn?: string
@@ -78,6 +79,7 @@ export interface PluginContributes {
   menus?: Record<string, Array<{
     command: string
     when?: string
+    group?: string
   }>>
   views?: Record<string, Array<{
     id: string
@@ -148,6 +150,7 @@ export const usePluginContributionsStore = defineStore('plugin-contributions', (
             slot,
             command: entry.command,
             when: entry.when,
+            group: entry.group,
             title: cmd?.title,
             titleEn: cmd?.title_en,
             icon: cmd?.icon,

@@ -236,7 +236,8 @@ type NavigationDef struct {
 
 // MenuEntry references a command by ID and optionally restricts visibility.
 type MenuEntry struct {
-	Command string `json:"command"` // references CommandDef.ID
+	Command string `json:"command"`        // references CommandDef.ID
+	Group   string `json:"group,omitempty"` // group name for split-button rendering
 	When    string `json:"when,omitempty"`
 }
 

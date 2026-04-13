@@ -71,7 +71,29 @@
             :draft-mode="mode"
             :has-initial-content="!!init?.content"
             :placeholder="t('admin.docs.editor.content_placeholder')"
-            editor-class="px-8 sm:px-16" />
+            editor-class="px-8 sm:px-16"
+            enable-plugin-toolbar>
+            <template #toolbar-extra="{ editor }">
+              <ContributionSlot
+                name="post-editor:toolbar"
+                :ctx="{ editor }"
+                class="contents"
+                @command="
+                  (cmdId: string) => handlePluginCommand(cmdId, editor)
+                ">
+                <template #menu="{ item, execute }">
+                  <UTooltip :text="item.title ?? ''">
+                    <UButton
+                      variant="ghost"
+                      color="neutral"
+                      size="xs"
+                      :icon="item.icon"
+                      @click="execute" />
+                  </UTooltip>
+                </template>
+              </ContributionSlot>
+            </template>
+          </AdminRichEditor>
         </div>
       </div>
 
@@ -280,6 +302,9 @@
 </template>
 
 <script setup lang="ts">
+import type { Editor } from "@tiptap/vue-3";
+import { dispatchCommand } from "~/composables/useNuxtblogAdmin";
+import { usePluginContextStore } from "~/stores/plugin-context";
 import type {
   CreateDocRequest,
   UpdateDocRequest,
@@ -325,6 +350,53 @@ const emit = defineEmits<{
 // ── Rich editor ref ───────────────────────────────────────────────────────
 const richEditorRef = ref<any>(null);
 const toast = useToast();
+
+// ── Plugin context: set post.type for doc editor ──────────────────────────
+const pluginCtx = usePluginContextStore();
+pluginCtx.set('post.type', 'doc');
+
+// ── Plugin command dispatch ───────────────────────────────────────────────
+const handlePluginCommand = (commandId: string, editor: Editor) => {
+  const { state } = editor;
+  const { from, to } = state.selection;
+  const selectedText =
+    from !== to ? state.doc.textBetween(from, to, " ") : null;
+
+  dispatchCommand(commandId, {
+    source: "editor",
+    post: {
+      title: formData.value.title,
+      slug: formData.value.slug,
+      content: formData.value.content ?? "",
+      excerpt: formData.value.excerpt ?? "",
+      status: formData.value.status === 2 ? "published" : "draft",
+    },
+    selection: selectedText,
+    replace: (text: string) => {
+      editor
+        .chain()
+        .focus()
+        .deleteRange({ from, to })
+        .insertContent(text)
+        .run();
+    },
+    insert: (text: string) => {
+      editor.chain().focus().insertContent(text).run();
+    },
+    setContent: (html: string) => {
+      editor.commands.setContent(html);
+    },
+    setExcerpt: (text: string) => {
+      formData.value.excerpt = text;
+    },
+    setSlug: (text: string) => {
+      formData.value.slug = text;
+    },
+    addTags: async () => {
+      // Doc editor does not support tags — noop
+    },
+  });
+};
 
 // ── Form state ────────────────────────────────────────────────────────────
 const docApi = useDocApi();

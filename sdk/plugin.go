@@ -258,6 +258,8 @@ type CommandDef struct {
 // MenuEntry references a command by ID.
 type MenuEntry struct {
 	Command string `yaml:"command" json:"command"`
+	Group   string `yaml:"group"   json:"group,omitempty"`
+	When    string `yaml:"when"    json:"when,omitempty"`
 }
 
 // ─── Webhook ──────────────────────────────────────────────────────────────

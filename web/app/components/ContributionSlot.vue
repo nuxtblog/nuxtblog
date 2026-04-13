@@ -10,7 +10,19 @@
 import DOMPurify from 'dompurify'
 import type { ContributionSlotName } from '~/config/contribution-slots'
 import { usePluginContextStore } from '~/stores/plugin-context'
-import { usePluginContributionsStore, type PluginContentBlock } from '~/stores/plugin-contributions'
+import { usePluginContributionsStore, type PluginContentBlock, type PluginMenuItem } from '~/stores/plugin-contributions'
+
+export interface MenuGroup {
+  group: string
+  items: PluginMenuItem[]
+}
+
+export interface GroupedEntry {
+  /** Present for ungrouped single items */
+  item?: PluginMenuItem
+  /** Present for grouped items */
+  group?: MenuGroup
+}
 
 const props = defineProps<{
   /** Slot name matching manifest menus/views keys */
@@ -43,6 +55,52 @@ const visibleMenuItems = computed(() =>
     !item.when || contextStore.evaluateWhen(item.when),
   ),
 )
+
+/** Group visible menu items: ungrouped items stay solo, grouped items merge into MenuGroup entries. */
+const groupedMenuEntries = computed<GroupedEntry[]>(() => {
+  const singles: GroupedEntry[] = []
+  const groupMap = new Map<string, PluginMenuItem[]>()
+  const groupOrder: string[] = []
+
+  for (const item of visibleMenuItems.value) {
+    if (!item.group) {
+      singles.push({ item })
+    } else {
+      if (!groupMap.has(item.group)) {
+        groupMap.set(item.group, [])
+        groupOrder.push(item.group)
+      }
+      groupMap.get(item.group)!.push(item)
+    }
+  }
+
+  // Insert group entries at the position of first occurrence
+  const result: GroupedEntry[] = []
+  let groupIdx = 0
+  for (const entry of singles) {
+    // Insert any groups that appeared before this ungrouped item
+    while (groupIdx < groupOrder.length) {
+      const gName = groupOrder[groupIdx]!
+      const gItems = groupMap.get(gName)!
+      const gFirstIdx = visibleMenuItems.value.indexOf(gItems[0]!)
+      const curIdx = visibleMenuItems.value.indexOf(entry.item!)
+      if (gFirstIdx < curIdx) {
+        result.push({ group: { group: gName, items: gItems } })
+        groupIdx++
+      } else {
+        break
+      }
+    }
+    result.push(entry)
+  }
+  // Append remaining groups
+  while (groupIdx < groupOrder.length) {
+    const gName = groupOrder[groupIdx]!
+    result.push({ group: { group: gName, items: groupMap.get(gName)! } })
+    groupIdx++
+  }
+  return result
+})
 
 function handleCommand(commandId: string) {
   emit('command', commandId, props.ctx)
@@ -86,16 +144,58 @@ onBeforeUnmount(() => {
   </template>
 
   <!-- Menu items (toolbar buttons, context menu entries) -->
-  <template v-for="item in visibleMenuItems" :key="`menu-${item.pluginId}-${item.command}`">
-    <slot name="menu" :item="item" :execute="() => handleCommand(item.command)">
-      <UButton
-        variant="ghost"
-        size="xs"
-        :icon="item.icon"
-        :label="item.title"
-        @click="handleCommand(item.command)"
-      />
-    </slot>
+  <template v-for="(entry, idx) in groupedMenuEntries" :key="entry.item ? `menu-${entry.item.command}` : `group-${entry.group!.group}-${idx}`">
+    <!-- Ungrouped: single button -->
+    <template v-if="entry.item">
+      <slot name="menu" :item="entry.item" :execute="() => handleCommand(entry.item!.command)">
+        <UButton
+          variant="ghost"
+          size="xs"
+          :icon="entry.item.icon"
+          :label="entry.item.title"
+          @click="handleCommand(entry.item.command)" />
+      </slot>
+    </template>
+
+    <!-- Grouped: split button with dropdown -->
+    <template v-else-if="entry.group">
+      <slot name="menu-group" :group="entry.group" :execute="(cmd: string) => handleCommand(cmd)">
+        <div class="inline-flex items-center">
+          <!-- Primary button: first command in group -->
+          <UTooltip :text="entry.group!.items[0]!.title ?? ''">
+            <UButton
+              variant="ghost"
+              color="neutral"
+              size="xs"
+              :icon="entry.group!.items[0]!.icon"
+              class="rounded-r-none"
+              @click="handleCommand(entry.group!.items[0]!.command)" />
+          </UTooltip>
+          <!-- Dropdown arrow for all commands -->
+          <UPopover :ui="{ content: 'p-1' }">
+            <UButton
+              variant="ghost"
+              color="neutral"
+              size="xs"
+              icon="i-tabler-chevron-down"
+              class="rounded-l-none px-0.5"
+              :ui="{ leadingIcon: 'size-3' }" />
+            <template #content>
+              <div class="flex flex-col min-w-40">
+                <button
+                  v-for="gItem in entry.group!.items"
+                  :key="gItem.command"
+                  class="flex items-center gap-2 px-3 py-1.5 text-sm text-left rounded hover:bg-elevated transition-colors"
+                  @click="handleCommand(gItem.command)">
+                  <UIcon v-if="gItem.icon" :name="gItem.icon" class="size-4 text-muted" />
+                  <span>{{ gItem.title }}</span>
+                </button>
+              </div>
+            </template>
+          </UPopover>
+        </div>
+      </slot>
+    </template>
   </template>
 
   <!-- View panels -->

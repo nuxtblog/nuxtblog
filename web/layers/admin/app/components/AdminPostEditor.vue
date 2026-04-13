@@ -107,7 +107,7 @@
                   (cmdId: string) => handlePluginCommand(cmdId, editor)
                 ">
                 <template #menu="{ item, execute }">
-                  <UTooltip :text="item.title">
+                  <UTooltip :text="item.title ?? ''">
                     <UButton
                       variant="ghost"
                       color="neutral"
@@ -189,6 +189,7 @@
 <script setup lang="ts">
 import type { Editor } from "@tiptap/vue-3";
 import { dispatchCommand } from "~/composables/useNuxtblogAdmin";
+import { usePluginContextStore } from "~/stores/plugin-context";
 import type { TermDetailResponse } from "~/types/api/term";
 import type { CreatePostRequest, UpdatePostRequest } from "~/types/api/post";
 
@@ -529,6 +530,10 @@ defineExpose({
   markSaved,
   seoData,
 });
+
+// ── Plugin context: set post.type based on editor mode ────────────────────
+const pluginCtx = usePluginContextStore();
+pluginCtx.set('post.type', props.simple ? 'page' : 'post');
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────
 onMounted(async () => {
