@@ -62,8 +62,8 @@ export function useEditorImageUpload(
     },
     "mermaid-block": {
       canExecute: (editor: Editor) => editor.isEditable,
-      execute: (editor: Editor) => editor.chain().focus().setCodeBlock({ language: "mermaid" }).run(),
-      isActive: (_editor: Editor) => false,
+      execute: (editor: Editor) => editor.chain().focus().setMermaidBlock({ code: 'graph TD\n    A-->B' }).run(),
+      isActive: (editor: Editor) => editor.isActive("mermaidBlock"),
     },
     "download-image": {
       canExecute: (editor: Editor) => editor.isActive("image"),

@@ -1,48 +1,94 @@
 <script setup lang="ts">
-import { NodeViewWrapper, NodeViewContent } from '@tiptap/vue-3'
+import { NodeViewWrapper } from '@tiptap/vue-3'
+import hljs from 'highlight.js'
 
 const props = defineProps<{
-  node: { attrs: { language: string | null } }
+  node: { attrs: { language: string | null; code: string } }
   updateAttributes: (attrs: Record<string, unknown>) => void
-  extension: { options: { languageClassPrefix: string } }
+  selected: boolean
 }>()
 
-const languages = [
-  { label: 'Plain', value: '' },
-  { label: 'JavaScript', value: 'javascript' },
-  { label: 'TypeScript', value: 'typescript' },
-  { label: 'Python', value: 'python' },
-  { label: 'Go', value: 'go' },
-  { label: 'Rust', value: 'rust' },
-  { label: 'HTML', value: 'html' },
-  { label: 'CSS', value: 'css' },
-  { label: 'JSON', value: 'json' },
-  { label: 'YAML', value: 'yaml' },
-  { label: 'Bash', value: 'bash' },
-  { label: 'SQL', value: 'sql' },
-  { label: 'Markdown', value: 'markdown' },
-  { label: 'Mermaid', value: 'mermaid' },
-  { label: 'Java', value: 'java' },
-  { label: 'C++', value: 'cpp' },
-  { label: 'C#', value: 'csharp' },
-  { label: 'PHP', value: 'php' },
-  { label: 'Ruby', value: 'ruby' },
-  { label: 'Swift', value: 'swift' },
-  { label: 'Kotlin', value: 'kotlin' },
-  { label: 'Lua', value: 'lua' },
-  { label: 'Dockerfile', value: 'dockerfile' },
-  { label: 'XML', value: 'xml' },
-  { label: 'TOML', value: 'toml' },
-]
+const { t } = useI18n()
+
+useHighlightTheme()
+
+const { languages } = useCodeLanguages()
+
+const editing = ref(false)
+const inputRef = ref<HTMLTextAreaElement>()
+
+// Auto-enter edit mode when code is empty
+watch(
+  () => props.node.attrs.code,
+  (code) => {
+    if (!code && !editing.value) {
+      startEdit()
+    }
+  },
+  { immediate: true },
+)
+
+const highlighted = computed(() => {
+  const code = props.node.attrs.code || ''
+  if (!code.trim()) return ''
+  const lang = props.node.attrs.language
+  try {
+    if (lang && hljs.getLanguage(lang)) {
+      return hljs.highlight(code, { language: lang }).value
+    }
+    return hljs.highlightAuto(code).value
+  } catch {
+    return escapeHtml(code)
+  }
+})
+
+function escapeHtml(text: string) {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
 
 function onLangChange(event: Event) {
   const val = (event.target as HTMLSelectElement).value
   props.updateAttributes({ language: val || null })
 }
+
+function startEdit() {
+  editing.value = true
+  nextTick(() => {
+    inputRef.value?.focus()
+    autoResize()
+  })
+}
+
+function onInput(e: Event) {
+  const val = (e.target as HTMLTextAreaElement).value
+  props.updateAttributes({ code: val })
+  autoResize()
+}
+
+function autoResize() {
+  const el = inputRef.value
+  if (!el) return
+  el.style.height = 'auto'
+  el.style.height = el.scrollHeight + 'px'
+}
+
+function onBlur() {
+  editing.value = false
+}
+
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') {
+    editing.value = false
+    e.preventDefault()
+  }
+}
 </script>
 
 <template>
-  <NodeViewWrapper class="code-block-with-lang">
+  <NodeViewWrapper class="code-block-with-lang" :class="{ 'is-selected': selected }">
     <div class="code-block-header" contenteditable="false">
       <select
         :value="node.attrs.language || ''"
@@ -56,7 +102,30 @@ function onLangChange(event: Event) {
         </option>
       </select>
     </div>
-    <pre><NodeViewContent as="code" /></pre>
+    <!-- Edit mode -->
+    <div v-if="editing" class="code-edit-area">
+      <textarea
+        ref="inputRef"
+        :value="node.attrs.code"
+        class="code-input"
+        spellcheck="false"
+        :placeholder="t('admin.editor.click_to_add_code')"
+        @input="onInput"
+        @blur="onBlur"
+        @keydown="onKeydown" />
+    </div>
+    <!-- Preview mode -->
+    <div
+      v-else
+      class="code-preview"
+      :class="{ 'code-preview--clickable': !editing }"
+      contenteditable="false"
+      @click="startEdit()">
+      <div v-if="!node.attrs.code?.trim()" class="text-muted text-sm code-placeholder">
+        {{ t('admin.editor.click_to_add_code') }}
+      </div>
+      <pre v-else><code v-html="highlighted" /></pre>
+    </div>
   </NodeViewWrapper>
 </template>
 
@@ -67,6 +136,11 @@ function onLangChange(event: Event) {
   border: 1px solid var(--ui-border);
   border-radius: 0.75rem;
   overflow: hidden;
+  transition: border-color 0.15s;
+}
+.code-block-with-lang.is-selected,
+.code-block-with-lang:focus-within {
+  border-color: var(--ui-primary);
 }
 .code-block-header {
   display: flex;
@@ -88,7 +162,24 @@ function onLangChange(event: Event) {
 .lang-select:focus {
   border-color: var(--ui-primary);
 }
-.code-block-with-lang pre {
+.code-edit-area {
+  background: var(--ui-bg);
+}
+.code-input {
+  width: 100%;
+  min-height: 3em;
+  padding: 0.75em 1em;
+  font-family: "JetBrains Mono", "Courier New", monospace;
+  font-size: 0.875em;
+  line-height: 1.5;
+  background: transparent;
+  color: var(--ui-text);
+  border: none;
+  outline: none;
+  resize: none;
+  overflow: hidden;
+}
+.code-preview pre {
   margin: 0;
   padding: 1em;
   overflow-x: auto;
@@ -96,8 +187,19 @@ function onLangChange(event: Event) {
   border: none;
   border-radius: 0;
 }
-.code-block-with-lang pre code {
+.code-preview pre code {
   font-size: 0.875em;
   font-family: "JetBrains Mono", "Courier New", monospace;
+}
+.code-preview--clickable {
+  cursor: pointer;
+  min-height: 3em;
+}
+.code-preview--clickable:hover {
+  background: var(--ui-bg-elevated);
+}
+.code-placeholder {
+  padding: 1em;
+  text-align: center;
 }
 </style>

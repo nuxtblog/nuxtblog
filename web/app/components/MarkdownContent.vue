@@ -10,6 +10,8 @@ const rendered = computed(() =>
   props.html ?? (props.content ? renderMarkdown(props.content) : '')
 )
 
+useHighlightTheme()
+
 const containerRef = ref<HTMLElement>()
 
 // ── Copy buttons ─────────────────────────────────────────────────────────
@@ -106,9 +108,7 @@ onMounted(() => nextTick(postRender))
 </template>
 
 <style>
-/* highlight.js theme — GitHub-style, adapts to dark mode */
-@import 'highlight.js/styles/github.css' screen and (prefers-color-scheme: light);
-@import 'highlight.js/styles/github-dark.css' screen and (prefers-color-scheme: dark);
+/* highlight.js theme is dynamically injected by useHighlightTheme() */
 
 /* Image lightbox (appended to body, must be global) */
 .lightbox-overlay {

@@ -1,18 +1,18 @@
-import { Node, mergeAttributes, textblockTypeInputRule } from '@tiptap/core'
+import { Node, mergeAttributes } from '@tiptap/core'
 import { VueNodeViewRenderer } from '@tiptap/vue-3'
 import EditorCodeBlockNode from '../components/EditorCodeBlockNode.vue'
 
 export const CodeBlockWithLang = Node.create({
   name: 'codeBlock',
   group: 'block',
-  content: 'text*',
-  marks: '',
-  code: true,
-  defining: true,
+  atom: true,
+  selectable: true,
+  draggable: true,
 
   addAttributes() {
     return {
       language: { default: null },
+      code: { default: '' },
     }
   },
 
@@ -24,9 +24,12 @@ export const CodeBlockWithLang = Node.create({
         getAttrs: (el: string | HTMLElement) => {
           if (typeof el === 'string') return {}
           const code = el.querySelector('code')
-          if (!code) return {}
+          if (!code) return { code: typeof el === 'string' ? '' : el.textContent || '' }
           const cls = [...code.classList].find(c => c.startsWith('language-'))
-          return { language: cls ? cls.replace('language-', '') : null }
+          return {
+            language: cls ? cls.replace('language-', '') : null,
+            code: code.textContent || '',
+          }
         },
       },
     ]
@@ -35,7 +38,7 @@ export const CodeBlockWithLang = Node.create({
   renderHTML({ node, HTMLAttributes }) {
     const lang = node.attrs.language
     const codeAttrs = lang ? { class: `language-${lang}` } : {}
-    return ['pre', mergeAttributes(HTMLAttributes), ['code', codeAttrs, 0]]
+    return ['pre', mergeAttributes(HTMLAttributes), ['code', codeAttrs, node.attrs.code || '']]
   },
 
   // @tiptap/markdown integration
@@ -46,16 +49,13 @@ export const CodeBlockWithLang = Node.create({
     }
     return helpers.createNode(
       'codeBlock',
-      { language: token.lang || null },
-      token.text ? [helpers.createTextNode(token.text)] : [],
+      { language: token.lang || null, code: token.text || '' },
     )
   },
-  renderMarkdown: (node: any, h: any) => {
+  renderMarkdown: (node: any) => {
     const language = node.attrs?.language || ''
-    if (!node.content) {
-      return `\`\`\`${language}\n\n\`\`\``
-    }
-    return [`\`\`\`${language}`, h.renderChildren(node.content), '```'].join('\n')
+    const code = node.attrs?.code || ''
+    return `\`\`\`${language}\n${code}\n\`\`\``
   },
 
   addNodeView() {
@@ -67,12 +67,27 @@ export const CodeBlockWithLang = Node.create({
       setCodeBlock:
         (attrs?: { language?: string }) =>
         ({ commands }) => {
-          return commands.setNode(this.name, attrs)
+          return commands.insertContent({
+            type: this.name,
+            attrs: { language: attrs?.language || null, code: '' },
+          })
         },
       toggleCodeBlock:
         (attrs?: { language?: string }) =>
-        ({ commands }) => {
-          return commands.toggleNode(this.name, 'paragraph', attrs)
+        ({ state, commands }) => {
+          const { selection } = state
+          const node = selection.$from.parent
+          if (node.type.name === this.name) {
+            // Convert code block to paragraph with its code content
+            return commands.insertContent({
+              type: 'paragraph',
+              content: node.attrs.code ? [{ type: 'text', text: node.attrs.code }] : [],
+            })
+          }
+          return commands.insertContent({
+            type: this.name,
+            attrs: { language: attrs?.language || null, code: '' },
+          })
         },
     }
   },
@@ -80,39 +95,10 @@ export const CodeBlockWithLang = Node.create({
   addKeyboardShortcuts() {
     return {
       'Mod-Alt-c': () => this.editor.commands.toggleCodeBlock(),
-      // Exit code block on triple Enter
-      Backspace: () => {
-        const { empty, $anchor } = this.editor.state.selection
-        const isAtStart = $anchor.pos === $anchor.start()
-        if (!empty || $anchor.parent.type.name !== this.name) return false
-        if (isAtStart && !$anchor.parent.textContent.length) {
-          return this.editor.commands.clearNodes()
-        }
-        return false
-      },
-      Enter: ({ editor }) => {
-        const { $from } = editor.state.selection
-        if ($from.parent.type.name !== this.name) return false
-        // Allow normal Enter in code blocks
-        return false
-      },
-      'Mod-Enter': () => {
-        // Exit code block on Cmd/Ctrl+Enter
-        if (this.editor.state.selection.$from.parent.type.name !== this.name) return false
-        return this.editor.commands.exitCode()
-      },
     }
   },
 
   addInputRules() {
-    return [
-      textblockTypeInputRule({
-        find: /^```([a-z]*)?[\s\n]$/,
-        type: this.type,
-        getAttributes: (match) => ({
-          language: match[1] || null,
-        }),
-      }),
-    ]
+    return []
   },
 })

@@ -239,6 +239,7 @@ import { Callout } from "../extensions/Callout";
 import { CodeBlockWithLang } from "../extensions/CodeBlockWithLang";
 import Blockquote from "@tiptap/extension-blockquote";
 import { MathBlock } from "../extensions/MathBlock";
+import { MermaidBlock } from "../extensions/MermaidBlock";
 
 const { t } = useI18n();
 
@@ -289,6 +290,7 @@ const editorExtensions = computed(() => [
   Blockquote.extend({ parseMarkdown: null as any }),
   InlineMath,
   MathBlock,
+  MermaidBlock,
   ImageUpload,
   Callout,
   CodeBlockWithLang,

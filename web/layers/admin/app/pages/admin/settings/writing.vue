@@ -71,6 +71,36 @@
           </div>
         </UCard>
 
+        <UCard class="mt-4">
+          <template #header>
+            <h3 class="text-base font-semibold text-highlighted">{{ $t('admin.settings.writing.code_highlight') }}</h3>
+          </template>
+          <div class="space-y-4">
+            <UFormField :label="$t('admin.settings.writing.code_highlight_theme')" :hint="$t('admin.settings.writing.code_highlight_hint')">
+              <USelect
+                v-model="form.codeHighlightTheme"
+                :items="highlightThemeOptions"
+                class="w-full max-w-xs" />
+            </UFormField>
+
+            <div class="pt-3 border-t border-default">
+              <UFormField :label="$t('admin.settings.writing.code_languages')" :hint="$t('admin.settings.writing.code_languages_hint')">
+                <USelectMenu
+                  v-model="form.codeLanguages"
+                  :items="allHljsLanguages"
+                  multiple
+                  value-key="value"
+                  label-key="label"
+                  class="w-full max-w-lg"
+                  :placeholder="$t('admin.settings.writing.code_languages_placeholder')" />
+              </UFormField>
+              <p v-if="!form.codeLanguages.length" class="text-xs text-muted mt-1">
+                {{ $t('admin.settings.writing.code_languages_default') }}
+              </p>
+            </div>
+          </div>
+        </UCard>
+
       </template>
     </AdminPageContent>
   </AdminPageContainer>
@@ -78,8 +108,12 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
+import hljs from 'highlight.js';
+import { HIGHLIGHT_THEMES } from '~/utils/highlightThemes';
+import { formatLanguageLabel } from '~/utils/codeLanguages';
 
 const { apiFetch } = useApiFetch();
+const optionsStore = useOptionsStore();
 const toast = useToast();
 const { t } = useI18n();
 const isSaving = ref(false);
@@ -90,7 +124,16 @@ const form = ref({
   defaultEditor: "markdown",
   autoSave: true,
   autoSaveInterval: 60,
+  codeHighlightTheme: "github",
+  codeLanguages: [] as string[],
 });
+
+const highlightThemeOptions = HIGHLIGHT_THEMES.map(t => ({ label: t.label, value: t.id }));
+
+// All languages supported by hljs, for the multi-select picker
+const allHljsLanguages = hljs.listLanguages()
+  .map(v => ({ label: formatLanguageLabel(v), value: v }))
+  .sort((a, b) => a.label.localeCompare(b.label));
 
 const editors = computed(() => [
   { value: "markdown",  label: t('admin.settings.writing.editor_markdown'), description: t('admin.settings.writing.editor_markdown_desc') },
@@ -104,6 +147,8 @@ const loadSettings = async () => {
     if (opts.default_editor !== undefined)     form.value.defaultEditor    = JSON.parse(opts.default_editor);
     if (opts.auto_save !== undefined)          form.value.autoSave         = JSON.parse(opts.auto_save) as boolean;
     if (opts.auto_save_interval !== undefined) form.value.autoSaveInterval = parseInt(JSON.parse(opts.auto_save_interval));
+    if (opts.code_highlight_theme !== undefined) form.value.codeHighlightTheme = JSON.parse(opts.code_highlight_theme);
+    if (opts.code_languages !== undefined) form.value.codeLanguages = JSON.parse(opts.code_languages) as string[];
   } catch (e) {
     console.error(e);
     toast.add({ title: t("admin.settings.writing.load_failed"), description: t("admin.settings.general.load_failed_desc"), color: "error", icon: "i-tabler-alert-circle" });
@@ -119,12 +164,15 @@ const saveSettings = async () => {
       ["default_editor",     form.value.defaultEditor],
       ["auto_save",          form.value.autoSave],
       ["auto_save_interval", form.value.autoSaveInterval],
+      ["code_highlight_theme", form.value.codeHighlightTheme],
+      ["code_languages",       form.value.codeLanguages],
     ];
     await Promise.all(
       keyMap.map(([key, value]) =>
         apiFetch(`/options/${key}`, { method: "PUT", body: { value: JSON.stringify(value), autoload: 1 } })
       )
     );
+    await optionsStore.reload();
     toast.add({ title: t("admin.settings.writing.saved"), description: t("admin.settings.writing.saved_desc"), color: "success", icon: "i-tabler-circle-check" });
   } catch (e) {
     console.error(e);

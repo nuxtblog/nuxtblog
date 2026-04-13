@@ -565,6 +565,8 @@ export default {
         image_upload_hint: "点击或拖拽图片到此处",
         image_compressing: "压缩中...",
         pending_upload_warning: "请先完成或移除未上传的图片",
+        click_to_add_code: "点击添加代码",
+        click_to_add_mermaid: "点击添加 Mermaid 图表",
       },
     },
     media: {
@@ -1389,6 +1391,13 @@ export default {
         load_failed: "加载失败",
         saved: "保存成功",
         saved_desc: "撰写设置已更新",
+        code_highlight: "代码高亮",
+        code_highlight_theme: "高亮主题",
+        code_highlight_hint: "选择代码块的语法高亮配色方案，同时应用于编辑器和前台文章",
+        code_languages: "代码语言",
+        code_languages_hint: "选择在编辑器代码块下拉列表中显示的语言",
+        code_languages_placeholder: "搜索并选择语言…",
+        code_languages_default: "未自定义，使用默认语言列表",
       },
       reading: {
         title: "阅读设置",
@@ -1666,6 +1675,8 @@ export default {
       image_upload_failed: "图片上传失败",
       pending_upload_warning: "请先完成或移除未上传的图片",
       fill_required: "请填写标题和内容",
+      click_to_add_code: "点击添加代码",
+      click_to_add_mermaid: "点击添加 Mermaid 图表",
     },
     docs: {
       title: '文档管理',

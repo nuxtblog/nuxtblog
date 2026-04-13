@@ -590,6 +590,8 @@ export default {
         image_upload_hint: "Click or drag image here",
         image_compressing: "Compressing...",
         pending_upload_warning: "Please complete or remove pending image uploads",
+        click_to_add_code: "Click to add code",
+        click_to_add_mermaid: "Click to add Mermaid diagram",
       },
     },
     media: {
@@ -1441,6 +1443,13 @@ export default {
         load_failed: "Load failed",
         saved: "Saved",
         saved_desc: "Writing settings updated",
+        code_highlight: "Code Highlighting",
+        code_highlight_theme: "Highlight Theme",
+        code_highlight_hint: "Choose the syntax highlighting color scheme for code blocks, applied to both the editor and frontend articles",
+        code_languages: "Code Languages",
+        code_languages_hint: "Choose which languages appear in the editor code block dropdown",
+        code_languages_placeholder: "Search and select languages…",
+        code_languages_default: "No customization, using default language list",
       },
       reading: {
         title: "Reading Settings",
@@ -1744,6 +1753,8 @@ export default {
       image_upload_failed: "Image upload failed",
       pending_upload_warning: "Please complete or remove pending image uploads",
       fill_required: "Please fill in title and content",
+      click_to_add_code: "Click to add code",
+      click_to_add_mermaid: "Click to add Mermaid diagram",
     },
     docs: {
       title: 'Docs Management',
