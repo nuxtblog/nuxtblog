@@ -209,6 +209,11 @@ func (s *sPlugin) Toggle(ctx context.Context, id string, enabled bool) error {
 	}
 
 	if enabled {
+		// YAML plugin? reload from disk
+		if eng.IsYAMLPlugin(id) {
+			return eng.ReloadYAMLPlugin(ctx, id)
+		}
+
 		// Try to reload as JS (Goja) plugin first (check for plugin dir on disk)
 		pluginDir := filepath.Join(PluginAssetsDir(), sanitizePluginPath(id))
 		if mgr := eng.GetManager(); mgr != nil {
@@ -238,6 +243,12 @@ func (s *sPlugin) Toggle(ctx context.Context, id string, enabled bool) error {
 			_ = eng.Load(id, r.Script, mf)
 		}
 	} else {
+		// YAML plugin? mark disabled
+		if eng.IsYAMLPlugin(id) {
+			eng.UnloadYAMLPlugin(id)
+			return nil
+		}
+
 		// Unload from both engines — cascade unloads dependents
 		normalized, _ := eng.NormalizePluginID(id)
 		eng.Unload(normalized)

@@ -60,6 +60,8 @@ type YAMLPlugin struct {
 	PublicJS    string            `yaml:"public_js"`
 	AdminJS     string            `yaml:"admin_js"`
 	Navigation  []NavigationDef   `yaml:"navigation"`
+	Enabled     bool              `yaml:"-"` // runtime state, not from YAML file
+	FilePath    string            `yaml:"-"` // source file path, for reload
 }
 
 // YAMLWebhook is a declarative webhook forwarding rule.
@@ -120,6 +122,7 @@ func LoadYAMLPlugins(ctx context.Context, dir string) {
 		}
 	}
 	g.Log().Infof(ctx, "[yaml-plugin] %d declarative plugin(s) loaded from %s", count, dir)
+	syncYAMLEnabledState(ctx)
 }
 
 func loadOneYAMLPlugin(ctx context.Context, path string) error {
@@ -154,12 +157,52 @@ func loadOneYAMLPlugin(ctx context.Context, path string) error {
 		}
 	}
 
+	yp.FilePath = path
+
 	yamlMu.Lock()
 	yamlPlugins[yp.ID] = &yp
 	yamlMu.Unlock()
 
 	g.Log().Infof(ctx, "[yaml-plugin] loaded %s (%s v%s)", yp.ID, yp.Title, yp.Version)
 	return nil
+}
+
+// syncYAMLEnabledState reads the DB enabled field for each loaded YAML plugin.
+func syncYAMLEnabledState(ctx context.Context) {
+	yamlMu.Lock()
+	defer yamlMu.Unlock()
+	for id, yp := range yamlPlugins {
+		val, _ := g.DB().Ctx(ctx).Model("plugins").Where("id", id).Value("enabled")
+		yp.Enabled = val.Int() == 1
+	}
+}
+
+// ReloadYAMLPlugin reloads a single YAML plugin from disk and marks it enabled.
+func ReloadYAMLPlugin(ctx context.Context, id string) error {
+	yamlMu.RLock()
+	existing := yamlPlugins[id]
+	yamlMu.RUnlock()
+	if existing == nil || existing.FilePath == "" {
+		return fmt.Errorf("yaml plugin %s not found or no file path", id)
+	}
+	if err := loadOneYAMLPlugin(ctx, existing.FilePath); err != nil {
+		return err
+	}
+	yamlMu.Lock()
+	if yp, ok := yamlPlugins[id]; ok {
+		yp.Enabled = true
+	}
+	yamlMu.Unlock()
+	return nil
+}
+
+// UnloadYAMLPlugin marks a YAML plugin as disabled so filters/webhooks stop running.
+func UnloadYAMLPlugin(id string) {
+	yamlMu.Lock()
+	defer yamlMu.Unlock()
+	if yp, ok := yamlPlugins[id]; ok {
+		yp.Enabled = false
+	}
 }
 
 // ─── YAML filter execution ──────────────────────────────────────────────────
@@ -171,6 +214,9 @@ func RunYAMLFilters(ctx context.Context, event string, data map[string]any) erro
 	defer yamlMu.RUnlock()
 
 	for _, yp := range yamlPlugins {
+		if !yp.Enabled {
+			continue
+		}
 		for _, f := range yp.Filters {
 			if f.Event != event {
 				continue
@@ -233,6 +279,9 @@ func FanOutYAMLWebhooks(eventName string, payload map[string]any) {
 	defer yamlMu.RUnlock()
 
 	for _, yp := range yamlPlugins {
+		if !yp.Enabled {
+			continue
+		}
 		for _, wh := range yp.Webhooks {
 			for _, pattern := range wh.Events {
 				if isEventMatch(pattern, eventName) {
