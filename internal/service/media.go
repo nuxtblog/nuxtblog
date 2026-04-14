@@ -4,6 +4,7 @@ import (
 	"context"
 
 	v1 "github.com/nuxtblog/nuxtblog/api/media/v1"
+	"github.com/nuxtblog/nuxtblog/internal/consts"
 )
 
 type (
@@ -19,6 +20,13 @@ type (
 		// Category
 		GetCategories(ctx context.Context) ([]v1.MediaCategoryItem, error)
 		UpdateCategory(ctx context.Context, req *v1.MediaCategoryUpdateReq) error
+		// Extension groups + format policies
+		GetExtensionGroups(ctx context.Context) ([]consts.ExtensionGroup, error)
+		SaveExtensionGroups(ctx context.Context, groups []consts.ExtensionGroup) error
+		GetFormatPolicies(ctx context.Context) ([]consts.FormatPolicy, error)
+		CreateFormatPolicy(ctx context.Context, policy consts.FormatPolicy) error
+		UpdateFormatPolicy(ctx context.Context, name string, policy consts.FormatPolicy) error
+		DeleteFormatPolicy(ctx context.Context, name string) error
 	}
 )
 

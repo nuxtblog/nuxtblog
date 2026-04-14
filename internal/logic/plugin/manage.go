@@ -67,7 +67,16 @@ func (s *sPlugin) UpdateSettings(ctx context.Context, id string, values map[stri
 	}
 	_, err = g.DB().Ctx(ctx).Model("plugins").Where("id", id).
 		Data(g.Map{"settings": string(raw), "updated_at": gtime.Now()}).Update()
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Re-activate the plugin so it can pick up the new settings
+	// (e.g., storage plugins register their adapter only when credentials are present).
+	if mgr := eng.GetManager(); mgr != nil {
+		mgr.ReactivatePlugin(ctx, id)
+	}
+	return nil
 }
 
 // ── Uninstall ─────────────────────────────────────────────────────────────

@@ -15,12 +15,16 @@ import (
 
 // CategoryItem is the JSON-serialisable representation stored in options["media_categories"].
 type CategoryItem struct {
-	Slug       string `json:"slug"`
-	LabelZh    string `json:"label_zh"`
-	LabelEn    string `json:"label_en"`
-	IsSystem   bool   `json:"is_system"`
-	Order      int    `json:"order"`
-	StorageKey string `json:"storage_key"` // empty = use system default backend
+	Slug         string `json:"slug"`
+	LabelZh      string `json:"label_zh"`
+	LabelEn      string `json:"label_en"`
+	IsSystem     bool   `json:"is_system"`
+	Order        int    `json:"order"`
+	StorageKey   string `json:"storage_key"`             // empty = use system default backend
+	PluginID     string `json:"plugin_id,omitempty"`      // non-empty = registered by a plugin
+	MaxPerOwner  int    `json:"max_per_owner,omitempty"`  // >0 = auto-replace oldest
+	FormatPolicy string `json:"format_policy,omitempty"` // references FormatPolicy.Name; empty = "default"
+	PathTemplate string `json:"path_template,omitempty"` // empty = fallback to global template
 }
 
 const optKeyCategories = "media_categories"
@@ -94,13 +98,14 @@ func SyncBuiltinCategories(ctx context.Context) error {
 		builtinSlugs[def.Slug] = struct{}{}
 		if item, ok := bySlug[def.Slug]; ok {
 			item.IsSystem = true
-			item.Order   = def.Order
+			item.Order = def.Order
 			item.LabelZh = def.LabelZh
 			item.LabelEn = def.LabelEn
+			item.MaxPerOwner = def.MaxPerOwner
 		} else {
 			existing = append(existing, CategoryItem{
 				Slug: def.Slug, LabelZh: def.LabelZh, LabelEn: def.LabelEn,
-				IsSystem: true, Order: def.Order,
+				IsSystem: true, Order: def.Order, MaxPerOwner: def.MaxPerOwner,
 			})
 		}
 	}
@@ -119,7 +124,7 @@ func builtinItems() []CategoryItem {
 	for i, def := range consts.BuiltinMediaCategories {
 		items[i] = CategoryItem{
 			Slug: def.Slug, LabelZh: def.LabelZh, LabelEn: def.LabelEn,
-			IsSystem: true, Order: def.Order,
+			IsSystem: true, Order: def.Order, MaxPerOwner: def.MaxPerOwner,
 		}
 	}
 	return items
@@ -130,7 +135,56 @@ func toAPIItem(c CategoryItem) v1.MediaCategoryItem {
 	return v1.MediaCategoryItem{
 		Slug: c.Slug, LabelZh: c.LabelZh, LabelEn: c.LabelEn,
 		IsSystem: c.IsSystem, Order: c.Order, StorageKey: c.StorageKey,
+		PluginID: c.PluginID, MaxPerOwner: c.MaxPerOwner, FormatPolicy: c.FormatPolicy,
+		PathTemplate: c.PathTemplate,
 	}
+}
+
+// RegisterPluginCategory upserts a category registered by a plugin.
+func RegisterPluginCategory(ctx context.Context, pluginID string, def CategoryItem) error {
+	cats, _ := getCategories(ctx)
+	found := false
+	for i := range cats {
+		if cats[i].Slug == def.Slug {
+			cats[i].LabelZh = def.LabelZh
+			cats[i].LabelEn = def.LabelEn
+			cats[i].Order = def.Order
+			cats[i].MaxPerOwner = def.MaxPerOwner
+			cats[i].PluginID = pluginID
+			cats[i].IsSystem = false
+			found = true
+			break
+		}
+	}
+	if !found {
+		def.PluginID = pluginID
+		def.IsSystem = false
+		cats = append(cats, def)
+	}
+	return saveCategories(ctx, cats)
+}
+
+// UnregisterPluginCategories removes all categories registered by a given plugin.
+func UnregisterPluginCategories(ctx context.Context, pluginID string) error {
+	cats, _ := getCategories(ctx)
+	filtered := cats[:0]
+	for _, c := range cats {
+		if c.PluginID != pluginID {
+			filtered = append(filtered, c)
+		}
+	}
+	return saveCategories(ctx, filtered)
+}
+
+// GetCategoryDef returns the category definition for a slug, or nil if not found.
+func GetCategoryDef(ctx context.Context, slug string) *CategoryItem {
+	cats, _ := getCategories(ctx)
+	for i := range cats {
+		if cats[i].Slug == slug {
+			return &cats[i]
+		}
+	}
+	return nil
 }
 
 // ── IMedia method implementations ─────────────────────────────────────────────
@@ -155,6 +209,12 @@ func (s *sMedia) UpdateCategory(ctx context.Context, req *v1.MediaCategoryUpdate
 	for i := range cats {
 		if cats[i].Slug == req.Slug {
 			cats[i].StorageKey = req.StorageKey
+			if req.FormatPolicy != nil {
+				cats[i].FormatPolicy = *req.FormatPolicy
+			}
+			if req.PathTemplate != nil {
+				cats[i].PathTemplate = *req.PathTemplate
+			}
 			return saveCategories(ctx, cats)
 		}
 	}

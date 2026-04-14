@@ -28,6 +28,8 @@ import {
   AdminPageContainer, AdminPageHeader, AdminPageContent, AdminPageFooter,
   // Admin editor (1)
   AdminRichEditor,
+  // Media picker (1)
+  MediaPickerModal,
   // Public layout (3)
   PageHeader, PageContent, PageFooter,
 } from '#components'
@@ -48,6 +50,7 @@ export default defineNuxtPlugin(() => {
     ULink, UBreadcrumb,
     AdminPageContainer, AdminPageHeader, AdminPageContent, AdminPageFooter,
     AdminRichEditor,
+    MediaPickerModal,
     PageHeader, PageContent, PageFooter,
   }
   // Legacy alias — kept for backward compatibility with plugins that import from @nuxtblog/admin

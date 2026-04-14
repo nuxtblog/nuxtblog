@@ -10,6 +10,7 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"path/filepath"
 	"strings"
 
 	"github.com/disintegration/imaging"
@@ -55,32 +56,39 @@ func getOptionJSON(ctx context.Context, key string, out any) error {
 	return json.Unmarshal([]byte(raw), out)
 }
 
-// ── size limits ───────────────────────────────────────────────────────────────
+// ── max_per_owner enforcement ──────────────────────────────────────────────────
 
-func getLimits(ctx context.Context) consts.FileLimitsMB {
-	var lim consts.FileLimitsMB
-	if err := getOptionJSON(ctx, "media_size_limits", &lim); err != nil || lim.Image == 0 {
-		return consts.DefaultFileLimits
+// enforceMaxPerOwner deletes the oldest media records for a given uploader+category
+// when the count would exceed maxPerOwner after the new upload.
+func enforceMaxPerOwner(ctx context.Context, uploaderID int64, category string, maxPerOwner int) {
+	var ids []struct {
+		Id int `orm:"id"`
 	}
-	return lim
+	err := dao.Medias.Ctx(ctx).
+		Where("uploader_id", uploaderID).
+		Where("category", category).
+		Where("deleted_at IS NULL").
+		OrderAsc("created_at").
+		Scan(&ids)
+	if err != nil || len(ids) < maxPerOwner {
+		return
+	}
+	// Delete oldest records to make room (keep maxPerOwner-1, since we're about to add one)
+	toDelete := ids[:len(ids)-maxPerOwner+1]
+	for _, row := range toDelete {
+		// Use the service Delete to also clean up storage files
+		delUp, actualKey := storage.ForStorageKey(ctx, "")
+		var m entity.Medias
+		if e := dao.Medias.Ctx(ctx).Where("id", row.Id).Scan(&m); e == nil && m.Id != 0 {
+			delUp, actualKey = storage.ForStorageKey(ctx, m.StorageKey)
+			_ = delUp.Delete(ctx, actualKey)
+		}
+		_, _ = dao.Medias.Ctx(ctx).Where("id", row.Id).Delete()
+		g.Log().Infof(ctx, "[media] max_per_owner: auto-deleted media %d (uploader=%d, category=%s)", row.Id, uploaderID, category)
+	}
 }
 
-func limitMBForMime(lim consts.FileLimitsMB, mimeType string) float64 {
-	switch {
-	case strings.HasPrefix(mimeType, "image/"):
-		return lim.Image
-	case strings.HasPrefix(mimeType, "video/"):
-		return lim.Video
-	case strings.HasPrefix(mimeType, "audio/"):
-		return lim.Audio
-	case strings.HasPrefix(mimeType, "application/pdf"),
-		strings.HasPrefix(mimeType, "application/msword"),
-		strings.HasPrefix(mimeType, "application/vnd.openxmlformats"):
-		return lim.Document
-	default:
-		return lim.Other
-	}
-}
+// ── file validation (extension-based) ──────────────────────────────────────────
 
 // ── thumbnail config ──────────────────────────────────────────────────────────
 
@@ -175,6 +183,15 @@ func getUploadPathTemplate(ctx context.Context) string {
 	return consts.StoragePathTemplateYearMonth
 }
 
+// getCategoryPathTemplate returns the path template for a category, falling back to global.
+func getCategoryPathTemplate(ctx context.Context, category string) string {
+	cat := GetCategoryDef(ctx, category)
+	if cat != nil && cat.PathTemplate != "" {
+		return cat.PathTemplate
+	}
+	return getUploadPathTemplate(ctx)
+}
+
 // ── Storage routing ───────────────────────────────────────────────────────────
 
 type storageRule struct {
@@ -225,20 +242,17 @@ func (s *sMedia) Upload(ctx context.Context, req *v1.MediaUploadReq) (*v1.MediaI
 	mimeType := req.File.Header.Get("Content-Type")
 	backendName, up := resolveBackend(ctx, mimeType, req.Category)
 
-	// 1. Validate file size against configured limits.
-	lim := getLimits(ctx)
-	maxBytes := int64(limitMBForMime(lim, mimeType) * 1024 * 1024)
-	if req.File.Size > maxBytes {
-		mb := float64(req.File.Size) / 1024 / 1024
-		maxMB := limitMBForMime(lim, mimeType)
-		return nil, gerror.NewCode(gcode.CodeInvalidParameter,
-			g.I18n().Tf(ctx, "media.file_too_large", mb, maxMB))
+	// 1. Validate file extension and size against format policy.
+	ext := strings.ToLower(filepath.Ext(req.File.Filename))
+	policy := resolveFormatPolicy(ctx, req.Category)
+	if err := validateFileExtension(ctx, policy, ext, req.File.Size); err != nil {
+		return nil, gerror.NewCode(gcode.CodeInvalidParameter, err.Error())
 	}
 
 	// 2. Upload original file.
 	result, err := up.Upload(ctx, req.File, storage.UploadOptions{
 		Category:     req.Category,
-		PathTemplate: getUploadPathTemplate(ctx),
+		PathTemplate: getCategoryPathTemplate(ctx, req.Category),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("upload file: %w", err)
@@ -286,7 +300,12 @@ func (s *sMedia) Upload(ctx context.Context, req *v1.MediaUploadReq) (*v1.MediaI
 		}
 	}
 
-	// 4. Persist media record.
+	// 4. max_per_owner: auto-delete oldest media for this uploader+category.
+	if catDef := GetCategoryDef(ctx, category); catDef != nil && catDef.MaxPerOwner > 0 {
+		enforceMaxPerOwner(ctx, uploaderID, category, catDef.MaxPerOwner)
+	}
+
+	// 5. Persist media record.
 	m := &entity.Medias{
 		UploaderId:  int(uploaderID),
 		StorageType: result.StorageType,
@@ -443,7 +462,7 @@ func (s *sMedia) Localize(ctx context.Context, req *v1.MediaLocalizeReq) (*v1.Me
 	// Upload via synthetic multipart file.
 	result, err := storage.UploadFromBytes(ctx, up, data, filename, storage.UploadOptions{
 		Category:     m.Category,
-		PathTemplate: getUploadPathTemplate(ctx),
+		PathTemplate: getCategoryPathTemplate(ctx, m.Category),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("upload to storage: %w", err)

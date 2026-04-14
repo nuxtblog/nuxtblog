@@ -2,12 +2,9 @@ package consts
 
 // Storage driver type constants — used in config (storage.backends.<name>.type)
 // and in the backend factory switch in storage/uploader.go.
-// To add a new driver: implement storage.Uploader, add a case in buildBackend(), then add an entry below.
+// Cloud drivers (S3, OSS, COS) are now provided by builtin plugins.
 const (
 	StorageDriverLocal = "local" // local filesystem (default)
-	StorageDriverS3    = "s3"   // S3-compatible (AWS, MinIO, Cloudflare R2 …)
-	StorageDriverOSS   = "oss"  // Aliyun OSS
-	StorageDriverCOS   = "cos"  // Tencent COS
 )
 
 // Upload path template placeholders — used in media_upload_path option.
@@ -30,11 +27,8 @@ type StorageDriverDef struct {
 	LabelEn string
 }
 
-// BuiltinStorageDrivers lists all driver types implemented in this codebase.
-// The admin settings page uses this to validate and label storage backend types.
+// BuiltinStorageDrivers lists driver types always available in the core.
+// Plugin-provided drivers (S3, OSS, COS) register dynamically via the adapter registry.
 var BuiltinStorageDrivers = []StorageDriverDef{
-	{Type: StorageDriverLocal, LabelZh: "本地存储",    LabelEn: "Local Filesystem"},
-	{Type: StorageDriverS3,    LabelZh: "S3 / MinIO", LabelEn: "S3 / MinIO"},
-	{Type: StorageDriverOSS,   LabelZh: "阿里云 OSS", LabelEn: "Aliyun OSS"},
-	{Type: StorageDriverCOS,   LabelZh: "腾讯云 COS", LabelEn: "Tencent COS"},
+	{Type: StorageDriverLocal, LabelZh: "本地存储", LabelEn: "Local Filesystem"},
 }

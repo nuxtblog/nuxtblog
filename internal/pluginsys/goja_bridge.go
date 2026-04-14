@@ -31,6 +31,9 @@ func injectPluginSDK(vm *goja.Runtime, pctx sdk.PluginContext) {
 	if pctx.AI != nil {
 		injectPluginAI(vm, ctx, pctx.AI)
 	}
+	if pctx.Media != nil {
+		injectMedia(vm, ctx, pctx.Media)
+	}
 	vm.Set("ctx", ctx)
 }
 
@@ -277,6 +280,58 @@ func injectPluginAI(vm *goja.Runtime, ctxObj *goja.Object, ai sdk.AI) {
 		})
 	})
 	ctxObj.Set("ai", o)
+}
+
+// ── ctx.media ────────────────────────────────────────────────────────────────
+
+// injectMedia exposes ctx.media.upload(data, filename, opts) and ctx.media.delete(mediaID)
+// to JS plugins for media operations.
+func injectMedia(vm *goja.Runtime, ctxObj *goja.Object, ms sdk.MediaService) {
+	o := vm.NewObject()
+
+	o.Set("registerStorageAdapter", func(call goja.FunctionCall) goja.Value {
+		// JS plugins can't easily implement Go interfaces, so this is a stub.
+		// Go-native plugins should use ctx.Media directly.
+		panic(vm.NewGoError(fmt.Errorf("registerStorageAdapter is only available for Go-native plugins")))
+	})
+
+	o.Set("registerCategory", func(call goja.FunctionCall) goja.Value {
+		arg := call.Argument(0).Export()
+		m, ok := arg.(map[string]interface{})
+		if !ok {
+			panic(vm.NewGoError(fmt.Errorf("registerCategory: expected object argument")))
+		}
+		def := sdk.CategoryDef{}
+		if v, ok := m["slug"].(string); ok {
+			def.Slug = v
+		}
+		if v, ok := m["label_zh"].(string); ok {
+			def.LabelZh = v
+		}
+		if v, ok := m["label_en"].(string); ok {
+			def.LabelEn = v
+		}
+		if v, ok := m["order"].(int64); ok {
+			def.Order = int(v)
+		}
+		if v, ok := m["max_per_owner"].(int64); ok {
+			def.MaxPerOwner = int(v)
+		}
+		if err := ms.RegisterCategory(def); err != nil {
+			panic(vm.NewGoError(err))
+		}
+		return goja.Undefined()
+	})
+
+	o.Set("delete", func(call goja.FunctionCall) goja.Value {
+		mediaID := call.Argument(0).ToInteger()
+		if err := ms.Delete(context.Background(), mediaID); err != nil {
+			panic(vm.NewGoError(err))
+		}
+		return goja.Undefined()
+	})
+
+	ctxObj.Set("media", o)
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────────

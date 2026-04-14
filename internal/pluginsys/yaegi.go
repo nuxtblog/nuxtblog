@@ -209,6 +209,7 @@ func (m *Manager) activatePlugin(ctx context.Context, p sdk.Plugin, source strin
 		Log:      newPluginLogger(id),
 		Plugins:  &pluginQuery{mgr: m},
 		AI:       DefaultAI(),
+		Media:    newMediaService(id),
 	}
 	lp.ctx = pctx
 
@@ -222,6 +223,15 @@ func (m *Manager) activatePlugin(ctx context.Context, p sdk.Plugin, source strin
 	// Activate
 	if err := p.Activate(pctx); err != nil {
 		return fmt.Errorf("activate: %w", err)
+	}
+
+	// Register media categories declared in manifest
+	if len(mf.MediaCategories) > 0 {
+		for _, cat := range mf.MediaCategories {
+			if err := pctx.Media.RegisterCategory(cat); err != nil {
+				g.Log().Warningf(ctx, "[pluginmgr] %s: register media category %s: %v", id, cat.Slug, err)
+			}
+		}
 	}
 
 	// Collect routes
@@ -489,12 +499,79 @@ func (m *Manager) UnloadPlugin(id string) []string {
 					g.Log().Warningf(ctx, "[pluginmgr] %s deactivate error: %v", pid, err)
 				}
 			}
+			unregisterPluginMedia(pid)
 			delete(m.plugins, pid)
 			m.graph.Remove(pid)
 			unloaded = append(unloaded, pid)
 		}
 	}
 	return unloaded
+}
+
+// ReactivatePlugin deactivates then re-activates a loaded plugin so that it
+// can pick up new settings (e.g., storage credentials added after first boot).
+// Returns false if the plugin is not currently loaded.
+func (m *Manager) ReactivatePlugin(ctx context.Context, id string) bool {
+	m.mu.Lock()
+	lp, ok := m.plugins[id]
+	if !ok {
+		m.mu.Unlock()
+		return false
+	}
+	m.mu.Unlock()
+
+	// 1. Deactivate
+	if dp, ok := lp.plugin.(sdk.HasDeactivate); ok {
+		_ = dp.Deactivate()
+	}
+	unregisterPluginMedia(id)
+
+	// 2. Rebuild plugin context with fresh settings from DB
+	mf := lp.plugin.Manifest()
+	var dbCaps *DBCap
+	if mf.Capabilities != nil && mf.Capabilities.DB != nil {
+		dbCaps = convertSDKDBCap(mf.Capabilities.DB)
+	}
+	trust := TrustLevel(mf.TrustLevel)
+	source := "external"
+	m.mu.RLock()
+	if lp.pluginDir == "" && lp.jsFile == "" {
+		source = "builtin"
+	}
+	m.mu.RUnlock()
+	if source == "builtin" {
+		trust = TrustLevelOfficial
+	}
+
+	pctx := sdk.PluginContext{
+		DB:       newPluginDB(id, dbCaps, trust),
+		Store:    newPluginStore(id),
+		Settings: newPluginSettings(id),
+		Log:      newPluginLogger(id),
+		Plugins:  &pluginQuery{mgr: m},
+		AI:       DefaultAI(),
+		Media:    newMediaService(id),
+	}
+
+	// 3. Re-activate
+	if err := lp.plugin.Activate(pctx); err != nil {
+		g.Log().Warningf(ctx, "[pluginmgr] reactivate %s failed: %v", id, err)
+		return true
+	}
+
+	// 4. Re-register media categories from manifest
+	if len(mf.MediaCategories) > 0 {
+		for _, cat := range mf.MediaCategories {
+			_ = pctx.Media.RegisterCategory(cat)
+		}
+	}
+
+	m.mu.Lock()
+	lp.ctx = pctx
+	m.mu.Unlock()
+
+	g.Log().Infof(ctx, "[pluginmgr] reactivated plugin: %s", id)
+	return true
 }
 
 // convertSDKDBCap converts sdk.DBCapability to pluginsys.DBCap.

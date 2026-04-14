@@ -3,24 +3,18 @@ package consts
 // MediaCategoryDef declares a media category.
 // Built-in entries are synced to options on every startup (upsert, idempotent).
 type MediaCategoryDef struct {
-	Slug     string // unique slug, used as DB value
-	LabelZh  string // Chinese label
-	LabelEn  string // English label
-	IsSystem bool   // system categories cannot be deleted via API
-	Order    int    // display order (ascending)
+	Slug        string // unique slug, used as DB value
+	LabelZh     string // Chinese label
+	LabelEn     string // English label
+	IsSystem    bool   // system categories cannot be deleted via API
+	Order       int    // display order (ascending)
+	MaxPerOwner int    // >0 = auto-replace oldest when uploader exceeds this count; 0 = unlimited
 }
 
 // Media category slug constants — use these throughout the codebase instead of magic strings.
-//
-// Categories are intentionally broad:
-//   - MediaCatUser   covers user avatar AND profile cover; when a user updates either,
-//     the previous image for that slot is deleted automatically.
-//   - MediaCatPost   covers post featured cover AND inline body images.
-//   - MediaCatDoc    covers doc inline images and attachments.
-//   - MediaCatMoment covers moment attached images/videos.
-//   - MediaCatBanner is for site-wide banner / hero images.
 const (
-	MediaCatUser   = "user"
+	MediaCatAvatar = "avatar"
+	MediaCatCover  = "cover"
 	MediaCatPost   = "post"
 	MediaCatDoc    = "doc"
 	MediaCatMoment = "moment"
@@ -30,29 +24,45 @@ const (
 // BuiltinMediaCategories is the single registration point for all built-in categories.
 // To add a new built-in category, append an entry here and restart / run migrate.
 var BuiltinMediaCategories = []MediaCategoryDef{
-	// 用户 — 头像及个人封面图（更新时会删除旧图）
-	{Slug: MediaCatUser, LabelZh: "用户", LabelEn: "User", IsSystem: true, Order: 10},
-	// 文章 — 文章封面及正文内嵌图片
-	{Slug: MediaCatPost, LabelZh: "文章", LabelEn: "Post", IsSystem: true, Order: 20},
-	// 文档 — 文档内嵌图片及附件
-	{Slug: MediaCatDoc, LabelZh: "文档", LabelEn: "Doc", IsSystem: true, Order: 30},
-	// 动态 — 动态内附图/视频
-	{Slug: MediaCatMoment, LabelZh: "动态", LabelEn: "Moment", IsSystem: true, Order: 40},
-	// Banner — 站点横幅 / Hero 图
-	{Slug: MediaCatBanner, LabelZh: "Banner", LabelEn: "Banner", IsSystem: true, Order: 50},
+	{Slug: MediaCatAvatar, LabelZh: "头像", LabelEn: "Avatar", IsSystem: true, Order: 5, MaxPerOwner: 1},
+	{Slug: MediaCatCover, LabelZh: "封面", LabelEn: "Cover", IsSystem: true, Order: 6, MaxPerOwner: 1},
+	{Slug: MediaCatPost, LabelZh: "文章", LabelEn: "Post", IsSystem: true, Order: 20, MaxPerOwner: 0},
+	{Slug: MediaCatDoc, LabelZh: "文档", LabelEn: "Doc", IsSystem: true, Order: 30, MaxPerOwner: 0},
+	{Slug: MediaCatMoment, LabelZh: "动态", LabelEn: "Moment", IsSystem: true, Order: 40, MaxPerOwner: 0},
+	{Slug: MediaCatBanner, LabelZh: "横幅", LabelEn: "Banner", IsSystem: true, Order: 50, MaxPerOwner: 0},
 }
 
-// FileLimitsMB holds per-MIME-class upload size caps in megabytes.
-type FileLimitsMB struct {
-	Image    float64 `json:"image"`
-	Video    float64 `json:"video"`
-	Audio    float64 `json:"audio"`
-	Document float64 `json:"document"`
-	Other    float64 `json:"other"`
+// ExtensionGroup defines a set of file extensions and their size limit.
+type ExtensionGroup struct {
+	Name       string   `json:"name"`
+	LabelZh    string   `json:"label_zh"`
+	LabelEn    string   `json:"label_en"`
+	Extensions []string `json:"extensions"`
+	MaxSizeMB  float64  `json:"max_size_mb"`
 }
 
-// DefaultFileLimits is used when the media_size_limits option is absent or zero.
-var DefaultFileLimits = FileLimitsMB{Image: 10, Video: 100, Audio: 20, Document: 20, Other: 10}
+// FormatPolicy combines multiple ExtensionGroups and is bound to categories.
+type FormatPolicy struct {
+	Name     string   `json:"name"`
+	LabelZh  string   `json:"label_zh"`
+	LabelEn  string   `json:"label_en"`
+	IsSystem bool     `json:"is_system"`
+	Groups   []string `json:"groups"`
+}
+
+// DefaultExtensionGroups are the built-in extension group definitions.
+var DefaultExtensionGroups = []ExtensionGroup{
+	{Name: "images", LabelZh: "图片", LabelEn: "Images", Extensions: []string{"jpg", "jpeg", "png", "webp", "gif", "svg", "ico", "bmp"}, MaxSizeMB: 10},
+	{Name: "videos", LabelZh: "视频", LabelEn: "Videos", Extensions: []string{"mp4", "webm", "mov", "avi", "mkv"}, MaxSizeMB: 100},
+	{Name: "audio", LabelZh: "音频", LabelEn: "Audio", Extensions: []string{"mp3", "wav", "ogg", "flac", "aac", "m4a"}, MaxSizeMB: 20},
+	{Name: "documents", LabelZh: "文档", LabelEn: "Documents", Extensions: []string{"pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "md"}, MaxSizeMB: 20},
+}
+
+// DefaultFormatPolicies are the built-in format policy definitions.
+var DefaultFormatPolicies = []FormatPolicy{
+	{Name: "default", LabelZh: "默认策略", LabelEn: "Default", IsSystem: true, Groups: []string{"images", "videos", "audio", "documents"}},
+	{Name: "images_only", LabelZh: "仅图片", LabelEn: "Images Only", IsSystem: true, Groups: []string{"images"}},
+}
 
 // ThumbSize describes a thumbnail preset dimension. Height=0 means "auto (keep ratio)".
 type ThumbSize struct {

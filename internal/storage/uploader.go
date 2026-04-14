@@ -115,7 +115,41 @@ func ListBackends(ctx context.Context) []BackendInfo {
 			Enabled:     enabled,
 		})
 	}
+
+	// Merge plugin-registered adapters not already in config.
+	registered := ListRegisteredAdapters()
+	configNames := make(map[string]struct{}, len(infos))
+	for _, info := range infos {
+		configNames[info.Name] = struct{}{}
+	}
+	for name, stype := range registered {
+		if _, exists := configNames[name]; exists {
+			continue
+		}
+		infos = append(infos, BackendInfo{
+			Name:        name,
+			DisplayName: name,
+			Type:        storageTypeName(stype),
+			Enabled:     true,
+		})
+	}
+
 	return infos
+}
+
+func storageTypeName(t int) string {
+	switch t {
+	case 1:
+		return "local"
+	case 2:
+		return "s3"
+	case 3:
+		return "oss"
+	case 4:
+		return "cos"
+	default:
+		return "plugin"
+	}
 }
 
 // ── Internal ──────────────────────────────────────────────────────────────────
@@ -128,6 +162,11 @@ func defaultBackendName(ctx context.Context) string {
 }
 
 func buildBackend(ctx context.Context, name string) Uploader {
+	// 1. Check plugin-registered adapters first.
+	if adapter, storageType, ok := GetRegisteredAdapter(name); ok {
+		return &sdkAdapterBridge{adapter: adapter, storageType: storageType}
+	}
+
 	prefix := "storage.backends." + name
 	typeVal, _ := g.Cfg().Get(ctx, prefix+".type")
 	enabledVal, _ := g.Cfg().Get(ctx, prefix+".enabled")
@@ -141,13 +180,11 @@ func buildBackend(ctx context.Context, name string) Uploader {
 	switch typeVal.String() {
 	case consts.StorageDriverLocal:
 		return newLocalUploaderAt(ctx, prefix)
-	case consts.StorageDriverS3:
-		return newS3UploaderAt(ctx, prefix)
-	case consts.StorageDriverOSS:
-		return newOSSUploaderAt(ctx, prefix)
-	case consts.StorageDriverCOS:
-		return newCOSUploaderAt(ctx, prefix)
 	default:
+		// Check registry again by type name (plugin may register using type string).
+		if adapter, storageType, ok := GetRegisteredAdapter(typeVal.String()); ok {
+			return &sdkAdapterBridge{adapter: adapter, storageType: storageType}
+		}
 		// No "type" key → legacy single-backend config
 		return buildLegacy(ctx, name)
 	}

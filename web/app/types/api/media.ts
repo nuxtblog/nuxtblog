@@ -1,10 +1,5 @@
-// 媒体分类（5 个内置类别，与后端 consts.BuiltinMediaCategories 保持同步）
-// user   = 用户头像及个人封面（更新时会删除旧图）
-// post   = 文章封面及正文内嵌图片
-// doc    = 文档内嵌图片及附件
-// moment = 动态附图/视频
-// banner = 站点横幅 / Hero 图
-export type MediaCategory = 'user' | 'post' | 'doc' | 'moment' | 'banner'
+// 媒体分类 — 动态字符串，不再硬编码（内置: avatar, cover, post, doc, moment, banner）
+export type MediaCategory = string
 
 // 上传媒体请求
 export interface UploadMediaRequest {
@@ -33,7 +28,7 @@ export interface MediaQueryRequest {
 export interface MediaResponse {
   id: number;
   uploader_id: number;
-  storage_type: number; // 1=local 2=S3 3=OSS 4=COS
+  storage_type: number; // 1=local 2=S3 3=OSS 4=COS 5=external
   cdn_url: string;
   filename: string;
   mime_type: string;
@@ -61,4 +56,22 @@ export interface MediaTypeStat {
   description: string;
   icon: string;
   count: number;
+}
+
+// ── Extension Groups & Format Policies ────────────────────────────────────────
+
+export interface ExtensionGroup {
+  name: string;
+  label_zh: string;
+  label_en: string;
+  extensions: string[];
+  max_size_mb: number;
+}
+
+export interface FormatPolicy {
+  name: string;
+  label_zh: string;
+  label_en: string;
+  is_system: boolean;
+  groups: string[];
 }

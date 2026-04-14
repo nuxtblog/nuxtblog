@@ -51,7 +51,7 @@ type MediaUploadReq struct {
 	File     *ghttp.UploadFile `v:"required" dc:"file to upload"`
 	AltText  string            `v:"max-length:255" dc:"alt text for image"`
 	Title    string            `v:"max-length:255" dc:"media title"`
-	Category string            `v:"max-length:32" dc:"category: user|post|doc|moment|banner"`
+	Category string            `v:"max-length:32" dc:"category: avatar|cover|post|doc|moment|banner"`
 }
 type MediaUploadRes struct {
 	*MediaItem `dc:"uploaded media"`
@@ -99,7 +99,7 @@ type MediaGetListReq struct {
 	g.Meta      `path:"/medias" method:"get" tags:"Media" summary:"Get media list"`
 	MimeType    *string `dc:"filter by mime type, e.g. image/jpeg"`
 	UploaderId  *int64  `v:"min:1"         dc:"filter by uploader"`
-	Category    *string `v:"max-length:32" dc:"filter by category: user|post|doc|moment|banner"`
+	Category    *string `v:"max-length:32" dc:"filter by category: avatar|cover|post|doc|moment|banner"`
 	StorageType *int    `dc:"filter by storage type: 1=local 2=S3 3=OSS 4=COS 5=external"`
 	Page        int     `v:"min:1"         dc:"page number" d:"1"`
 	Size        int     `v:"between:1,100" dc:"page size"   d:"20"`
@@ -121,7 +121,7 @@ type MediaLinkReq struct {
 	Url      string `v:"required|url|max-length:2048" dc:"external image or file URL"`
 	Title    string `v:"max-length:255"               dc:"media title"`
 	AltText  string `p:"alt_text" v:"max-length:255"  dc:"alt text for image"`
-	Category string `v:"max-length:32"                dc:"category: user|post|doc|moment|banner"`
+	Category string `v:"max-length:32"                dc:"category: avatar|cover|post|doc|moment|banner"`
 }
 type MediaLinkRes struct {
 	*MediaItem `dc:"created media record"`

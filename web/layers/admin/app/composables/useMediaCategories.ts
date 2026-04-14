@@ -1,11 +1,15 @@
 // Singleton module-level state so multiple components share one fetch.
 export interface MediaCategoryItem {
-  slug:        string
-  label_zh:    string
-  label_en:    string
-  is_system:   boolean
-  order:       number
-  storage_key: string
+  slug:          string
+  label_zh:      string
+  label_en:      string
+  is_system:     boolean
+  order:         number
+  storage_key:   string
+  plugin_id?:    string
+  max_per_owner?: number
+  format_policy?: string
+  path_template?: string
 }
 
 const _cats    = ref<MediaCategoryItem[]>([])

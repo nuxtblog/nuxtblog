@@ -149,6 +149,9 @@ type Manifest struct {
 	// ── Permissions (frontend API access) ──
 	Permissions []string `yaml:"permissions" json:"permissions,omitempty"`
 
+	// ── Media categories declared by plugins ──
+	MediaCategories []CategoryDef `yaml:"media_categories" json:"media_categories,omitempty"`
+
 	// ── YAML plugin specific (declarative logic) ──
 	Webhooks []WebhookDef `yaml:"webhooks" json:"webhooks,omitempty"`
 	Filters  []YAMLFilter `yaml:"filters"  json:"filters,omitempty"`
@@ -378,6 +381,7 @@ type PluginContext struct {
 	Log      Logger
 	Plugins  PluginQuery
 	AI       AI
+	Media    MediaService
 }
 
 // DB provides isolated database access for plugins.

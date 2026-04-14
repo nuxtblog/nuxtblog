@@ -225,7 +225,7 @@ async function confirmCoverCrop() {
     if (!blob) throw new Error(t('site.user.avatar_crop_failed'))
     const media = await mediaApi.upload(
       new File([blob], 'cover.jpg', { type: 'image/jpeg' }),
-      { category: 'user' },
+      { category: 'cover' },
     )
     await userApi.updateUser(props.userId, {
       cover: media.cdn_url,

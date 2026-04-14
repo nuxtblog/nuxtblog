@@ -1,9 +1,12 @@
 import type {
+  MediaCategory,
   UploadMediaRequest,
   UpdateMediaRequest,
   MediaQueryRequest,
   MediaResponse,
   MediaListResponse,
+  ExtensionGroup,
+  FormatPolicy,
 } from "~/types/api/media";
 
 export const useMediaApi = () => {
@@ -77,6 +80,41 @@ export const useMediaApi = () => {
     });
   };
 
+  const getExtensionGroups = async (): Promise<{ list: ExtensionGroup[] }> => {
+    return apiFetch<{ list: ExtensionGroup[] }>("/admin/media/extension-groups");
+  };
+
+  const getFormatPolicies = async (): Promise<{ list: FormatPolicy[] }> => {
+    return apiFetch<{ list: FormatPolicy[] }>("/admin/media/format-policies");
+  };
+
+  const saveExtensionGroups = async (groups: ExtensionGroup[]): Promise<void> => {
+    return apiFetch<void>("/admin/media/extension-groups", {
+      method: "PUT",
+      body: { groups },
+    });
+  };
+
+  const createFormatPolicy = async (data: Omit<FormatPolicy, "is_system">): Promise<void> => {
+    return apiFetch<void>("/admin/media/format-policies", {
+      method: "POST",
+      body: data,
+    });
+  };
+
+  const updateFormatPolicy = async (name: string, data: Partial<FormatPolicy>): Promise<void> => {
+    return apiFetch<void>(`/admin/media/format-policies/${name}`, {
+      method: "PUT",
+      body: data,
+    });
+  };
+
+  const deleteFormatPolicy = async (name: string): Promise<void> => {
+    return apiFetch<void>(`/admin/media/format-policies/${name}`, {
+      method: "DELETE",
+    });
+  };
+
   return {
     upload,
     link,
@@ -85,5 +123,11 @@ export const useMediaApi = () => {
     update,
     delete: delete_,
     localize,
+    getExtensionGroups,
+    getFormatPolicies,
+    saveExtensionGroups,
+    createFormatPolicy,
+    updateFormatPolicy,
+    deleteFormatPolicy,
   };
 };

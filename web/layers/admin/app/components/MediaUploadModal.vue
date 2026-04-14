@@ -74,7 +74,7 @@
             ref="fileInput"
             type="file"
             multiple
-            accept="image/*,video/*,audio/*,.pdf,.doc,.docx"
+            accept="*/*"
             class="hidden"
             @change="handleFileSelect" />
           <UIcon name="i-tabler-upload" class="size-8 mx-auto text-muted mb-3" />
@@ -205,6 +205,8 @@
 </template>
 
 <script setup lang="ts">
+import type { ExtensionGroup, FormatPolicy } from '~/types/api/media'
+
 interface Props {
   open: boolean
   categoryOptions: Array<{ value: string; label: string }>
@@ -282,24 +284,51 @@ const stagedFiles = ref<StagedFile[]>([])
 const uploadingFiles = ref<UploadingFile[]>([])
 const uploadDoneCount = computed(() => uploadingFiles.value.filter(f => f.progress === 100 || !!f.error).length)
 
-// ── Size limits ───────────────────────────────────────────────────────────
-const DEFAULT_SIZE_LIMITS = { image: 10, video: 100, audio: 20, document: 20, other: 10 }
+// ── Extension-based validation ─────────────────────────────────────────────
+const extensionGroups = ref<ExtensionGroup[]>([])
+const formatPolicies = ref<FormatPolicy[]>([])
 
-const sizeLimits = computed(() =>
-  optionsStore.getJSON('media_size_limits', DEFAULT_SIZE_LIMITS)
-)
-
-const getMimeCategory = (mimeType: string): string => {
-  if (mimeType.startsWith('image/')) return 'image'
-  if (mimeType.startsWith('video/')) return 'video'
-  if (mimeType.startsWith('audio/')) return 'audio'
-  if (['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument'].some(p => mimeType.startsWith(p))) return 'document'
-  return 'other'
+const loadFormatData = async () => {
+  try {
+    const [egRes, fpRes] = await Promise.all([
+      mediaApi.getExtensionGroups?.() ?? Promise.resolve({ list: [] }),
+      mediaApi.getFormatPolicies?.() ?? Promise.resolve({ list: [] }),
+    ])
+    extensionGroups.value = egRes.list ?? []
+    formatPolicies.value = fpRes.list ?? []
+  } catch {
+    // fallback: allow all
+  }
 }
 
+// Load format data on mount
+onMounted(() => loadFormatData())
+
+/** Get effective policy for the default category, collecting all allowed extensions & limits */
+const getAllowedExtensions = computed(() => {
+  const policy = formatPolicies.value.find(p => p.name === 'default') ?? formatPolicies.value[0]
+  if (!policy) return new Map<string, number>()
+
+  const extMap = new Map<string, number>() // ext -> maxSizeMB
+  const groupMap = new Map(extensionGroups.value.map(g => [g.name, g]))
+
+  for (const gName of policy.groups) {
+    const grp = groupMap.get(gName)
+    if (!grp) continue
+    for (const ext of grp.extensions) {
+      extMap.set(ext, grp.max_size_mb)
+    }
+  }
+  return extMap
+})
+
 const checkFileSize = (file: File): string | null => {
-  const cat = getMimeCategory(file.type)
-  const limitMB: number = sizeLimits.value[cat as keyof typeof DEFAULT_SIZE_LIMITS] ?? 10
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+  const allowedExts = getAllowedExtensions.value
+  if (allowedExts.size > 0 && !allowedExts.has(ext)) {
+    return `.${ext} not allowed`
+  }
+  const limitMB = allowedExts.get(ext) ?? 10
   if (file.size > limitMB * 1024 * 1024) {
     return `${formatFileSize(file.size)} > ${limitMB} MB`
   }
@@ -307,8 +336,9 @@ const checkFileSize = (file: File): string | null => {
 }
 
 const uploadLimitHint = computed(() => {
-  const lim = sizeLimits.value
-  return `${t('admin.settings.media.label_image').split('（')[0]} ${lim.image}MB · ${t('admin.settings.media.label_video').split('（')[0]} ${lim.video}MB · ${t('admin.settings.media.label_audio').split('（')[0]} ${lim.audio}MB · ${t('admin.settings.media.label_document').split('（')[0]} ${lim.document}MB`
+  const groups = extensionGroups.value
+  if (!groups.length) return ''
+  return groups.map(g => `${g.label_en || g.name} ${g.max_size_mb}MB`).join(' · ')
 })
 
 // ── Formatters ────────────────────────────────────────────────────────────

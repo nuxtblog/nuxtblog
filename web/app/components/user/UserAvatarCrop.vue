@@ -221,7 +221,7 @@ async function confirmCrop() {
     const oldId = props.avatarId
     const media = await mediaApi.upload(
       new File([blob], 'avatar.jpg', { type: 'image/jpeg' }),
-      { category: 'user' },
+      { category: 'avatar' },
     )
     await userApi.updateUser(props.userId, { avatar_id: media.id })
     if (oldId && oldId !== media.id) mediaApi.delete(oldId).catch(() => {})
