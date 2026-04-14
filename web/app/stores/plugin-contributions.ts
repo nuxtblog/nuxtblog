@@ -25,6 +25,8 @@ export interface PluginNavItem {
   route: string
   order: number
   parent?: string
+  /** Stable name for parent matching (auto-generated for plugin groups) */
+  groupKey?: string
 }
 
 export interface PluginMenuItem {
@@ -75,6 +77,7 @@ export interface PluginContributes {
     route: string
     order?: number
     parent?: string
+    groupKey?: string
   }>
   menus?: Record<string, Array<{
     command: string
@@ -137,6 +140,7 @@ export const usePluginContributionsStore = defineStore('plugin-contributions', (
           route: nav.route,
           order: nav.order ?? 100,
           parent: nav.parent,
+          groupKey: nav.groupKey,
         })
       }
     }

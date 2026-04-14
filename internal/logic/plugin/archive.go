@@ -117,6 +117,7 @@ type pluginYAMLManifest struct {
 		Component string `yaml:"component"`
 		Title     string `yaml:"title"`
 		Nav       *struct {
+			Type  string `yaml:"type"`
 			Group string `yaml:"group"`
 			Icon  string `yaml:"icon"`
 			Order int    `yaml:"order"`
@@ -438,6 +439,7 @@ func parsePluginYAML(data []byte) (*eng.Manifest, string, error) {
 		}
 		if p.Nav != nil {
 			pd.Nav = &eng.NavDef{
+				Type:  p.Nav.Type,
 				Group: p.Nav.Group,
 				Icon:  p.Nav.Icon,
 				Order: p.Nav.Order,

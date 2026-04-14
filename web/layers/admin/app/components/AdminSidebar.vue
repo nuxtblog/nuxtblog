@@ -195,10 +195,10 @@ const filterItems = (items: MenuItem[]): MenuItem[] =>
 
 const contributionsStore = usePluginContributionsStore();
 
-const navToMenuItem = (nav: { pluginId: string; route: string; title: string; icon?: string; order: number }): MenuItem => ({
-  name: `plugin-${nav.pluginId}-${nav.route}`,
+const navToMenuItem = (nav: { pluginId: string; route: string; title: string; icon?: string; order: number; groupKey?: string }): MenuItem => ({
+  name: nav.groupKey || `plugin-${nav.pluginId}-${nav.route}`,
   label: nav.title,
-  to: nav.route,
+  to: nav.route || undefined,
   icon: nav.icon,
   order: nav.order,
 });
@@ -207,11 +207,15 @@ const menu = computed(() => {
   const base = filterItems(ALL_MENU.value);
   const menuNames = new Set(base.map((i) => i.name));
 
-  // 1. Plugin top-level items: no parent, or parent doesn't match any menu
+  // 1. Plugin top-level items: no parent, or parent doesn't match any menu/group
   //    Orphaned items (parent set but unmatched) get pushed to the bottom (order 9999)
   const allPluginNav = contributionsStore.navigation;
+  // Collect plugin group keys so children of auto-groups aren't treated as orphans
+  const pluginGroupKeys = new Set(
+    allPluginNav.filter((n) => n.groupKey).map((n) => n.groupKey!),
+  );
   const topLevelPluginItems = allPluginNav
-    .filter((n) => !n.parent || !menuNames.has(n.parent))
+    .filter((n) => !n.parent || (!menuNames.has(n.parent) && !pluginGroupKeys.has(n.parent)))
     .map((n) => {
       const item = navToMenuItem(n);
       if (n.parent && !menuNames.has(n.parent)) {
@@ -233,9 +237,10 @@ const menu = computed(() => {
     const extraChildren = pluginChildren.map(navToMenuItem);
 
     // Flat menu item auto-upgrades to parent: original `to` becomes first child
-    const existingChildren = item.children || [
-      { name: `${item.name}-index`, label: item.label, to: item.to!, icon: item.icon, order: 0 },
-    ];
+    // Skip self-child for pure group items (no route)
+    const existingChildren = item.children || (item.to
+      ? [{ name: `${item.name}-index`, label: item.label, to: item.to, icon: item.icon, order: 0 }]
+      : []);
 
     return {
       ...item,

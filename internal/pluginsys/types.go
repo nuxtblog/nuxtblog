@@ -277,6 +277,7 @@ type PageDef struct {
 
 // NavDef is the navigation entry for a plugin page.
 type NavDef struct {
+	Type  string `json:"type,omitempty"`  // "group" or "" (default nav)
 	Group string `json:"group,omitempty"`
 	Icon  string `json:"icon,omitempty"`
 	Order int    `json:"order,omitempty"`

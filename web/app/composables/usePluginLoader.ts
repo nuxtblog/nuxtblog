@@ -27,7 +27,7 @@ interface PageDef {
   slot: string
   component: string
   title?: string
-  nav?: { group?: string; icon?: string; order?: number }
+  nav?: { type?: string; group?: string; icon?: string; order?: number }
 }
 
 /** Resolves when admin plugins have been loaded (or immediately if already done). */
@@ -74,8 +74,13 @@ export function usePluginLoader() {
         if (plugin.pages) {
           try {
             parsedPages = JSON.parse(plugin.pages)
+
+            // Find explicit group definition (nav.type === 'group')
+            const groupPage = parsedPages.find(p => p.slot === 'admin' && p.nav?.type === 'group')
+
+            // Collect normal nav items (non-group)
             const pageNavItems = parsedPages
-              .filter(p => p.slot === 'admin' && p.nav)
+              .filter(p => p.slot === 'admin' && p.nav && p.nav.type !== 'group')
               .map(p => ({
                 slot: 'admin:sidebar-nav',
                 parent: p.nav?.group,
@@ -83,7 +88,27 @@ export function usePluginLoader() {
                 icon: p.nav?.icon,
                 route: p.path || `/admin/plugin-page/${encodeURIComponent(plugin.id)}/${encodeURIComponent(p.component)}`,
                 order: p.nav?.order ?? 100,
+                groupKey: undefined as string | undefined,
               }))
+
+            // If an explicit group is declared, create a parent item and attach ungrouped children
+            if (groupPage && pageNavItems.length > 0) {
+              const groupKey = `plugin:${plugin.id}`
+              pageNavItems.unshift({
+                slot: 'admin:sidebar-nav',
+                parent: undefined,
+                title: groupPage.title || plugin.title,
+                icon: groupPage.nav!.icon || plugin.icon,
+                route: '',
+                order: groupPage.nav!.order ?? Math.min(...pageNavItems.map(n => n.order)),
+                groupKey,
+              })
+              // Attach children that don't have an explicit group to the plugin group
+              for (const item of pageNavItems.slice(1)) {
+                if (!item.parent) item.parent = groupKey
+              }
+            }
+
             if (pageNavItems.length > 0) {
               contributes.navigation = [...(contributes.navigation || []), ...pageNavItems]
             }
@@ -103,8 +128,9 @@ export function usePluginLoader() {
         }
 
         // Register admin pages AFTER registerPlugin to avoid being wiped by unregisterPlugin()
+        // Skip group entries (no path/component) — they are pure navigation parents
         for (const p of parsedPages) {
-          if (p.slot !== 'admin') continue
+          if (p.slot !== 'admin' || !p.path || !p.component) continue
           contributionsStore.registerPluginPage({
             pluginId: plugin.id,
             component: p.component,

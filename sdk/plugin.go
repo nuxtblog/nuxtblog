@@ -203,6 +203,7 @@ type PageDef struct {
 
 // NavDef is the navigation entry for a plugin page.
 type NavDef struct {
+	Type  string `yaml:"type"  json:"type,omitempty"`  // "group" or "" (default nav)
 	Group string `yaml:"group" json:"group,omitempty"`
 	Icon  string `yaml:"icon"  json:"icon,omitempty"`
 	Order int    `yaml:"order" json:"order,omitempty"`
