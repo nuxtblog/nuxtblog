@@ -41,6 +41,15 @@ function eventEmit(eventName: string, ...args: any[]) {
 /** Exposed for sandbox bridge in usePublicPluginLoader */
 export const eventBus = { on: eventOn, emit: eventEmit }
 
+// ── Module-level public command registry ─────────────────────────────
+const publicCommandHandlers = new Map<string, (ctx?: Record<string, unknown>) => void>()
+
+/** Execute a registered public command (called by HeaderUserMenu etc.) */
+export function executePublicCommand(commandId: string, ctx?: Record<string, unknown>) {
+  const handler = publicCommandHandlers.get(commandId)
+  if (handler) handler(ctx)
+}
+
 export function installNuxtblogPublic() {
   const route = useRoute()
   const colorMode = useColorMode()
@@ -131,6 +140,14 @@ export function installNuxtblogPublic() {
             handler(...args)
           })
           return unsub
+        },
+      },
+
+      commands: {
+        register(id: string, handler: (ctx?: Record<string, unknown>) => void) {
+          const fullId = id.startsWith(`${meta.pluginId}.`) ? id : `${meta.pluginId}.${id}`
+          publicCommandHandlers.set(fullId, handler)
+          return { dispose: () => { publicCommandHandlers.delete(fullId) } }
         },
       },
 

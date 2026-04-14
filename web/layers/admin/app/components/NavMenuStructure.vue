@@ -1,91 +1,131 @@
 <script setup lang="ts">
-import type { UiMenuItem, MenuItemType } from '~/types/api/navMenu'
+import type { UiMenuItem, NavMenuSlotKey } from '~/types/api/navMenu'
+import { NAV_MENU_SLOT_CONFIGS } from '~/types/api/navMenu'
+import type { UiMenuTreeItem } from './NavMenuNode.vue'
 
 const props = defineProps<{
   items: UiMenuItem[]
-  isHeaderActions: boolean
+  slotKey: string
 }>()
 
 const emit = defineEmits<{
   'update:items': [items: UiMenuItem[]]
 }>()
 
-const { t } = useI18n()
+const slotConfig = computed(() => NAV_MENU_SLOT_CONFIGS[props.slotKey as NavMenuSlotKey])
+const supportsNesting = computed(() => slotConfig.value?.supportsNesting ?? false)
 
-function getMenuIconName(type: MenuItemType) {
-  return (
-    {
-      page: 'i-tabler-file',
-      category: 'i-tabler-folder',
-      custom: 'i-tabler-link',
-      archive: 'i-tabler-archive',
-      action: 'i-tabler-click',
-    }[type] ?? 'i-tabler-circle'
-  )
-}
+// ── Flat ↔ Tree conversion ──────────────────────────────────────────────────
 
-function typeLabel(type: MenuItemType) {
-  return (
-    {
-      page: t('admin.appearance.menus.type_page'),
-      category: t('admin.appearance.menus.type_category'),
-      custom: t('admin.appearance.menus.type_custom'),
-      archive: t('admin.appearance.menus.type_archive'),
-      action: t('admin.appearance.menus.type_action'),
-    }[type] ?? type
-  )
-}
+function flatToTree(items: UiMenuItem[]): UiMenuTreeItem[] {
+  const map = new Map<string, UiMenuTreeItem>()
+  const roots: UiMenuTreeItem[] = []
 
-function indentItem(index: number) {
-  const items = [...props.items]
-  const item = items[index]
-  const prev = items[index - 1]
-  if (!item || !prev || item.depth >= 2 || item.depth > prev.depth) return
-  items[index] = { ...item, depth: item.depth + 1, parent_local_id: prev.local_id }
-  emit('update:items', items)
-}
-
-function outdentItem(index: number) {
-  const items = [...props.items]
-  const item = items[index]
-  if (!item || item.depth <= 0) return
-  items[index] = {
-    ...item,
-    depth: item.depth - 1,
-    parent_local_id: items[index - 1]?.parent_local_id ?? '',
+  for (const item of items) {
+    map.set(item.local_id, {
+      local_id: item.local_id,
+      label: item.label,
+      url: item.url,
+      type: item.type,
+      object_id: item.object_id,
+      openInNewTab: item.openInNewTab,
+      cssClasses: item.cssClasses,
+      children: [],
+    })
   }
-  emit('update:items', items)
+
+  for (const item of items) {
+    const node = map.get(item.local_id)!
+    if (item.parent_local_id && map.has(item.parent_local_id)) {
+      map.get(item.parent_local_id)!.children.push(node)
+    } else {
+      roots.push(node)
+    }
+  }
+
+  return roots
 }
 
-function deleteItem(index: number) {
-  const item = props.items[index]
-  if (!item) return
-  emit('update:items', props.items.filter(
-    (it, i) => i !== index && it.parent_local_id !== item.local_id,
-  ))
+function treeToFlat(tree: UiMenuTreeItem[], depth = 0, parentId = ''): UiMenuItem[] {
+  const result: UiMenuItem[] = []
+  for (const item of tree) {
+    result.push({
+      local_id: item.local_id,
+      label: item.label,
+      url: item.url,
+      type: item.type,
+      object_id: item.object_id,
+      openInNewTab: item.openInNewTab,
+      cssClasses: item.cssClasses,
+      depth,
+      parent_local_id: parentId,
+      expanded: false,
+    })
+    if (item.children.length) {
+      result.push(...treeToFlat(item.children, depth + 1, item.local_id))
+    }
+  }
+  return result
 }
 
-function toggleExpanded(index: number) {
-  const items = props.items.map((it, i) =>
-    i === index ? { ...it, expanded: !it.expanded } : it,
-  )
-  emit('update:items', items)
+// ── Tree state ──────────────────────────────────────────────────────────────
+
+const tree = ref<UiMenuTreeItem[]>([])
+let selfEmitting = false
+
+watch(() => props.items, (items) => {
+  if (selfEmitting) { selfEmitting = false; return }
+  tree.value = flatToTree(items)
+}, { immediate: true })
+
+function emitFlat() {
+  selfEmitting = true
+  emit('update:items', treeToFlat(tree.value))
 }
 
-function updateLabel(index: number, value: string) {
-  emit('update:items', props.items.map((it, i) => i === index ? { ...it, label: value } : it))
+function onTreeUpdate(newTree: UiMenuTreeItem[]) {
+  tree.value = newTree
+  emitFlat()
 }
 
-function updateUrl(index: number, value: string) {
-  emit('update:items', props.items.map((it, i) => i === index ? { ...it, url: value } : it))
+function onUpdateChildren(parentId: string, children: UiMenuTreeItem[]) {
+  const update = (nodes: UiMenuTreeItem[]): boolean => {
+    for (const node of nodes) {
+      if (node.local_id === parentId) {
+        node.children = children
+        return true
+      }
+      if (update(node.children)) return true
+    }
+    return false
+  }
+  update(tree.value)
+  emitFlat()
 }
 
-function updateCssClasses(index: number, value: string) {
-  emit('update:items', props.items.map((it, i) => i === index ? { ...it, cssClasses: value } : it))
+function onUpdateField(localId: string, field: string, value: any) {
+  const update = (nodes: UiMenuTreeItem[]): boolean => {
+    for (const node of nodes) {
+      if (node.local_id === localId) {
+        ;(node as any)[field] = value
+        return true
+      }
+      if (update(node.children)) return true
+    }
+    return false
+  }
+  update(tree.value)
+  emitFlat()
 }
 
-function updateOpenInNewTab(index: number, value: boolean) {
-  emit('update:items', props.items.map((it, i) => i === index ? { ...it, openInNewTab: value } : it))
+function onDelete(localId: string) {
+  const remove = (nodes: UiMenuTreeItem[]): UiMenuTreeItem[] =>
+    nodes.filter(n => n.local_id !== localId).map(n => ({
+      ...n,
+      children: remove(n.children),
+    }))
+  tree.value = remove(tree.value)
+  emitFlat()
 }
 </script>
 
@@ -96,68 +136,23 @@ function updateOpenInNewTab(index: number, value: boolean) {
         <h3 class="font-semibold text-highlighted">
           {{ $t('admin.appearance.menus.menu_structure') }}
         </h3>
-        <span class="text-xs text-muted">{{ isHeaderActions ? $t('admin.appearance.menus.header_actions_no_nest') : $t('admin.appearance.menus.indent_hint') }}</span>
+        <span v-if="supportsNesting" class="text-xs text-muted">{{ $t('admin.appearance.menus.drag_nest_hint') }}</span>
       </div>
     </template>
 
-    <div v-if="!items.length" class="text-center py-10 border-2 border-dashed border-default rounded-md">
+    <div v-if="!tree.length" class="text-center py-10 border-2 border-dashed border-default rounded-md">
       <UIcon name="i-tabler-menu-2" class="size-10 text-muted mb-2 mx-auto block" />
       <p class="text-sm text-muted">{{ $t('admin.appearance.menus.menu_empty') }}</p>
     </div>
 
-    <div v-else class="space-y-2">
-      <div
-        v-for="(item, index) in items"
-        :key="item.local_id"
-        class="border border-default rounded-md bg-default"
-        :style="{ marginLeft: item.depth * 28 + 'px' }">
-        <div class="flex items-center gap-2 p-3">
-          <UIcon name="i-tabler-grip-vertical" class="size-4 text-muted cursor-move shrink-0" />
-          <UIcon :name="getMenuIconName(item.type)" class="size-4 text-primary shrink-0" />
-          <span class="flex-1 text-sm font-medium text-highlighted truncate">{{ item.label }}</span>
-          <UBadge :label="typeLabel(item.type)" color="neutral" variant="soft" size="xs" class="hidden sm:flex shrink-0" />
-          <div class="flex items-center gap-0.5">
-            <UButton
-              v-if="!isHeaderActions && item.depth < 2 && index > 0"
-              color="neutral" variant="ghost" icon="i-tabler-arrow-bar-right" size="xs"
-              :title="$t('admin.appearance.menus.indent')"
-              @click="indentItem(index)" />
-            <UButton
-              v-if="!isHeaderActions && item.depth > 0"
-              color="neutral" variant="ghost" icon="i-tabler-arrow-bar-left" size="xs"
-              :title="$t('admin.appearance.menus.outdent')"
-              @click="outdentItem(index)" />
-            <UButton
-              color="neutral" variant="ghost" icon="i-tabler-pencil" size="xs"
-              @click="toggleExpanded(index)" />
-            <UButton
-              color="error" variant="ghost" icon="i-tabler-trash" size="xs"
-              @click="deleteItem(index)" />
-          </div>
-        </div>
-
-        <div v-show="item.expanded" class="p-3 border-t border-default bg-elevated/30 space-y-2">
-          <div :class="item.type === 'action' ? '' : 'grid grid-cols-2 gap-2'">
-            <UFormField :label="$t('admin.appearance.menus.nav_label')">
-              <UInput :model-value="item.label" size="sm" class="w-full" @update:model-value="updateLabel(index, $event)" />
-            </UFormField>
-            <UFormField v-if="item.type !== 'action'" label="URL">
-              <UInput :model-value="item.url" size="sm" class="w-full" @update:model-value="updateUrl(index, $event)" />
-            </UFormField>
-          </div>
-          <UFormField :label="item.type === 'action' ? $t('admin.appearance.menus.action_icon_label') : $t('admin.appearance.menus.css_classes')">
-            <UInput :model-value="item.cssClasses" :placeholder="item.type === 'action' ? 'i-tabler-brand-github' : 'my-class'" size="sm" class="w-full" @update:model-value="updateCssClasses(index, $event)" />
-          </UFormField>
-          <div class="flex items-center gap-2">
-            <UCheckbox :model-value="item.openInNewTab" @update:model-value="updateOpenInNewTab(index, $event)" />
-            <span
-              class="text-sm text-highlighted cursor-pointer select-none"
-              @click="updateOpenInNewTab(index, !item.openInNewTab)">
-              {{ $t('admin.appearance.menus.open_new_tab') }}
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
+    <NavMenuNode
+      v-else
+      :model-value="tree"
+      :supports-nesting="supportsNesting"
+      @update:model-value="onTreeUpdate"
+      @update-children="onUpdateChildren"
+      @update-field="onUpdateField"
+      @delete="onDelete"
+    />
   </UCard>
 </template>

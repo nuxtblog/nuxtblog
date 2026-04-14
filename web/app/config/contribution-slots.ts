@@ -68,6 +68,12 @@ export const CONTRIBUTION_SLOTS = {
 
   // ── Public: User Menu ────────────────────────────────────────────────
   PUBLIC_USER_MENU: 'public:user-menu',
+
+  // ── Public: Floating Toolbar ──────────────────────────────────────────
+  PUBLIC_FLOATING_TOOLBAR: 'public:floating-toolbar',
+
+  // ── Public: Post Actions ──────────────────────────────────────────────
+  PUBLIC_POST_ACTIONS: 'public:post-actions',
 } as const
 
 export type ContributionSlotName = typeof CONTRIBUTION_SLOTS[keyof typeof CONTRIBUTION_SLOTS]

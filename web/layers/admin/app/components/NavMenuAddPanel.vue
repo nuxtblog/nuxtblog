@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import type { MenuItemType } from '~/types/api/navMenu'
-import { HEADER_BUILTIN_ACTIONS } from '~/types/api/navMenu'
+import type { MenuItemType, NavMenuSlotKey } from '~/types/api/navMenu'
+import { NAV_MENU_SLOT_CONFIGS } from '~/types/api/navMenu'
 
 const props = defineProps<{
-  isSocialSelected: boolean
-  isHeaderActionsSelected: boolean
+  slotKey: string
+  contributionSlot?: string
 }>()
 
 const emit = defineEmits<{
@@ -16,12 +16,44 @@ const postApi = usePostApi()
 const termApi = useTermApi()
 const toast = useToast()
 
+const slotConfig = computed(() => NAV_MENU_SLOT_CONFIGS[props.slotKey as NavMenuSlotKey])
+const isSocialSelected = computed(() => props.slotKey === 'social_menu')
+
 interface SelectablePage { id: number; title: string; slug: string; selected: boolean }
 interface SelectableCategory { id: number; name: string; slug: string; selected: boolean }
 
-const expandedSections = ref({ builtin: true, pages: false, categories: false, custom: false, builtinActions: false, pluginPages: false })
+const contributionsStore = usePluginContributionsStore()
 
-const builtinActionItems = ref(HEADER_BUILTIN_ACTIONS.map(a => ({ ...a, selected: false })))
+const pluginViewItems = computed(() =>
+  props.contributionSlot ? contributionsStore.getViewItems(props.contributionSlot).value : [],
+)
+const pluginMenuItemsList = computed(() =>
+  props.contributionSlot ? contributionsStore.getMenuItems(props.contributionSlot).value : [],
+)
+
+interface SelectablePluginItem { id: string; label: string; icon: string; selected: boolean }
+const pluginContribItems = computed<SelectablePluginItem[]>(() => {
+  const items: SelectablePluginItem[] = []
+  for (const v of pluginViewItems.value) {
+    items.push({ id: v.id, label: v.title || v.id, icon: v.icon || 'i-tabler-puzzle', selected: false })
+  }
+  for (const m of pluginMenuItemsList.value) {
+    items.push({ id: m.command, label: m.title || m.command, icon: m.icon || 'i-tabler-puzzle', selected: false })
+  }
+  return items
+})
+const selectablePluginContribs = ref<SelectablePluginItem[]>([])
+watch(pluginContribItems, (items) => {
+  selectablePluginContribs.value = items.map(i => ({ ...i, selected: false }))
+}, { immediate: true })
+
+const expandedSections = ref({ builtin: true, pages: false, categories: false, custom: false, builtinActions: false, pluginPages: false, pluginContribs: false })
+
+const builtinActionItems = ref<Array<{ id: string; label: string; icon: string; selected: boolean }>>([])
+
+watch(() => slotConfig.value?.builtinActions, (actions) => {
+  builtinActionItems.value = (actions ?? []).map(a => ({ ...a, selected: false }))
+}, { immediate: true })
 
 const builtinPages = ref([
   { label: '', url: '/', selected: false },
@@ -48,7 +80,7 @@ const pluginPageActions = ref<PluginPageAction[]>([])
 
 // SOCIAL_PLATFORMS is auto-imported from ~/utils/social
 
-watch(() => props.isSocialSelected, (val) => {
+watch(() => isSocialSelected.value, (val) => {
   if (val) expandedSections.value.custom = true
 }, { immediate: true })
 
@@ -65,8 +97,8 @@ onMounted(async () => {
     termApi.getTerms({ taxonomy: 'category' }).catch(() => [] as any[]),
   ])
 
-  // Fetch plugin pages for header_actions mode
-  if (props.isHeaderActionsSelected) {
+  // Fetch plugin pages for action-type slots
+  if (slotConfig.value?.builtinActions) {
     try {
       const resp = await fetch('/api/v1/plugins/public-client')
       if (resp.ok) {
@@ -151,12 +183,30 @@ function addBuiltinActions() {
   emit('addItems', sel.map(a => ({ label: a.label, url: '', type: 'action' as MenuItemType, object_id: 0, local_id: a.id })))
   builtinActionItems.value.forEach(a => { a.selected = false })
 }
+
+function addPluginContribs() {
+  const sel = selectablePluginContribs.value.filter(a => a.selected)
+  if (!sel.length) { toast.add({ title: t('admin.appearance.menus.select_first'), color: 'warning' }); return }
+  emit('addItems', sel.map(a => ({
+    label: a.label,
+    url: '',
+    type: 'action' as MenuItemType,
+    object_id: 0,
+    local_id: `plugin:${a.id}`,
+    css_classes: a.icon,
+  })))
+  selectablePluginContribs.value.forEach(a => { a.selected = false })
+}
+
+function addSeparator() {
+  emit('addItems', [{ label: '—', url: '', type: 'separator' as MenuItemType, object_id: 0, local_id: `sep:${Date.now()}` }])
+}
 </script>
 
 <template>
   <div class="space-y-3">
-    <!-- Built-in actions (header_actions mode only) -->
-    <UCard v-if="isHeaderActionsSelected" :ui="{ header: 'p-2.5 sm:px-4', body: 'p-0 sm:p-0' }">
+    <!-- Built-in actions (action-type slots) -->
+    <UCard v-if="slotConfig?.builtinActions" :ui="{ header: 'p-2.5 sm:px-4', body: 'p-0 sm:p-0' }">
       <template #header>
         <button class="w-full flex items-center justify-between" @click="toggleSection('builtinActions')">
           <div class="flex items-center gap-2">
@@ -180,8 +230,8 @@ function addBuiltinActions() {
       </div>
     </UCard>
 
-    <!-- Plugin pages (header_actions mode only) -->
-    <UCard v-if="isHeaderActionsSelected && pluginPageActions.length" :ui="{ header: 'p-2.5 sm:px-4', body: 'p-0 sm:p-0' }">
+    <!-- Plugin pages (action-type slots) -->
+    <UCard v-if="slotConfig?.builtinActions && pluginPageActions.length" :ui="{ header: 'p-2.5 sm:px-4', body: 'p-0 sm:p-0' }">
       <template #header>
         <button class="w-full flex items-center justify-between" @click="toggleSection('pluginPages')">
           <div class="flex items-center gap-2">
@@ -205,8 +255,33 @@ function addBuiltinActions() {
       </div>
     </UCard>
 
-    <!-- Built-in pages -->
-    <UCard v-if="!isSocialSelected && !isHeaderActionsSelected" :ui="{ header: 'p-2.5 sm:px-4', body: 'p-0 sm:p-0' }">
+    <!-- Plugin components (slots with contributionSlot) -->
+    <UCard v-if="selectablePluginContribs.length" :ui="{ header: 'p-2.5 sm:px-4', body: 'p-0 sm:p-0' }">
+      <template #header>
+        <button class="w-full flex items-center justify-between" @click="toggleSection('pluginContribs')">
+          <div class="flex items-center gap-2">
+            <UIcon name="i-tabler-puzzle" class="size-4 text-primary" />
+            <span class="text-sm font-medium text-highlighted">{{ $t('admin.appearance.menus.plugin_items') }}</span>
+          </div>
+          <UIcon name="i-tabler-chevron-down" class="size-4 text-muted transition-transform" :class="{ 'rotate-180': expandedSections.pluginContribs }" />
+        </button>
+      </template>
+      <div v-if="expandedSections.pluginContribs" class="p-3 space-y-1.5">
+        <div v-for="item in selectablePluginContribs" :key="item.id"
+          class="flex items-center gap-2 p-1.5 hover:bg-elevated rounded cursor-pointer"
+          @click="item.selected = !item.selected">
+          <UCheckbox v-model="item.selected" @click.stop />
+          <UIcon :name="item.icon" class="size-4 text-primary shrink-0" />
+          <span class="text-sm text-highlighted flex-1">{{ item.label }}</span>
+        </div>
+        <UButton color="primary" size="sm" class="w-full mt-1" @click="addPluginContribs">
+          {{ $t('admin.appearance.menus.add_to_menu') }}
+        </UButton>
+      </div>
+    </UCard>
+
+    <!-- Built-in pages (normal menu slots) -->
+    <UCard v-if="!isSocialSelected && !slotConfig?.builtinActions" :ui="{ header: 'p-2.5 sm:px-4', body: 'p-0 sm:p-0' }">
       <template #header>
         <button class="w-full flex items-center justify-between" @click="toggleSection('builtin')">
           <div class="flex items-center gap-2">
@@ -232,8 +307,8 @@ function addBuiltinActions() {
       </div>
     </UCard>
 
-    <!-- Pages -->
-    <UCard v-if="!isSocialSelected && !isHeaderActionsSelected" :ui="{ header: 'p-2.5 sm:px-4', body: 'p-0 sm:p-0' }">
+    <!-- Pages (normal menu slots) -->
+    <UCard v-if="!isSocialSelected && !slotConfig?.builtinActions" :ui="{ header: 'p-2.5 sm:px-4', body: 'p-0 sm:p-0' }">
       <template #header>
         <button class="w-full flex items-center justify-between" @click="toggleSection('pages')">
           <div class="flex items-center gap-2">
@@ -259,8 +334,8 @@ function addBuiltinActions() {
       </div>
     </UCard>
 
-    <!-- Categories -->
-    <UCard v-if="!isSocialSelected && !isHeaderActionsSelected" :ui="{ header: 'p-2.5 sm:px-4', body: 'p-0 sm:p-0' }">
+    <!-- Categories (normal menu slots) -->
+    <UCard v-if="!isSocialSelected && !slotConfig?.builtinActions" :ui="{ header: 'p-2.5 sm:px-4', body: 'p-0 sm:p-0' }">
       <template #header>
         <button class="w-full flex items-center justify-between" @click="toggleSection('categories')">
           <div class="flex items-center gap-2">
@@ -287,7 +362,7 @@ function addBuiltinActions() {
     </UCard>
 
     <!-- Custom Link -->
-    <UCard :ui="{ header: 'p-2.5 sm:px-4', body: 'p-0 sm:p-0' }">
+    <UCard v-if="(slotConfig?.showCustomLink !== false && !slotConfig?.builtinActions) || slotConfig?.showCustomLink === true" :ui="{ header: 'p-2.5 sm:px-4', body: 'p-0 sm:p-0' }">
       <template #header>
         <button class="w-full flex items-center justify-between" @click="toggleSection('custom')">
           <div class="flex items-center gap-2">
@@ -307,15 +382,12 @@ function addBuiltinActions() {
           </template>
           <UInput v-else v-model="customLink.label" :placeholder="$t('admin.appearance.menus.link_label')" class="w-full" size="sm" />
         </UFormField>
-        <UFormField v-if="!isHeaderActionsSelected" :label="$t('admin.appearance.menus.link_url')">
+        <UFormField :label="$t('admin.appearance.menus.link_url')">
           <UInput v-model="customLink.url"
             :placeholder="isSocialSelected ? 'https://github.com/yourname' : 'https://example.com'"
             class="w-full" size="sm" />
         </UFormField>
-        <UFormField v-else :label="$t('admin.appearance.menus.link_url')">
-          <UInput v-model="customLink.url" placeholder="https://example.com" class="w-full" size="sm" />
-        </UFormField>
-        <UFormField v-if="isHeaderActionsSelected" label="图标">
+        <UFormField v-if="slotConfig?.customLinkHasIcon" label="图标">
           <UInput v-model="customLink.icon" placeholder="i-tabler-link" class="w-full" size="sm" />
           <p class="text-xs text-muted mt-1">Iconify 图标名称，如 i-tabler-link</p>
         </UFormField>
@@ -324,5 +396,14 @@ function addBuiltinActions() {
         </UButton>
       </div>
     </UCard>
+
+    <!-- Add separator (all slots) -->
+    <UButton
+      color="neutral" variant="outline" size="sm"
+      leading-icon="i-tabler-separator"
+      class="w-full"
+      @click="addSeparator">
+      {{ $t('admin.appearance.menus.add_separator') }}
+    </UButton>
   </div>
 </template>

@@ -46,7 +46,7 @@ export const NavMenuItemSchema = z.object({
   local_id:        z.string(),
   label:           z.string(),
   url:             z.string(),
-  object_type:     z.enum(['custom', 'page', 'category', 'archive', 'action']),
+  object_type:     z.enum(['custom', 'page', 'category', 'archive', 'action', 'separator']),
   object_id:       z.number(),
   target:          z.string(),
   css_classes:     z.string(),
@@ -206,6 +206,34 @@ export const OPTIONS_SCHEMA = {
     { local_id: 'action:messages', label: '消息', url: '', object_type: 'action' as const, object_id: 0, target: '', css_classes: '', parent_local_id: '' },
     { local_id: 'action:notifications', label: '通知', url: '', object_type: 'action' as const, object_id: 0, target: '', css_classes: '', parent_local_id: '' },
   ] as NavMenuItem[], '顶栏操作按钮'),
+
+  user_menu: optJSON(z.array(NavMenuItemSchema), [
+    { local_id: 'action:admin_dashboard', label: '管理后台', url: '', object_type: 'action' as const, object_id: 0, target: '', css_classes: '', parent_local_id: '' },
+    { local_id: 'sep:1', label: '', url: '', object_type: 'separator' as const, object_id: 0, target: '', css_classes: '', parent_local_id: '' },
+    { local_id: 'action:user_profile', label: '个人主页', url: '', object_type: 'action' as const, object_id: 0, target: '', css_classes: '', parent_local_id: '' },
+    { local_id: 'action:user_posts', label: '我的文章', url: '', object_type: 'action' as const, object_id: 0, target: '', css_classes: '', parent_local_id: '' },
+    { local_id: 'action:user_favorites', label: '我的收藏', url: '', object_type: 'action' as const, object_id: 0, target: '', css_classes: '', parent_local_id: '' },
+    { local_id: 'sep:2', label: '', url: '', object_type: 'separator' as const, object_id: 0, target: '', css_classes: '', parent_local_id: '' },
+    { local_id: 'action:user_settings', label: '设置', url: '', object_type: 'action' as const, object_id: 0, target: '', css_classes: '', parent_local_id: '' },
+    { local_id: 'sep:3', label: '', url: '', object_type: 'separator' as const, object_id: 0, target: '', css_classes: '', parent_local_id: '' },
+    { local_id: 'action:user_logout', label: '退出登录', url: '', object_type: 'action' as const, object_id: 0, target: '', css_classes: '', parent_local_id: '' },
+  ] as NavMenuItem[], '用户菜单'),
+
+  floating_toolbar: optJSON(z.array(NavMenuItemSchema), [
+    { local_id: 'action:profile_login', label: '个人中心', url: '', object_type: 'action' as const, object_id: 0, target: '', css_classes: '', parent_local_id: '' },
+    { local_id: 'action:checkin', label: '每日签到', url: '', object_type: 'action' as const, object_id: 0, target: '', css_classes: '', parent_local_id: '' },
+    { local_id: 'action:ft_notifications', label: '通知', url: '', object_type: 'action' as const, object_id: 0, target: '', css_classes: '', parent_local_id: '' },
+    { local_id: 'sep:1', label: '', url: '', object_type: 'separator' as const, object_id: 0, target: '', css_classes: '', parent_local_id: '' },
+    { local_id: 'action:ft_theme_toggle', label: '主题切换', url: '', object_type: 'action' as const, object_id: 0, target: '', css_classes: '', parent_local_id: '' },
+  ] as NavMenuItem[], '悬浮工具栏'),
+
+  post_actions: optJSON(z.array(NavMenuItemSchema), [
+    { local_id: 'action:post_like', label: '点赞', url: '', object_type: 'action' as const, object_id: 0, target: '', css_classes: '', parent_local_id: '' },
+    { local_id: 'action:post_comment', label: '评论', url: '', object_type: 'action' as const, object_id: 0, target: '', css_classes: '', parent_local_id: '' },
+    { local_id: 'action:post_bookmark', label: '收藏', url: '', object_type: 'action' as const, object_id: 0, target: '', css_classes: '', parent_local_id: '' },
+    { local_id: 'sep:1', label: '', url: '', object_type: 'separator' as const, object_id: 0, target: '', css_classes: '', parent_local_id: '' },
+    { local_id: 'action:post_share', label: '分享', url: '', object_type: 'action' as const, object_id: 0, target: '', css_classes: '', parent_local_id: '' },
+  ] as NavMenuItem[], '文章操作栏'),
   nav_custom_menus: optJSON(
     z.array(NavCustomMenuSchema),
     [] as NavCustomMenu[],
@@ -263,6 +291,9 @@ export const OPTIONS_SCHEMA = {
     'QQ OAuth',
     false,
   ),
+
+  // ── 插件视图可见性 ──────────────────────────────────────────────────────────
+  disabled_plugin_views: optJSON(z.array(z.string()), [] as string[], '已禁用的插件视图'),
 
   // ── 评论 ──────────────────────────────────────────────────────────────────
   default_allow_comments:      optBool(true,  '新文章默认开启评论'),

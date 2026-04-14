@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import type { NavMenuItem } from '~/types/api/navMenu'
+import { executePublicCommand } from '~/composables/useNuxtblogPublic'
+
 const props = defineProps<{
   postId: number
   likeCount?: number
@@ -10,6 +13,7 @@ const toast = useToast()
 const authStore = useAuthStore()
 const reactionApi = useReactionApi()
 const router = useRouter()
+const { getOption } = useOption()
 
 // ── Visibility ────────────────────────────────────────────────────────────────
 const visible = ref(false)
@@ -145,6 +149,9 @@ const scrollToComments = () => {
 
 const fmtNum = (n: number) =>
   n >= 10000 ? (n / 10000).toFixed(1) + 'w' : n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n)
+
+// Read menu config (array order = display order)
+const actionItems = computed(() => getOption('post_actions') as NavMenuItem[])
 </script>
 
 <template>
@@ -161,64 +168,89 @@ const fmtNum = (n: number) =>
       class="hidden lg:flex fixed left-5 top-1/2 -translate-y-1/2 z-40 flex-col items-center gap-1"
     >
       <div class="flex flex-col items-center gap-0.5 rounded-md bg-default/90 backdrop-blur-xl shadow-2xl shadow-black/10 ring-1 ring-default p-1.5">
+        <template v-for="item in actionItems" :key="item.local_id">
+          <!-- 分隔符 -->
+          <div v-if="item.object_type === 'separator'" class="w-6 h-px bg-border-default border border-default my-0.5 rounded-full" />
 
-        <!-- 点赞 -->
-        <UTooltip :text="authStore.isLoggedIn ? (liked ? $t('site.post.unlike') : $t('site.post.like')) : $t('site.post.like_login')" side="right" :delay-duration="100">
-          <button
-            class="group relative flex flex-col items-center justify-center w-11 py-2 rounded-md transition-all duration-200"
-            :class="liked ? 'bg-red-50 dark:bg-red-950/30' : 'hover:bg-red-50 dark:hover:bg-red-950/30'"
-            @click="toggleLike"
-          >
-            <UIcon
-              :name="liked ? 'i-tabler-heart-filled' : 'i-tabler-heart'"
-              class="size-5 transition-all duration-200"
-              :class="[liked ? 'text-red-500' : 'text-muted group-hover:text-red-500', likeAnim ? 'scale-125' : 'scale-100']"
-            />
-            <span class="text-[10px] font-medium mt-0.5 leading-none" :class="liked ? 'text-red-500' : 'text-muted'">
-              {{ fmtNum(displayLikes) }}
-            </span>
-          </button>
-        </UTooltip>
-
-        <!-- 评论 -->
-        <UTooltip :text="$t('site.post.comment')" side="right" :delay-duration="100">
-          <button
-            class="group flex flex-col items-center justify-center w-11 py-2 rounded-md hover:bg-primary/10 transition-all duration-200"
-            @click="scrollToComments"
-          >
-            <UIcon name="i-tabler-message-circle" class="size-5 text-muted group-hover:text-primary transition-colors" />
-            <span class="text-[10px] font-medium mt-0.5 leading-none text-muted">{{ fmtNum(commentCount ?? 0) }}</span>
-          </button>
-        </UTooltip>
-
-        <!-- 收藏 -->
-        <UTooltip :text="authStore.isLoggedIn ? (bookmarked ? $t('site.post.unbookmark') : $t('site.post.bookmark')) : $t('site.post.bookmark_login')" side="right" :delay-duration="100">
-          <button
-            class="group relative flex flex-col items-center justify-center w-11 py-2 rounded-md transition-all duration-200"
-            :class="bookmarked ? 'bg-amber-50 dark:bg-amber-950/30' : 'hover:bg-amber-50 dark:hover:bg-amber-950/30'"
-            @click="toggleBookmark"
-          >
-            <UIcon
-              :name="bookmarked ? 'i-tabler-bookmark-filled' : 'i-tabler-bookmark'"
-              class="size-5 transition-all duration-200"
-              :class="[bookmarked ? 'text-amber-500' : 'text-muted group-hover:text-amber-500', bookmarkAnim ? 'scale-125' : 'scale-100']"
-            />
-            <span class="text-[10px] font-medium mt-0.5 leading-none text-muted">{{ bookmarked ? $t('site.post.bookmarked') : $t('site.post.bookmark') }}</span>
-          </button>
-        </UTooltip>
-
-        <div class="w-6 h-px bg-border-default border border-default my-0.5 rounded-full" />
-
-        <!-- 分享 -->
-        <UDropdownMenu :items="shareItems" :ui="{ content: 'w-40' }">
-          <UTooltip :text="$t('site.post.share')" side="right" :delay-duration="100">
-            <button class="group flex flex-col items-center justify-center w-11 py-2 rounded-md hover:bg-primary/10 transition-all duration-200">
-              <UIcon name="i-tabler-share-2" class="size-5 text-muted group-hover:text-primary transition-colors" />
-              <span class="text-[10px] font-medium mt-0.5 leading-none text-muted">{{ $t('site.post.share') }}</span>
+          <!-- 点赞 -->
+          <UTooltip v-else-if="item.local_id === 'action:post_like'" :text="authStore.isLoggedIn ? (liked ? $t('site.post.unlike') : $t('site.post.like')) : $t('site.post.like_login')" side="right" :delay-duration="100">
+            <button
+              class="group relative flex flex-col items-center justify-center w-11 py-2 rounded-md transition-all duration-200"
+              :class="liked ? 'bg-red-50 dark:bg-red-950/30' : 'hover:bg-red-50 dark:hover:bg-red-950/30'"
+              @click="toggleLike"
+            >
+              <UIcon
+                :name="liked ? 'i-tabler-heart-filled' : 'i-tabler-heart'"
+                class="size-5 transition-all duration-200"
+                :class="[liked ? 'text-red-500' : 'text-muted group-hover:text-red-500', likeAnim ? 'scale-125' : 'scale-100']"
+              />
+              <span class="text-[10px] font-medium mt-0.5 leading-none" :class="liked ? 'text-red-500' : 'text-muted'">
+                {{ fmtNum(displayLikes) }}
+              </span>
             </button>
           </UTooltip>
-        </UDropdownMenu>
 
+          <!-- 评论 -->
+          <UTooltip v-else-if="item.local_id === 'action:post_comment'" :text="$t('site.post.comment')" side="right" :delay-duration="100">
+            <button
+              class="group flex flex-col items-center justify-center w-11 py-2 rounded-md hover:bg-primary/10 transition-all duration-200"
+              @click="scrollToComments"
+            >
+              <UIcon name="i-tabler-message-circle" class="size-5 text-muted group-hover:text-primary transition-colors" />
+              <span class="text-[10px] font-medium mt-0.5 leading-none text-muted">{{ fmtNum(commentCount ?? 0) }}</span>
+            </button>
+          </UTooltip>
+
+          <!-- 收藏 -->
+          <UTooltip v-else-if="item.local_id === 'action:post_bookmark'" :text="authStore.isLoggedIn ? (bookmarked ? $t('site.post.unbookmark') : $t('site.post.bookmark')) : $t('site.post.bookmark_login')" side="right" :delay-duration="100">
+            <button
+              class="group relative flex flex-col items-center justify-center w-11 py-2 rounded-md transition-all duration-200"
+              :class="bookmarked ? 'bg-amber-50 dark:bg-amber-950/30' : 'hover:bg-amber-50 dark:hover:bg-amber-950/30'"
+              @click="toggleBookmark"
+            >
+              <UIcon
+                :name="bookmarked ? 'i-tabler-bookmark-filled' : 'i-tabler-bookmark'"
+                class="size-5 transition-all duration-200"
+                :class="[bookmarked ? 'text-amber-500' : 'text-muted group-hover:text-amber-500', bookmarkAnim ? 'scale-125' : 'scale-100']"
+              />
+              <span class="text-[10px] font-medium mt-0.5 leading-none text-muted">{{ bookmarked ? $t('site.post.bookmarked') : $t('site.post.bookmark') }}</span>
+            </button>
+          </UTooltip>
+
+          <!-- 分享 -->
+          <template v-else-if="item.local_id === 'action:post_share'">
+            <UDropdownMenu :items="shareItems" :ui="{ content: 'w-40' }">
+              <UTooltip :text="$t('site.post.share')" side="right" :delay-duration="100">
+                <button class="group flex flex-col items-center justify-center w-11 py-2 rounded-md hover:bg-primary/10 transition-all duration-200">
+                  <UIcon name="i-tabler-share-2" class="size-5 text-muted group-hover:text-primary transition-colors" />
+                  <span class="text-[10px] font-medium mt-0.5 leading-none text-muted">{{ $t('site.post.share') }}</span>
+                </button>
+              </UTooltip>
+            </UDropdownMenu>
+          </template>
+
+          <!-- 插件项 -->
+          <UTooltip v-else-if="item.local_id.startsWith('plugin:')" :text="item.label" side="right" :delay-duration="100">
+            <button
+              class="group flex flex-col items-center justify-center w-11 py-2 rounded-md hover:bg-primary/10 transition-all duration-200"
+              @click="executePublicCommand(item.local_id.replace('plugin:', ''))">
+              <UIcon :name="item.css_classes || 'i-tabler-puzzle'" class="size-5 text-muted group-hover:text-primary transition-colors" />
+              <span class="text-[10px] font-medium mt-0.5 leading-none text-muted">{{ item.label }}</span>
+            </button>
+          </UTooltip>
+
+          <!-- 自定义链接 -->
+          <UTooltip v-else-if="item.object_type === 'custom'" :text="item.label" side="right" :delay-duration="100">
+            <NuxtLink
+              :to="item.url"
+              :target="item.target || undefined"
+              class="group flex flex-col items-center justify-center w-11 py-2 rounded-md hover:bg-primary/10 transition-all duration-200"
+            >
+              <UIcon :name="item.css_classes || 'i-tabler-link'" class="size-5 text-muted group-hover:text-primary transition-colors" />
+              <span class="text-[10px] font-medium mt-0.5 leading-none text-muted">{{ item.label }}</span>
+            </NuxtLink>
+          </UTooltip>
+        </template>
       </div>
     </div>
   </Transition>

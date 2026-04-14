@@ -32,6 +32,8 @@ const props = defineProps<{
   name: ContributionSlotName
   /** Optional context passed to command handlers */
   ctx?: Record<string, unknown>
+  /** When set, only render the single view/menu item matching this id */
+  filterId?: string
 }>()
 
 const emit = defineEmits<{
@@ -40,9 +42,15 @@ const emit = defineEmits<{
 
 const contextStore = usePluginContextStore()
 const contributionsStore = usePluginContributionsStore()
+const { getOption } = useOption()
 
 const menuItems = contributionsStore.getMenuItems(props.name)
-const viewItems = contributionsStore.getViewItems(props.name)
+const allViewItems = contributionsStore.getViewItems(props.name)
+const disabledViews = computed(() => getOption('disabled_plugin_views'))
+const viewItems = computed(() => {
+  const items = allViewItems.value.filter(v => !disabledViews.value.includes(v.id))
+  return props.filterId ? items.filter(v => v.id === props.filterId) : items
+})
 const navItems = contributionsStore.getNavigation(props.name)
 const contentBlocks = contributionsStore.getContentBlocks(props.name)
 
@@ -52,12 +60,14 @@ function sanitizeHtml(html: string): string {
   return DOMPurify.sanitize(html)
 }
 
-/** Filter menu items by their `when` condition. */
-const visibleMenuItems = computed(() =>
-  menuItems.value.filter(item =>
+/** Filter menu items by their `when` condition and optional filterId. */
+const visibleMenuItems = computed(() => {
+  let items = menuItems.value.filter(item =>
     !item.when || contextStore.evaluateWhen(item.when),
-  ),
-)
+  )
+  if (props.filterId) items = items.filter(m => m.command === props.filterId)
+  return items
+})
 
 /** Group visible menu items: ungrouped items stay solo, grouped items merge into MenuGroup entries. */
 const groupedMenuEntries = computed<GroupedEntry[]>(() => {

@@ -44,10 +44,11 @@
 
       <!-- 右侧操作区 -->
       <div class="ml-auto flex items-center gap-1">
-        <ClientOnly><ContributionSlot name="public:header-actions" /></ClientOnly>
         <template v-for="action in headerActions" :key="action.local_id">
+          <!-- 分隔符 -->
+          <div v-if="action.object_type === 'separator'" class="h-5 w-px bg-border-default border border-default mx-0.5" />
           <!-- Built-in actions -->
-          <LangSwitcher v-if="action.local_id === 'action:lang_switcher'" />
+          <LangSwitcher v-else-if="action.local_id === 'action:lang_switcher'" />
           <ThemeToggle v-else-if="action.local_id === 'action:theme_toggle'" />
           <template v-else-if="action.local_id === 'action:messages' && authStore.isLoggedIn">
             <NuxtLink to="/messages" class="relative">
@@ -59,6 +60,10 @@
             </NuxtLink>
           </template>
           <NotificationBox v-else-if="action.local_id === 'action:notifications' && authStore.isLoggedIn" />
+          <!-- Plugin item: render contribution or execute command -->
+          <ClientOnly v-else-if="action.local_id.startsWith('plugin:')">
+            <ContributionSlot :name="'public:header-actions'" :filter-id="action.local_id.replace('plugin:', '')" />
+          </ClientOnly>
           <!-- Custom action: icon button link -->
           <UTooltip v-else-if="action.object_type === 'custom'" :text="action.label">
             <UButton

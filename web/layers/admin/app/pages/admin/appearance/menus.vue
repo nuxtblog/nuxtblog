@@ -6,21 +6,24 @@
     <AdminPageContent>
       <!-- Loading skeleton -->
       <template v-if="isLoading">
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <div class="grid grid-cols-1 lg:grid-cols-6 gap-4">
           <div class="space-y-2">
             <USkeleton v-for="n in 5" :key="n" class="h-12 w-full rounded-md" />
           </div>
-          <div class="lg:col-span-3 space-y-4">
+          <div class="lg:col-span-2 space-y-3">
             <USkeleton class="h-8 w-48" />
+            <USkeleton class="h-48 w-full rounded-md" />
+          </div>
+          <div class="lg:col-span-3 space-y-4">
             <USkeleton class="h-64 w-full rounded-md" />
           </div>
         </div>
       </template>
 
       <template v-else>
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 md:gap-6">
+        <div class="grid grid-cols-1 lg:grid-cols-6 gap-4 md:gap-6">
           <!-- Left: Slot / menu list -->
-          <div class="space-y-2">
+          <div class="lg:col-span-1 space-y-2">
             <p class="text-xs font-semibold text-muted uppercase tracking-wider px-2 mb-1">
               {{ $t('admin.appearance.menus.theme_positions') }}
             </p>
@@ -59,8 +62,8 @@
             </UButton>
           </div>
 
-          <!-- Right: Editor -->
-          <div class="lg:col-span-3 space-y-4">
+          <!-- Middle: Add items panel -->
+          <div class="lg:col-span-2 space-y-3">
             <template v-if="selectedKey">
               <!-- Header row -->
               <div class="flex items-center justify-between">
@@ -83,35 +86,32 @@
                   {{ $t('common.delete') }}
                 </UButton>
               </div>
-
-              <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
-                <!-- Add items panel -->
-                <NavMenuAddPanel :is-social-selected="isSocialSelected" :is-header-actions-selected="isHeaderActionsSelected" @add-items="onAddItems" />
-
-                <!-- Menu structure + preview -->
-                <div class="xl:col-span-2 space-y-4">
-                  <NavMenuStructure v-model:items="menuItems" :is-header-actions="isHeaderActionsSelected" />
-                  <NavMenuPreview :items="menuItems" :is-header-actions="isHeaderActionsSelected" />
-
-                  <!-- Save / Reset -->
-                  <div class="flex justify-end gap-3">
-                    <UButton color="neutral" variant="outline" @click="resetCurrentMenu">
-                      {{ $t('common.reset') }}
-                    </UButton>
-                    <UButton
-                      color="primary" :loading="isSaving"
-                      leading-icon="i-tabler-device-floppy"
-                      @click="saveCurrentMenu">
-                      {{ $t('admin.appearance.menus.save_menu') }}
-                    </UButton>
-                  </div>
-                </div>
-              </div>
+              <NavMenuAddPanel :slot-key="selectedKey" :contribution-slot="currentContribSlot" @add-items="onAddItems" />
             </template>
-
             <div v-else class="flex items-center justify-center h-64 text-muted text-sm">
               {{ $t('admin.appearance.menus.select_to_edit') }}
             </div>
+          </div>
+
+          <!-- Right: Menu structure + preview + save -->
+          <div class="lg:col-span-3 space-y-4">
+            <template v-if="selectedKey">
+              <NavMenuStructure v-model:items="menuItems" :slot-key="selectedKey" />
+              <NavMenuPreview :items="menuItems" :slot-key="selectedKey" />
+
+              <!-- Save / Reset -->
+              <div class="flex justify-end gap-3">
+                <UButton color="neutral" variant="outline" @click="resetCurrentMenu">
+                  {{ $t('common.reset') }}
+                </UButton>
+                <UButton
+                  color="primary" :loading="isSaving"
+                  leading-icon="i-tabler-device-floppy"
+                  @click="saveCurrentMenu">
+                  {{ $t('admin.appearance.menus.save_menu') }}
+                </UButton>
+              </div>
+            </template>
           </div>
         </div>
       </template>
@@ -173,11 +173,26 @@
 
 <script setup lang="ts">
 import type { NavMenuItem, NavMenuSlotKey, NavCustomMenu, UiMenuItem, MenuItemType } from '~/types/api/navMenu'
-import { NAV_MENU_SLOTS, NAV_MENU_SLOT_HINTS } from '~/types/api/navMenu'
+import { NAV_MENU_SLOTS, NAV_MENU_SLOT_HINTS, NAV_MENU_SLOT_CONFIGS } from '~/types/api/navMenu'
 
 const toast = useToast()
 const { t } = useI18n()
 const navMenuApi = useNavMenuApi()
+const optionApi = useOptionApi()
+const optionsStore = useOptionsStore()
+const { getOption } = useOption()
+const contributionsStore = usePluginContributionsStore()
+
+// ─── Plugin view visibility (per-slot) ─────────────────────────────────────
+
+const disabledPluginViews = ref<string[]>([])
+
+const currentSlotConfig = computed(() => NAV_MENU_SLOT_CONFIGS[selectedKey.value as NavMenuSlotKey])
+const currentContribSlot = computed(() => currentSlotConfig.value?.contributionSlot)
+
+watch(() => getOption('disabled_plugin_views'), (val) => {
+  disabledPluginViews.value = [...val]
+}, { immediate: true })
 
 // ─── Loading ──────────────────────────────────────────────────────────────────
 
@@ -203,8 +218,6 @@ type SelectedKey = NavMenuSlotKey | string
 const selectedKey = ref<SelectedKey>('')
 
 const isBuiltinSelected = computed(() => selectedKey.value in NAV_MENU_SLOTS)
-const isSocialSelected = computed(() => selectedKey.value === 'social_menu')
-const isHeaderActionsSelected = computed(() => selectedKey.value === 'header_actions')
 const selectedHint = computed(() =>
   isBuiltinSelected.value ? (NAV_MENU_SLOT_HINTS[selectedKey.value as NavMenuSlotKey] ?? '') : '',
 )
@@ -247,16 +260,29 @@ function fromStored(items: NavMenuItem[]): UiMenuItem[] {
 }
 
 function toStored(items: UiMenuItem[]): NavMenuItem[] {
-  return items.map(it => ({
-    local_id: it.local_id,
-    label: it.label,
-    url: it.url,
-    object_type: it.type,
-    object_id: it.object_id,
-    target: it.openInNewTab ? '_blank' : '',
-    css_classes: it.cssClasses,
-    parent_local_id: it.parent_local_id,
-  }))
+  // Recalculate parent_local_id from position + depth so that drag-and-drop
+  // reordering produces correct parent references (not stale ones).
+  const parentStack: string[] = [] // parentStack[depth] = local_id of parent at that depth
+  return items.map(it => {
+    // For depth 0 items, no parent
+    let parentId = ''
+    if (it.depth > 0) {
+      // The parent is the last item we saw at depth - 1
+      parentId = parentStack[it.depth - 1] ?? ''
+    }
+    // Record this item as potential parent for deeper items
+    parentStack[it.depth] = it.local_id
+    return {
+      local_id: it.local_id,
+      label: it.label,
+      url: it.url,
+      object_type: it.type,
+      object_id: it.object_id,
+      target: it.openInNewTab ? '_blank' : '',
+      css_classes: it.cssClasses,
+      parent_local_id: parentId,
+    }
+  })
 }
 
 // ─── Load ─────────────────────────────────────────────────────────────────────
@@ -328,6 +354,20 @@ async function saveCurrentMenu() {
       const idx = customMenus.value.findIndex(m => m.id === selectedKey.value)
       if (idx !== -1) customMenus.value[idx]!.items = stored
       await navMenuApi.saveCustomMenus(customMenus.value)
+    }
+    // Sync disabled_plugin_views: plugin items not present in menu are disabled
+    if (currentContribSlot.value) {
+      const pluginViews = contributionsStore.getViewItems(currentContribSlot.value).value
+      const pluginMenus = contributionsStore.getMenuItems(currentContribSlot.value).value
+      const menuPluginIds = new Set(stored.filter(i => i.local_id.startsWith('plugin:')).map(i => i.local_id.replace('plugin:', '')))
+      const allPluginIds = [...pluginViews.map(v => v.id), ...pluginMenus.map(m => m.command)]
+      const otherDisabled = disabledPluginViews.value.filter(id => !allPluginIds.includes(id))
+      const newDisabled = [...otherDisabled, ...allPluginIds.filter(id => !menuPluginIds.has(id))]
+      if (JSON.stringify(newDisabled.sort()) !== JSON.stringify(disabledPluginViews.value.sort())) {
+        disabledPluginViews.value = newDisabled
+        await optionApi.setOption('disabled_plugin_views', newDisabled)
+        await optionsStore.reload()
+      }
     }
     itemsSnapshot = stored
     toast.add({ title: t('admin.appearance.menus.saved'), color: 'success' })
