@@ -127,6 +127,33 @@ func (r *ErrorRingBuffer) GetAll() []ErrorEntry {
 	return out
 }
 
+// recordExec records a single execution (route/filter/event) into the plugin's
+// observability counters.
+func (lp *loadedPlugin) recordExec(pluginID, eventName string, dur time.Duration, err error) {
+	if lp.stats != nil {
+		lp.stats.record(dur, err)
+	}
+	if lp.window != nil {
+		lp.window.record(err != nil)
+	}
+	if err != nil && lp.errors != nil {
+		lp.errors.Add(ErrorEntry{
+			At:        time.Now(),
+			EventName: eventName,
+			Phase:     "route",
+			Message:   err.Error(),
+			Duration:  dur,
+		})
+	}
+}
+
+// getPluginObs returns the observability data for a plugin by ID.
+func (m *Manager) getPluginObs(id string) *loadedPlugin {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.plugins[id]
+}
+
 // ─── Public query functions ───────────────────────────────────────────────────
 
 // GetStats returns execution metrics for a plugin.

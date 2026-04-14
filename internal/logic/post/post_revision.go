@@ -5,6 +5,7 @@ import (
 
 	v1 "github.com/nuxtblog/nuxtblog/api/post/v1"
 	"github.com/nuxtblog/nuxtblog/internal/dao"
+	"github.com/nuxtblog/nuxtblog/internal/util/idgen"
 
 	"github.com/gogf/gf/v2/errors/gcode"
 	"github.com/gogf/gf/v2/errors/gerror"
@@ -71,4 +72,41 @@ func (s *sPost) RevisionRestore(ctx context.Context, postId, revisionId int64) e
 		Data(g.Map{"title": rev.Title, "content": rev.Content}).
 		Update()
 	return err
+}
+
+// saveRevisionAndPrune saves a snapshot of the current post content before an update,
+// then deletes all but the most recent maxRevisions entries for the post.
+func saveRevisionAndPrune(ctx context.Context, postId int64, title, content string, authorId int64) {
+	const maxRevisions = 20
+
+	// Insert snapshot
+	_, err := dao.PostRevisions.Ctx(ctx).Data(g.Map{
+		"id":        idgen.New(),
+		"post_id":   postId,
+		"author_id": authorId,
+		"title":     title,
+		"content":   content,
+		"rev_note":  "auto",
+	}).Insert()
+	if err != nil {
+		g.Log().Warningf(ctx, "[post] save revision error: %v", err)
+		return
+	}
+
+	// Prune: keep only the most recent maxRevisions rows
+	type idRow struct{ Id int64 }
+	var rows []idRow
+	if err = dao.PostRevisions.Ctx(ctx).
+		Where("post_id", postId).
+		OrderDesc("id").
+		Offset(maxRevisions).
+		Fields("id").
+		Scan(&rows); err != nil || len(rows) == 0 {
+		return
+	}
+	ids := make([]int64, len(rows))
+	for i, r := range rows {
+		ids[i] = r.Id
+	}
+	_, _ = dao.PostRevisions.Ctx(ctx).WhereIn("id", ids).Delete()
 }

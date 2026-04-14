@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { PluginItem, PluginSettingField, PluginPreviewInfo, MarketplaceItem } from "~/composables/usePluginApi";
+import type { PluginItem, MarketplaceItem } from "~/composables/usePluginApi";
 import { parseCapabilityBadges } from "~/composables/usePluginApi";
 
 const { t } = useI18n();
@@ -18,7 +18,7 @@ const filterSource = ref("all");
 
 // ── Update check state ───────────────────────────────────────────────────
 const marketplaceItems = ref<MarketplaceItem[]>([]);
-const updateMap = ref<Record<string, string>>({}); // plugin id → latest version
+const updateMap = ref<Record<string, string>>({});
 
 const selectedPlugins = ref<string[]>([]);
 const batchPluginAction = ref<string | undefined>(undefined);
@@ -83,85 +83,18 @@ async function applyBatchPlugins() {
   }
 }
 
-// ── Settings modal ─────────────────────────────────────────────────────────
+// ── Modals ──────────────────────────────────────────────────────────────────
+const installModal = ref(false);
 const settingsModal = ref(false);
 const settingsPlugin = ref<PluginItem | null>(null);
-const settingsSchema = ref<PluginSettingField[]>([]);
-const settingsValues = ref<Record<string, unknown>>({});
-const settingsLoading = ref(false);
-const settingsSaving = ref(false);
 
-const openSettings = async (item: PluginItem) => {
+const openSettings = (item: PluginItem) => {
   settingsPlugin.value = item;
   settingsModal.value = true;
-  settingsLoading.value = true;
-  try {
-    const res = await pluginApi.getSettings(item.id);
-    settingsSchema.value = res.schema ?? [];
-    settingsValues.value = { ...(res.values ?? {}) };
-    for (const field of settingsSchema.value) {
-      if (!(field.key in settingsValues.value) && field.default !== undefined) {
-        settingsValues.value[field.key] = field.default;
-      }
-    }
-  } catch (e: any) {
-    toast.add({ title: e?.message, color: "error" });
-    settingsModal.value = false;
-  } finally {
-    settingsLoading.value = false;
-  }
 };
 
-/** Group settings fields by their `group` property, preserving order. */
-const settingsGroups = computed(() => {
-  const groups: Array<{ name: string | undefined; fields: PluginSettingField[] }> = []
-  const groupMap = new Map<string | undefined, PluginSettingField[]>()
-  for (const field of settingsSchema.value) {
-    const key = field.group || undefined
-    if (!groupMap.has(key)) {
-      const fields: PluginSettingField[] = []
-      groupMap.set(key, fields)
-      groups.push({ name: key, fields })
-    }
-    groupMap.get(key)!.push(field)
-  }
-  return groups
-})
-
-/** Evaluate a field's showIf condition against current settings values. */
-function isFieldVisible(field: PluginSettingField): boolean {
-  if (!field.showIf) return true
-  try {
-    // Support simple expressions like "key === true", "key === 'value'"
-    const expr = field.showIf.trim()
-    const match = expr.match(/^(\w+)\s*(===|!==|==|!=)\s*(.+)$/)
-    if (!match) return true
-    const [, key, op, rawVal] = match
-    const actual = settingsValues.value[key]
-    let expected: unknown = rawVal.trim()
-    if (expected === 'true') expected = true
-    else if (expected === 'false') expected = false
-    else if (expected === 'null') expected = null
-    else if (/^['"].*['"]$/.test(expected as string)) expected = (expected as string).slice(1, -1)
-    else if (!isNaN(Number(expected))) expected = Number(expected)
-    if (op === '===' || op === '==') return actual === expected
-    if (op === '!==' || op === '!=') return actual !== expected
-  } catch { /* show field on parse error */ }
-  return true
-}
-
-const saveSettings = async () => {
-  if (!settingsPlugin.value) return;
-  settingsSaving.value = true;
-  try {
-    await pluginApi.updateSettings(settingsPlugin.value.id, settingsValues.value);
-    toast.add({ title: t("admin.plugins.settings_save_success"), color: "success" });
-    settingsModal.value = false;
-  } catch (e: any) {
-    toast.add({ title: e?.message, color: "error" });
-  } finally {
-    settingsSaving.value = false;
-  }
+const onInstalled = (item: PluginItem) => {
+  items.value.unshift(item);
 };
 
 // ── Filters ────────────────────────────────────────────────────────────────
@@ -211,13 +144,8 @@ const typeBadgeColor = (type: string) => {
 };
 const typeBadgeLabel = (type: string) => t(`admin.plugins.type_${type}`) || type;
 
-/** Check if a plugin has an update available */
 const hasUpdate = (item: PluginItem) => updateMap.value[item.id];
-
-/** Number of plugins with available updates */
-const updatableCount = computed(() =>
-  Object.keys(updateMap.value).length
-);
+const updatableCount = computed(() => Object.keys(updateMap.value).length);
 
 // ── Load ───────────────────────────────────────────────────────────────────
 const load = async () => {
@@ -232,7 +160,6 @@ const load = async () => {
   }
 };
 
-/** Compare installed versions with marketplace to detect available updates */
 const checkUpdates = async () => {
   try {
     const res = await pluginApi.marketplace();
@@ -247,7 +174,7 @@ const checkUpdates = async () => {
     }
     updateMap.value = map;
   } catch {
-    // Silently fail — update check is not critical
+    // Silently fail
   }
 };
 
@@ -261,97 +188,6 @@ watch([filterStatus, filterType, filterSource, search], () => {
   batchPluginAction.value = undefined;
 });
 
-// ── Install modal ──────────────────────────────────────────────────────────
-const installModal = ref(false);
-const installTab = ref<"github" | "zip">("github");
-const installUrl = ref("");
-const zipFile = ref<File | null>(null);
-const zipDragging = ref(false);
-const fileInputRef = ref<HTMLInputElement | null>(null);
-const installing = ref(false);
-
-// Preview step state (GitHub tab only)
-const previewStep = ref(false);
-const previewData = ref<PluginPreviewInfo | null>(null);
-const previewLoading = ref(false);
-
-const openInstall = () => {
-  installTab.value = "github";
-  installUrl.value = "";
-  zipFile.value = null;
-  previewStep.value = false;
-  previewData.value = null;
-  installModal.value = true;
-};
-
-// Called when tab switches — reset preview state
-watch(installTab, () => {
-  previewStep.value = false;
-  previewData.value = null;
-});
-
-const canInstall = computed(() => {
-  if (installTab.value === "github") return installUrl.value.trim().length > 0;
-  return zipFile.value !== null;
-});
-
-// Step 1 (GitHub): fetch preview then advance to step 2
-const fetchPreview = async () => {
-  if (!installUrl.value.trim()) return;
-  previewLoading.value = true;
-  try {
-    previewData.value = await pluginApi.preview(installUrl.value.trim());
-  } catch {
-    // Preview failed — proceed anyway
-    previewData.value = null;
-  } finally {
-    previewLoading.value = false;
-    previewStep.value = true;
-  }
-};
-
-const confirmInstall = async () => {
-  if (!canInstall.value) return;
-  installing.value = true;
-  try {
-    let item: PluginItem;
-    if (installTab.value === "github") {
-      const res = await pluginApi.install(installUrl.value.trim());
-      item = res.item;
-    } else {
-      const res = await pluginApi.uploadZip(zipFile.value!);
-      item = res.item;
-    }
-    items.value.unshift(item);
-    if (item.need_restart) {
-      toast.add({
-        title: t("admin.plugins.install_success"),
-        description: t("admin.plugins.restart_required_install"),
-        color: "warning",
-        duration: 0,
-      });
-    } else {
-      toast.add({ title: t("admin.plugins.install_success"), color: "success" });
-    }
-    installModal.value = false;
-  } catch (e: any) {
-    toast.add({ title: e?.message, color: "error" });
-  } finally {
-    installing.value = false;
-  }
-};
-
-const onFileInput = (e: Event) => {
-  const f = (e.target as HTMLInputElement).files?.[0];
-  if (f) zipFile.value = f;
-};
-
-const onDrop = (e: DragEvent) => {
-  zipDragging.value = false;
-  const f = e.dataTransfer?.files?.[0];
-  if (f) zipFile.value = f;
-};
-
 // ── Toggle / Uninstall / Update ────────────────────────────────────────────
 const togglingId = ref<string | null>(null);
 const uninstallModal = ref(false);
@@ -359,20 +195,16 @@ const pendingUninstall = ref<PluginItem | null>(null);
 const uninstalling = ref(false);
 const updatingId = ref<string | null>(null);
 
-// Cascade impact state
 const cascadePlugins = ref<string[]>([]);
 const cascadeLoading = ref(false);
 
-// Resource impact state
 const impactHasDB = ref(false);
 const impactMediaCats = ref<string[]>([]);
 
-// Disable confirmation modal
 const disableModal = ref(false);
 const pendingDisable = ref<PluginItem | null>(null);
 
 const toggle = async (item: PluginItem) => {
-  // If disabling, check for cascade impact first
   if (item.enabled) {
     try {
       cascadeLoading.value = true;
@@ -384,7 +216,6 @@ const toggle = async (item: PluginItem) => {
         return;
       }
     } catch {
-      // If impact check fails, proceed without warning
     } finally {
       cascadeLoading.value = false;
     }
@@ -397,7 +228,6 @@ const doToggle = async (item: PluginItem) => {
   try {
     await pluginApi.toggle(item.id, !item.enabled);
     item.enabled = !item.enabled;
-    // If we disabled a plugin with cascade, remove dependents from active state in the UI
     if (!item.enabled && cascadePlugins.value.length > 0) {
       for (const depId of cascadePlugins.value) {
         const dep = items.value.find(p => p.id === depId);
@@ -432,7 +262,6 @@ const openUninstall = async (item: PluginItem) => {
     impactHasDB.value = res.has_db ?? false;
     impactMediaCats.value = res.media_cat_slugs ?? [];
   } catch {
-    // Non-critical
   } finally {
     cascadeLoading.value = false;
   }
@@ -513,142 +342,18 @@ const confirmUninstall = async () => {
   <AdminPageContainer>
     <AdminPageHeader :title="$t('admin.plugins.title')" :subtitle="$t('admin.plugins.subtitle')">
       <template #actions>
-        <UButton color="primary" icon="i-tabler-plus" @click="openInstall">
+        <UButton color="primary" icon="i-tabler-plus" @click="installModal = true">
           {{ $t("admin.plugins.install") }}
         </UButton>
       </template>
     </AdminPageHeader>
 
     <AdminPageContent>
-      <!-- Install modal -->
-      <UModal v-model:open="installModal" :ui="{ content: 'max-w-md' }">
-        <template #content>
-          <div class="p-6">
-            <h3 class="text-lg font-semibold text-highlighted mb-4">{{ $t("admin.plugins.install_title") }}</h3>
+      <!-- Install modal (extracted component) -->
+      <PluginInstallModal v-model:open="installModal" @installed="onInstalled" />
 
-            <div class="flex gap-1 p-1 bg-muted rounded-md mb-4">
-              <button
-                v-for="tab in (['github', 'zip'] as const)" :key="tab"
-                class="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-md text-sm font-medium transition-colors"
-                :class="installTab === tab ? 'bg-default text-highlighted shadow-xs' : 'text-muted hover:text-default'"
-                @click="installTab = tab">
-                <UIcon :name="tab === 'github' ? 'i-tabler-brand-github' : 'i-tabler-file-zip'" class="size-4" />
-                {{ $t(`admin.plugins.install_tab_${tab}`) }}
-              </button>
-            </div>
-
-            <div v-if="installTab === 'github'">
-              <!-- Step 1: enter URL -->
-              <template v-if="!previewStep">
-                <UFormField :label="$t('admin.plugins.repo_url_label')">
-                  <UInput v-model="installUrl" class="w-full" :placeholder="$t('admin.plugins.repo_url_placeholder')" @keydown.enter="fetchPreview" />
-                </UFormField>
-                <p class="text-xs text-muted mt-2">{{ $t("admin.plugins.repo_url_hint") }}</p>
-              </template>
-              <!-- Step 2: preview + confirm -->
-              <template v-else>
-                <p class="text-xs text-muted mb-3 font-mono truncate">{{ installUrl }}</p>
-                <div v-if="previewLoading" class="space-y-3">
-                  <div class="flex items-start gap-3">
-                    <USkeleton class="h-12 w-12 rounded-md shrink-0" />
-                    <div class="flex-1 space-y-1.5">
-                      <USkeleton class="h-4 w-40" />
-                      <USkeleton class="h-3 w-24" />
-                      <USkeleton class="h-3 w-full" />
-                    </div>
-                  </div>
-                  <USkeleton class="h-28 w-full rounded-md" />
-                </div>
-                <PluginPreviewPanel v-else-if="previewData" :info="previewData" />
-                <p v-else class="text-xs text-muted italic">{{ $t('admin.plugins.preview_no_caps') }}</p>
-              </template>
-            </div>
-            <div v-else>
-              <input ref="fileInputRef" type="file" accept=".zip" class="hidden" @change="onFileInput" />
-              <div
-                class="border-2 border-dashed rounded-md p-6 text-center cursor-pointer transition-colors"
-                :class="zipDragging ? 'border-primary bg-primary/5' : 'border-default hover:border-primary/50'"
-                @click="fileInputRef?.click()"
-                @dragover.prevent="zipDragging = true"
-                @dragleave.prevent="zipDragging = false"
-                @drop.prevent="onDrop">
-                <UIcon :name="zipFile ? 'i-tabler-file-check' : 'i-tabler-upload'" class="size-8 mx-auto mb-2" :class="zipFile ? 'text-success' : 'text-muted'" />
-                <p v-if="zipFile" class="text-sm font-medium text-highlighted">{{ $t("admin.plugins.zip_selected", { name: zipFile.name }) }}</p>
-                <p v-else class="text-sm text-muted">{{ $t("admin.plugins.zip_drop_label") }}</p>
-              </div>
-              <p class="text-xs text-muted mt-2">{{ $t("admin.plugins.zip_hint") }}</p>
-            </div>
-
-            <div class="flex justify-end gap-2 mt-6">
-              <UButton color="neutral" variant="ghost" @click="installModal = false">{{ $t("common.cancel") }}</UButton>
-              <!-- GitHub step 1: preview button -->
-              <template v-if="installTab === 'github' && !previewStep">
-                <UButton color="primary" :loading="previewLoading" :disabled="!canInstall" @click="fetchPreview">
-                  {{ $t("admin.plugins.preview_confirm_title") }}
-                </UButton>
-              </template>
-              <!-- GitHub step 2 or ZIP: back + install -->
-              <template v-else>
-                <UButton v-if="installTab === 'github'" color="neutral" variant="outline" @click="previewStep = false">{{ $t("common.back") }}</UButton>
-                <UButton color="primary" leading-icon="i-tabler-download" :loading="installing" :disabled="!canInstall" @click="confirmInstall">{{ $t("admin.plugins.install") }}</UButton>
-              </template>
-            </div>
-          </div>
-        </template>
-      </UModal>
-
-      <!-- Settings modal -->
-      <UModal v-model:open="settingsModal" :ui="{ content: 'max-w-md' }">
-        <template #content>
-          <div class="p-6">
-            <h3 class="text-lg font-semibold text-highlighted mb-1">{{ $t("admin.plugins.settings_title") }}</h3>
-            <p class="text-sm text-muted mb-5">{{ settingsPlugin?.title }}</p>
-
-            <div v-if="settingsLoading" class="space-y-4 py-2">
-              <div v-for="i in 3" :key="i" class="space-y-1.5">
-                <USkeleton class="h-3 w-24" /><USkeleton class="h-9 w-full" />
-              </div>
-            </div>
-            <p v-else-if="settingsSchema.length === 0" class="text-sm text-muted py-4 text-center">{{ $t("admin.plugins.settings_no_schema") }}</p>
-            <div v-else class="space-y-5">
-              <template v-for="(group, groupIdx) in settingsGroups" :key="group.name ?? '__default__'">
-                <div v-if="group.name" :class="{ 'pt-3 border-t border-default': groupIdx > 0 }">
-                  <p class="text-xs font-medium text-muted mb-3 uppercase tracking-wide">{{ group.name }}</p>
-                </div>
-                <template v-for="field in group.fields" :key="field.key">
-                  <UFormField v-if="isFieldVisible(field)" :label="field.label || field.key" :description="field.description" :required="field.required">
-                    <USwitch v-if="field.type === 'boolean'" :model-value="!!settingsValues[field.key]" @update:model-value="settingsValues[field.key] = $event" />
-                    <USelect v-else-if="field.type === 'select'" :model-value="String(settingsValues[field.key] ?? '')" :items="(field.options ?? []).map(o => ({ label: o, value: o }))" class="w-full" @update:model-value="settingsValues[field.key] = $event" />
-                    <UTextarea v-else-if="field.type === 'textarea'" :model-value="String(settingsValues[field.key] ?? '')" :placeholder="field.placeholder" class="w-full" :rows="3" @update:model-value="settingsValues[field.key] = $event" />
-                    <UInput v-else-if="field.type === 'password'" type="password" :model-value="String(settingsValues[field.key] ?? '')" :placeholder="field.placeholder" class="w-full" @update:model-value="settingsValues[field.key] = $event" />
-                    <UInput v-else-if="field.type === 'number'" type="number" :model-value="String(settingsValues[field.key] ?? '')" :placeholder="field.placeholder" class="w-full" @update:model-value="settingsValues[field.key] = Number($event)" />
-                    <UInput v-else :model-value="String(settingsValues[field.key] ?? '')" :placeholder="field.placeholder" class="w-full" @update:model-value="settingsValues[field.key] = $event" />
-                  </UFormField>
-                </template>
-              </template>
-            </div>
-
-            <!-- 3.5-F1: Capabilities display -->
-            <div v-if="settingsPlugin && !settingsLoading" class="mt-5 pt-4 border-t border-default">
-              <p class="text-xs font-medium text-muted mb-2 uppercase tracking-wide">{{ $t("admin.plugins.cap_section") }}</p>
-              <div class="flex flex-wrap gap-1.5">
-                <UBadge
-                  v-for="badge in capBadges(settingsPlugin)"
-                  :key="badge.label"
-                  :label="badge.label"
-                  :color="badge.color as any"
-                  variant="soft"
-                  size="sm" />
-              </div>
-            </div>
-
-            <div class="flex justify-end gap-2 mt-6">
-              <UButton color="neutral" variant="ghost" @click="settingsModal = false">{{ $t("common.cancel") }}</UButton>
-              <UButton v-if="settingsSchema.length > 0" color="primary" :loading="settingsSaving" @click="saveSettings">{{ $t("common.save") }}</UButton>
-            </div>
-          </div>
-        </template>
-      </UModal>
+      <!-- Settings modal (extracted component) -->
+      <PluginSettingsModal v-model:open="settingsModal" :plugin="settingsPlugin" />
 
       <!-- Uninstall confirm modal -->
       <UModal v-model:open="uninstallModal" :ui="{ content: 'max-w-sm' }">
@@ -758,7 +463,7 @@ const confirmUninstall = async () => {
         <UIcon name="i-tabler-plug-x" class="size-16 text-muted mb-4" />
         <h3 class="text-lg font-medium text-highlighted mb-1">{{ $t("admin.plugins.no_plugins") }}</h3>
         <p class="text-sm text-muted mb-4">{{ $t("admin.plugins.no_plugins_desc") }}</p>
-        <UButton color="primary" icon="i-tabler-plus" @click="openInstall">{{ $t("admin.plugins.install") }}</UButton>
+        <UButton color="primary" icon="i-tabler-plus" @click="installModal = true">{{ $t("admin.plugins.install") }}</UButton>
       </div>
 
       <!-- List -->

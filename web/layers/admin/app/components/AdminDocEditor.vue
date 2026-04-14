@@ -188,116 +188,17 @@
           </div>
 
           <!-- SEO 设置 -->
-          <details class="space-y-3">
-            <summary
-              class="text-sm font-semibold text-highlighted cursor-pointer select-none flex items-center gap-2 py-1">
-              <UIcon name="i-tabler-search" class="size-4" />
-              {{ t("admin.docs.editor.seo_settings") }}
-            </summary>
-            <div class="space-y-3 pt-2">
-              <UFormField label="Meta Title">
-                <UInput
-                  v-model="seoData.meta_title"
-                  placeholder="留空使用文档标题"
-                  class="w-full" />
-              </UFormField>
-              <UFormField label="Meta Description">
-                <UTextarea
-                  v-model="seoData.meta_desc"
-                  placeholder="页面描述摘要"
-                  :rows="3"
-                  class="w-full" />
-              </UFormField>
-              <UFormField label="OG Title">
-                <UInput
-                  v-model="seoData.og_title"
-                  placeholder="社交分享标题"
-                  class="w-full" />
-              </UFormField>
-              <UFormField label="OG Image">
-                <UInput
-                  v-model="seoData.og_image"
-                  placeholder="社交分享图片 URL"
-                  class="w-full" />
-              </UFormField>
-              <UFormField label="Canonical URL">
-                <UInput
-                  v-model="seoData.canonical_url"
-                  placeholder="规范链接（可选）"
-                  class="w-full" />
-              </UFormField>
-              <UFormField label="Robots">
-                <UInput
-                  v-model="seoData.robots"
-                  placeholder="index,follow"
-                  class="w-full" />
-              </UFormField>
-            </div>
-          </details>
+          <DocEditorSEOSettings v-model="seoData" />
         </div>
       </div>
     </AdminPageContent>
 
     <!-- 版本历史弹窗 -->
-    <UModal
-      v-if="mode === 'edit'"
+    <DocRevisionModal
+      v-if="mode === 'edit' && init?.id"
       v-model:open="showRevisionModal"
-      :ui="{ content: 'max-w-2xl' }">
-      <template #content>
-        <div class="p-6">
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-semibold text-highlighted">
-              {{ t("admin.docs.editor.revisions") }}
-            </h3>
-            <UButton
-              icon="i-tabler-x"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              square
-              @click="showRevisionModal = false" />
-          </div>
-
-          <div
-            v-if="revisions.length === 0"
-            class="flex flex-col items-center justify-center py-12">
-            <UIcon name="i-tabler-history" class="size-12 text-muted mb-2" />
-            <p class="text-sm text-muted">暂无修订历史</p>
-          </div>
-
-          <div v-else class="space-y-2 max-h-96 overflow-y-auto">
-            <div
-              v-for="rev in revisions"
-              :key="rev.id"
-              class="flex items-center gap-3 p-3 border border-default rounded-lg group hover:bg-elevated transition-colors">
-              <div class="flex-1 min-w-0">
-                <p class="text-sm font-medium text-highlighted truncate">
-                  {{ rev.title || "(无标题)" }}
-                </p>
-                <div class="flex items-center gap-2 mt-0.5">
-                  <span class="text-xs text-muted">{{
-                    new Date(rev.created_at).toLocaleString("zh-CN")
-                  }}</span>
-                  <span v-if="rev.rev_note" class="text-xs text-muted"
-                    >· {{ rev.rev_note }}</span
-                  >
-                </div>
-              </div>
-              <UButton
-                size="xs"
-                color="neutral"
-                variant="outline"
-                icon="i-tabler-restore"
-                class="opacity-0 group-hover:opacity-100 transition-opacity"
-                :loading="restoringRevisionId === rev.id"
-                @click="handleRestoreRevision(rev)">
-                {{ t("admin.docs.restore_revision") }}
-              </UButton>
-            </div>
-          </div>
-        </div>
-      </template>
-    </UModal>
+      :doc-id="init.id"
+      @restored="() => window.location.reload()" />
   </AdminPageContainer>
 </template>
 
@@ -308,7 +209,6 @@ import { usePluginContextStore } from "~/stores/plugin-context";
 import type {
   CreateDocRequest,
   UpdateDocRequest,
-  DocRevisionItem,
 } from "~/types/api/doc";
 
 const { t } = useI18n();
@@ -531,35 +431,6 @@ const markSaved = () => {
 
 // ── Revision modal ────────────────────────────────────────────────────────
 const showRevisionModal = ref(false);
-const revisions = ref<DocRevisionItem[]>([]);
-const restoringRevisionId = ref<number | null>(null);
-
-async function loadRevisions() {
-  if (!init?.id) return;
-  try {
-    const res = await docApi.getRevisions(init.id);
-    revisions.value = res.list ?? [];
-  } catch {}
-}
-
-async function handleRestoreRevision(rev: DocRevisionItem) {
-  if (!init?.id) return;
-  restoringRevisionId.value = rev.id;
-  try {
-    await docApi.restoreRevision(init.id, rev.id);
-    toast.add({ title: t("admin.docs.restore_revision"), color: "success" });
-    showRevisionModal.value = false;
-    // Reload page to reflect restored content
-    window.location.reload();
-  } catch (e: any) {
-    toast.add({
-      title: e?.message ?? t("common.operation_failed"),
-      color: "error",
-    });
-  } finally {
-    restoringRevisionId.value = null;
-  }
-}
 
 // ── Build & save ──────────────────────────────────────────────────────────
 const isFormValid = computed(
@@ -625,8 +496,6 @@ onMounted(async () => {
     await fetchParentDocs(init.collectionId);
   }
 
-  if (props.mode === "edit" && init?.id) {
-    loadRevisions();
-  }
+  // Revision history is loaded by DocRevisionModal on open
 });
 </script>

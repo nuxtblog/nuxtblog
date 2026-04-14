@@ -74,11 +74,7 @@
                 v-if="isScheduled"
                 class="mt-1.5 flex items-center gap-1 text-xs text-primary">
                 <UIcon name="i-tabler-clock" class="size-3 shrink-0" />
-                {{
-                  t("admin.posts.editor.scheduled_hint", {
-                    time: scheduledTimeLabel,
-                  })
-                }}
+                {{ t("admin.posts.editor.scheduled_hint", { time: scheduledTimeLabel }) }}
               </p>
             </UFormField>
 
@@ -137,23 +133,15 @@
           <div class="space-y-3">
             <div class="flex items-center justify-between">
               <div>
-                <p class="text-sm text-default">
-                  {{ t("admin.posts.editor.banner") }}
-                </p>
-                <p class="text-xs text-muted">
-                  {{ t("admin.posts.editor.banner_hint") }}
-                </p>
+                <p class="text-sm text-default">{{ t("admin.posts.editor.banner") }}</p>
+                <p class="text-xs text-muted">{{ t("admin.posts.editor.banner_hint") }}</p>
               </div>
               <USwitch v-model="isBanner" />
             </div>
             <div class="flex items-center justify-between">
               <div>
-                <p class="text-sm text-default">
-                  {{ t("admin.posts.editor.featured") }}
-                </p>
-                <p class="text-xs text-muted">
-                  {{ t("admin.posts.editor.featured_hint") }}
-                </p>
+                <p class="text-sm text-default">{{ t("admin.posts.editor.featured") }}</p>
+                <p class="text-xs text-muted">{{ t("admin.posts.editor.featured_hint") }}</p>
               </div>
               <USwitch v-model="isFeatured" />
             </div>
@@ -177,19 +165,13 @@
                   { label: t('admin.posts.editor.layout_none'), value: 'none' },
                 ]"
                 class="w-full" />
-              <p class="text-xs text-muted mt-1">
-                {{ t("admin.posts.editor.cover_layout_hint") }}
-              </p>
+              <p class="text-xs text-muted mt-1">{{ t("admin.posts.editor.cover_layout_hint") }}</p>
             </UFormField>
-
             <UFormField :label="t('admin.posts.editor.sidebar_label')">
               <USelect
                 v-model="postSidebar"
                 :items="[
-                  {
-                    label: t('admin.posts.editor.sidebar_auto'),
-                    value: 'auto',
-                  },
+                  { label: t('admin.posts.editor.sidebar_auto'), value: 'auto' },
                   { label: t('admin.posts.editor.sidebar_on'), value: '1' },
                   { label: t('admin.posts.editor.sidebar_off'), value: '0' },
                 ]"
@@ -199,155 +181,33 @@
         </SidebarCard>
 
         <!-- Categories -->
-        <SidebarCard
+        <PostCategoriesCard
           v-else-if="cardId === 'categories'"
+          v-model:categories="selectedCategories"
           :title="cardLabels.categories"
           :collapsed="isCollapsed('categories')"
-          @toggle="toggleCollapsed('categories')">
-          <template #header-actions>
-            <UButton
-              color="primary"
-              variant="link"
-              size="xs"
-              @click.stop="showAddCategoryModal = true">
-              {{ t("admin.posts.editor.new_category_btn") }}
-            </UButton>
-          </template>
-          <div v-if="sidebarLoading" class="space-y-2">
-            <div v-for="i in 5" :key="i" class="flex items-center gap-2">
-              <USkeleton class="size-4 rounded" />
-              <USkeleton :class="`h-4 w-${i % 2 === 0 ? '24' : '32'}`" />
-            </div>
-          </div>
-          <ParentCategoryMultiSelector v-else v-model="selectedCategories" />
-        </SidebarCard>
+          :sidebar-loading="sidebarLoading"
+          @toggle="toggleCollapsed('categories')"
+        />
 
         <!-- Tags -->
-        <SidebarCard
+        <PostTagsCard
           v-else-if="cardId === 'tags'"
+          v-model:tags="selectedTags"
           :title="cardLabels.tags"
           :collapsed="isCollapsed('tags')"
-          @toggle="toggleCollapsed('tags')">
-          <template #header-actions>
-            <UButton
-              color="primary"
-              variant="link"
-              size="xs"
-              @click.stop="showAddTagModal = true">
-              {{ t("admin.posts.editor.new_tag_btn") }}
-            </UButton>
-          </template>
-          <template v-if="sidebarLoading">
-            <div class="flex flex-wrap gap-2 mb-3">
-              <USkeleton
-                v-for="i in 3"
-                :key="i"
-                class="h-5 w-16 rounded-full" />
-            </div>
-            <div>
-              <USkeleton class="h-3 w-16 mb-2" />
-              <div class="flex flex-wrap gap-2">
-                <USkeleton
-                  v-for="i in 6"
-                  :key="i"
-                  class="h-6 w-14 rounded-md" />
-              </div>
-            </div>
-          </template>
-          <template v-else>
-            <div class="flex flex-wrap gap-2 mb-3">
-              <span
-                v-for="tag in selectedTags"
-                :key="tag.term_taxonomy_id"
-                class="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary">
-                {{ tag.name }}
-                <button
-                  type="button"
-                  class="hover:text-primary/60 transition-colors"
-                  @click="removeTag(tag.term_taxonomy_id)">
-                  <UIcon name="i-tabler-x" class="size-3" />
-                </button>
-              </span>
-            </div>
-            <div v-if="availableTags.length > 0">
-              <p class="text-xs text-muted mb-2">
-                {{ t("admin.posts.editor.popular_tags") }}
-              </p>
-              <div class="flex flex-wrap gap-2">
-                <UButton
-                  v-for="tag in availableTags"
-                  :key="tag.term_taxonomy_id"
-                  color="neutral"
-                  variant="outline"
-                  size="xs"
-                  @click="addExistingTag(tag)">
-                  {{ tag.name }}
-                </UButton>
-              </div>
-            </div>
-          </template>
-        </SidebarCard>
+          :sidebar-loading="sidebarLoading"
+          @toggle="toggleCollapsed('tags')"
+        />
 
         <!-- Downloads -->
-        <SidebarCard
+        <PostDownloadsCard
           v-else-if="cardId === 'downloads'"
+          v-model:downloads="postDownloads"
           :title="cardLabels.downloads"
           :collapsed="isCollapsed('downloads')"
-          @toggle="toggleCollapsed('downloads')">
-          <template #header-actions>
-            <UButton
-              color="primary"
-              variant="link"
-              size="xs"
-              icon="i-tabler-plus"
-              @click.stop="addDownload">
-              {{ t("common.add") }}
-            </UButton>
-          </template>
-          <div class="space-y-2">
-            <div
-              v-for="(dl, i) in postDownloads"
-              :key="i"
-              class="rounded-md border border-default p-3 space-y-2">
-              <div class="flex items-center gap-2">
-                <UInput
-                  v-model="dl.name"
-                  :placeholder="t('admin.posts.editor.download_name')"
-                  size="xs"
-                  class="flex-1" />
-                <UButton
-                  icon="i-tabler-trash"
-                  color="error"
-                  variant="ghost"
-                  size="xs"
-                  square
-                  @click="postDownloads.splice(i, 1)" />
-              </div>
-              <UInput
-                v-model="dl.url"
-                :placeholder="t('admin.posts.editor.download_url')"
-                size="xs"
-                class="w-full" />
-              <div class="flex gap-2">
-                <UInput
-                  v-model="dl.size"
-                  :placeholder="t('admin.posts.editor.download_size')"
-                  size="xs"
-                  class="flex-1" />
-                <UInput
-                  v-model="dl.desc"
-                  :placeholder="t('admin.posts.editor.download_desc')"
-                  size="xs"
-                  class="flex-1" />
-              </div>
-            </div>
-            <p
-              v-if="postDownloads.length === 0"
-              class="text-xs text-muted text-center py-2">
-              {{ t("admin.posts.editor.no_downloads") }}
-            </p>
-          </div>
-        </SidebarCard>
+          @toggle="toggleCollapsed('downloads')"
+        />
 
         <!-- Featured Image -->
         <SidebarCard
@@ -367,185 +227,31 @@
           :collapsed="isCollapsed('meta-fields')"
           @toggle="toggleCollapsed('meta-fields')">
           <template #header-actions>
-            <UButton
-              color="primary"
-              variant="link"
-              size="xs"
-              @click.stop="addMetaField">
+            <UButton color="primary" variant="link" size="xs" @click.stop="addMetaField">
               {{ t("admin.posts.editor.add_meta") }}
             </UButton>
           </template>
           <div class="space-y-2">
-            <div
-              v-for="(meta, index) in metaFields"
-              :key="index"
-              class="flex gap-2">
-              <UInput
-                v-model="meta.key"
-                :placeholder="t('admin.posts.editor.meta_key')"
-                size="sm"
-                class="flex-1" />
-              <UInput
-                v-model="meta.value"
-                :placeholder="t('admin.posts.editor.meta_value')"
-                size="sm"
-                class="flex-1" />
-              <UButton
-                color="error"
-                variant="ghost"
-                icon="i-tabler-x"
-                square
-                size="sm"
-                @click="metaFields.splice(index, 1)" />
+            <div v-for="(meta, index) in metaFields" :key="index" class="flex gap-2">
+              <UInput v-model="meta.key" :placeholder="t('admin.posts.editor.meta_key')" size="sm" class="flex-1" />
+              <UInput v-model="meta.value" :placeholder="t('admin.posts.editor.meta_value')" size="sm" class="flex-1" />
+              <UButton color="error" variant="ghost" icon="i-tabler-x" square size="sm" @click="metaFields.splice(index, 1)" />
             </div>
           </div>
         </SidebarCard>
 
         <!-- SEO -->
-        <SidebarCard
+        <PostSEOCard
           v-else-if="cardId === 'seo'"
+          v-model:seo="seoData"
           :title="cardLabels.seo"
           :collapsed="isCollapsed('seo')"
-          @toggle="toggleCollapsed('seo')">
-          <div class="space-y-3">
-            <UFormField :label="t('admin.posts.editor.seo_title')">
-              <UInput
-                v-model="seoData.meta_title"
-                :placeholder="t('admin.posts.editor.seo_title_placeholder')"
-                class="w-full" />
-            </UFormField>
-            <UFormField :label="t('admin.posts.editor.seo_desc')">
-              <UTextarea
-                v-model="seoData.meta_desc"
-                :rows="3"
-                :placeholder="t('admin.posts.editor.seo_desc_placeholder')"
-                class="w-full" />
-            </UFormField>
-            <UFormField :label="t('admin.posts.editor.og_title')">
-              <UInput
-                v-model="seoData.og_title"
-                :placeholder="t('admin.posts.editor.og_title_placeholder')"
-                class="w-full" />
-            </UFormField>
-            <UFormField :label="t('admin.posts.editor.og_image')">
-              <UInput
-                v-model="seoData.og_image"
-                placeholder="https://..."
-                class="w-full" />
-            </UFormField>
-            <UFormField label="Canonical URL">
-              <UInput
-                v-model="seoData.canonical_url"
-                placeholder="https://..."
-                class="w-full" />
-            </UFormField>
-            <UFormField label="Robots">
-              <USelect
-                v-model="seoData.robots"
-                :items="[
-                  { label: 'index, follow', value: 'index,follow' },
-                  { label: 'noindex, follow', value: 'noindex,follow' },
-                  { label: 'index, nofollow', value: 'index,nofollow' },
-                  { label: 'noindex, nofollow', value: 'noindex,nofollow' },
-                ]"
-                class="w-full" />
-            </UFormField>
-          </div>
-        </SidebarCard>
+          @toggle="toggleCollapsed('seo')"
+        />
       </div>
     </VueDraggable>
     </ClientOnly>
   </div>
-
-  <!-- 新建标签弹窗 -->
-  <UModal
-    v-model:open="showAddTagModal"
-    :title="t('admin.posts.editor.new_tag_modal')">
-    <template #content>
-      <div class="p-6">
-        <form class="space-y-4" @submit.prevent="handleAddTag">
-          <UFormField :label="t('common.name')" required>
-            <UInput
-              v-model="newTag.name"
-              required
-              maxlength="100"
-              :placeholder="t('admin.posts.editor.tag_name_placeholder')"
-              class="w-full" />
-          </UFormField>
-          <UFormField
-            :label="t('admin.posts.editor.slug_label')"
-            :hint="t('admin.posts.editor.slug_hint')">
-            <UInput
-              v-model="newTag.slug"
-              maxlength="100"
-              :placeholder="t('admin.posts.editor.tag_slug_placeholder')"
-              class="w-full" />
-          </UFormField>
-          <div class="flex gap-3 justify-end">
-            <UButton
-              color="neutral"
-              variant="soft"
-              type="button"
-              @click="showAddTagModal = false">
-              {{ t("common.cancel") }}
-            </UButton>
-            <UButton color="primary" type="submit" :loading="creatingTag">
-              {{ t("common.create") }}
-            </UButton>
-          </div>
-        </form>
-      </div>
-    </template>
-  </UModal>
-
-  <!-- 新建分类弹窗 -->
-  <UModal
-    v-model:open="showAddCategoryModal"
-    :title="t('admin.posts.editor.new_category_modal')">
-    <template #content>
-      <div class="p-6">
-        <form class="space-y-4" @submit.prevent="handleCreateCategory">
-          <UFormField :label="t('common.name')" required>
-            <UInput
-              v-model="newCategory.name"
-              required
-              maxlength="100"
-              :placeholder="t('admin.posts.editor.category_name_placeholder')"
-              class="w-full" />
-          </UFormField>
-          <UFormField :label="t('admin.posts.editor.slug_label')">
-            <UInput
-              v-model="newCategory.slug"
-              maxlength="100"
-              :placeholder="t('admin.posts.editor.slug_auto')"
-              class="w-full" />
-          </UFormField>
-          <ParentCategorySelector
-            :label="t('admin.posts.categories.parent_category')" />
-          <UFormField :label="t('common.description')">
-            <UTextarea
-              v-model="newCategory.description"
-              :rows="3"
-              maxlength="255"
-              :placeholder="t('admin.posts.editor.category_desc_placeholder')"
-              class="w-full" />
-          </UFormField>
-          <div class="flex gap-3 justify-end">
-            <UButton
-              color="neutral"
-              variant="soft"
-              type="button"
-              @click="showAddCategoryModal = false">
-              {{ t("common.cancel") }}
-            </UButton>
-            <UButton color="primary" type="submit" :loading="creatingCategory">
-              {{ t("common.create") }}
-            </UButton>
-          </div>
-        </form>
-      </div>
-    </template>
-  </UModal>
 </template>
 
 <script setup lang="ts">
@@ -582,19 +288,11 @@ const props = defineProps<{
 // ── Two-way bindings with parent ──────────────────────────────────────────
 const formData = defineModel<CreatePostRequest>("formData", { required: true });
 const seoData = defineModel<SeoData>("seo", { required: true });
-const selectedCategories = defineModel<number[]>("categories", {
-  required: true,
-});
-const selectedTags = defineModel<TermDetailResponse[]>("tags", {
-  required: true,
-});
+const selectedCategories = defineModel<number[]>("categories", { required: true });
+const selectedTags = defineModel<TermDetailResponse[]>("tags", { required: true });
 const metaFields = defineModel<MetaField[]>("metaFields", { required: true });
-const postDownloads = defineModel<DownloadItem[]>("downloads", {
-  required: true,
-});
-const featuredImageUrl = defineModel<string>("featuredImageUrl", {
-  required: true,
-});
+const postDownloads = defineModel<DownloadItem[]>("downloads", { required: true });
+const featuredImageUrl = defineModel<string>("featuredImageUrl", { required: true });
 const publishedAtLocal = defineModel<string>("publishedAt", { required: true });
 const isBanner = defineModel<boolean>("isBanner", { required: true });
 const isFeatured = defineModel<boolean>("isFeatured", { required: true });
@@ -604,9 +302,6 @@ const authorId = defineModel<number>("authorId", { required: false });
 
 // ── Stores & utils ────────────────────────────────────────────────────────
 const { t } = useI18n();
-const toast = useToast();
-const tagStore = useTagStore();
-const categoryStore = useCategoryStore();
 const authStore = useAuthStore();
 const userApi = useUserApi();
 
@@ -688,100 +383,6 @@ if (import.meta.client) {
     }
   });
 }
-
-// ── Tags ──────────────────────────────────────────────────────────────────
-const { tags } = storeToRefs(tagStore);
-const availableTags = computed(() => {
-  const ids = selectedTags.value.map((t) => t.term_taxonomy_id);
-  return tags.value
-    .filter((t) => !ids.includes(t.term_taxonomy_id))
-    .slice(0, 10);
-});
-
-const showAddTagModal = ref(false);
-const creatingTag = ref(false);
-const newTag = ref({ name: "", slug: "" });
-
-const addExistingTag = (tag: TermDetailResponse) => {
-  if (
-    !selectedTags.value.find((t) => t.term_taxonomy_id === tag.term_taxonomy_id)
-  ) {
-    selectedTags.value.push(tag);
-  }
-};
-const removeTag = (id: number) => {
-  selectedTags.value = selectedTags.value.filter(
-    (t) => t.term_taxonomy_id !== id,
-  );
-};
-const handleAddTag = async () => {
-  if (!newTag.value.name.trim()) return;
-  creatingTag.value = true;
-  try {
-    const created = await tagStore.addNewTag({
-      name: newTag.value.name,
-      slug: newTag.value.slug || undefined,
-    });
-    selectedTags.value.push(created);
-    newTag.value = { name: "", slug: "" };
-    showAddTagModal.value = false;
-  } catch (err: any) {
-    toast.add({
-      title: t("admin.posts.editor.create_tag_failed"),
-      description: err?.message,
-      color: "error",
-    });
-  } finally {
-    creatingTag.value = false;
-  }
-};
-
-// ── Categories ────────────────────────────────────────────────────────────
-const showAddCategoryModal = ref(false);
-const creatingCategory = ref(false);
-const newCategory = ref({
-  name: "",
-  slug: "",
-  taxonomy: "category",
-  description: "",
-  parent_id: undefined as number | undefined,
-});
-
-const handleCreateCategory = async () => {
-  if (!newCategory.value.name.trim()) return;
-  creatingCategory.value = true;
-  try {
-    const created = await categoryStore.addNewCategory({
-      name: newCategory.value.name,
-      slug: newCategory.value.slug || undefined,
-      description: newCategory.value.description || undefined,
-      parent_id: newCategory.value.parent_id,
-    });
-    if (created) {
-      selectedCategories.value.push(created.term_taxonomy_id);
-      showAddCategoryModal.value = false;
-      newCategory.value = {
-        name: "",
-        slug: "",
-        taxonomy: "category",
-        description: "",
-        parent_id: undefined,
-      };
-    }
-  } catch (error: any) {
-    toast.add({
-      title: t("admin.posts.editor.create_category_failed"),
-      description: error?.message,
-      color: "error",
-    });
-  } finally {
-    creatingCategory.value = false;
-  }
-};
-
-// ── Downloads ─────────────────────────────────────────────────────────────
-const addDownload = () =>
-  postDownloads.value.push({ name: "", url: "", size: "", desc: "" });
 
 // ── Meta fields ───────────────────────────────────────────────────────────
 const addMetaField = () => metaFields.value.push({ key: "", value: "" });
