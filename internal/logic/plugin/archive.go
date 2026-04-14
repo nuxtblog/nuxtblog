@@ -492,7 +492,7 @@ func parsePluginYAML(data []byte) (*eng.Manifest, string, error) {
 	return m, y.Homepage, nil
 }
 
-// ── Plugin Assets (Phase 2.8) ──────────────────────────────────────────────
+// ── Plugin Assets ───────────────────────────────────────────────────────────
 
 // PluginAssetsDir returns the directory where plugin frontend assets are stored.
 func PluginAssetsDir() string { return filepath.Join("data", "plugins") }

@@ -25,6 +25,7 @@ type Manager struct {
 	plugins map[string]*loadedPlugin
 	server  *ghttp.Server // set by RegisterRoutes, used for dynamic route binding
 	graph   *depGraph
+	eventWg sync.WaitGroup // tracks in-flight FanOutEvent goroutines
 }
 
 type loadedPlugin struct {
@@ -179,7 +180,9 @@ func (m *Manager) FanOutEvent(ctx context.Context, event string, data map[string
 
 	for id, lp := range m.plugins {
 		if ep, ok := lp.plugin.(sdk.HasEvents); ok {
+			m.eventWg.Add(1)
 			go func(id string, lp *loadedPlugin, ep sdk.HasEvents) {
+				defer m.eventWg.Done()
 				start := time.Now()
 				ep.OnEvent(ctx, event, data)
 				dur := time.Since(start)
@@ -189,8 +192,10 @@ func (m *Manager) FanOutEvent(ctx context.Context, event string, data map[string
 	}
 }
 
-// Shutdown deactivates all loaded plugins.
+// Shutdown waits for in-flight event handlers, then deactivates all loaded plugins.
 func (m *Manager) Shutdown() {
+	m.eventWg.Wait()
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

@@ -2,10 +2,14 @@ package sdk
 
 import (
 	"fmt"
+	"regexp"
 	"sync"
 
 	"gopkg.in/yaml.v3"
 )
+
+// validPluginID restricts plugin IDs to safe characters, preventing path traversal.
+var validPluginID = regexp.MustCompile(`^[a-zA-Z0-9_\-/]+$`)
 
 // ParseManifest parses raw YAML bytes into a Manifest.
 func ParseManifest(data []byte) (*Manifest, error) {
@@ -15,6 +19,9 @@ func ParseManifest(data []byte) (*Manifest, error) {
 	}
 	if m.ID == "" {
 		return nil, fmt.Errorf("plugin.yaml: missing 'id' field")
+	}
+	if !validPluginID.MatchString(m.ID) {
+		return nil, fmt.Errorf("plugin.yaml: invalid id %q (must match [a-zA-Z0-9_-/])", m.ID)
 	}
 	if m.Priority == 0 {
 		m.Priority = 10

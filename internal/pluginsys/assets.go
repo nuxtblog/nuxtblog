@@ -11,7 +11,7 @@ import (
 	"github.com/nuxtblog/nuxtblog/sdk"
 )
 
-// ─── Plugin Asset Serving (Phase 2.8) ──────────────────────────────────────
+// ─── Plugin Asset Serving ───────────────────────────────────────────────────
 //
 // Serves plugin frontend files (admin.mjs, public.js, style.css, etc.) from
 // the data/plugins/{id}/ directory.

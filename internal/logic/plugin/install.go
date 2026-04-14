@@ -156,7 +156,7 @@ func (s *sPlugin) installFromZipBytes(ctx context.Context, zipData []byte, repoU
 	// ── Legacy script plugin path ───────────────────────────────────────────
 	script := ar.Script
 
-	// Phase 2.8: save frontend assets to data/plugins/{id}/
+	// Save frontend assets to data/plugins/{id}/
 	if len(ar.Assets) > 0 {
 		if saveErr := savePluginAssets(manifest.Name, ar.Assets); saveErr != nil {
 			g.Log().Warningf(ctx, "[plugin] save assets for %s: %v", manifest.Name, saveErr)
@@ -169,7 +169,7 @@ func (s *sPlugin) installFromZipBytes(ctx context.Context, zipData []byte, repoU
 			fmt.Sprintf("plugin script error: %v", loadErr))
 	}
 
-	// Phase 4.1: run pending DB migrations
+	// Run pending DB migrations
 	if len(manifest.Migrations) > 0 {
 		if n, migErr := eng.RunMigrations(ctx, manifest.Name, manifest.Migrations); migErr != nil {
 			g.Log().Warningf(ctx, "[plugin] migration error for %s: %v", manifest.Name, migErr)

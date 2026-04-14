@@ -116,7 +116,7 @@ export interface PluginErrorEntry {
   duration_ms?: number
 }
 
-// Pipeline types (Phase 4)
+// Pipeline types
 export interface StepDef {
   type: 'js' | 'webhook' | 'condition'
   name: string
@@ -263,14 +263,14 @@ export const usePluginApi = () => {
   const preview = (repo: string) =>
     apiFetch<PluginPreviewInfo>('/admin/plugins/preview', { params: { repo } })
 
-  /** Phase 2.4: get enabled plugins with client-side info (contributes, admin_js) */
+  /** Get enabled plugins with client-side info (contributes, admin_js) */
   const clientList = () =>
     apiFetch<{ items: PluginClientItem[] }>('/admin/plugins/client')
 
   return { list, install, uploadZip, uninstall, unloadImpact, batchUninstall, update, batchUpdate, toggle, getSettings, updateSettings, getStyles, marketplace, syncMarketplace, getStats, getErrors, getManifest, updateManifest, preview, clientList }
 }
 
-/** Phase 2.4: Client-side plugin info for admin panel */
+/** Client-side plugin info for admin panel */
 export interface PluginClientItem {
   id: string
   title: string

@@ -95,9 +95,7 @@ var (
 
 			// Plugin routes (builtin + JS)
 			pluginMgr.RegisterRoutes(s)
-			// Phase 2.8: serve plugin frontend assets + shared deps
 			pluginMgr.RegisterAssetRoutes(s, "data/plugins")
-			// Phase 4.3: external service proxies
 			eng.RegisterServiceProxies(s)
 
 			// Serve locally uploaded files at /uploads (only when driver=local)

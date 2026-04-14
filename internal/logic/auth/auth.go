@@ -179,7 +179,7 @@ func (s *sAuth) Login(ctx context.Context, req *v1.AuthLoginReq) (*v1.AuthLoginR
 		return nil, errors.New(g.I18n().T(ctx, "auth.invalid_credentials"))
 	}
 
-	// Phase 5.2: plugin filter — allows plugins to block login (e.g. IP ban, 2FA)
+	// Plugin filter — allows plugins to block login (e.g. IP ban, 2FA)
 	if _, ferr := eng.Filter(ctx, eng.FilterUserLogin, map[string]any{
 		"user_id":  user.Id,
 		"username": user.Username,

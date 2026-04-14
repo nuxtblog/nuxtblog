@@ -1,5 +1,5 @@
 /**
- * Phase 2.4: Plugin Loader — fetches enabled plugins and loads their admin_js scripts.
+ * Plugin Loader — fetches enabled plugins and loads their admin_js scripts.
  *
  * Called once in the admin layout. Handles:
  * 1. Fetching enabled plugins with their contributes/admin_js info
@@ -19,7 +19,7 @@ interface PluginClientItem {
   admin_js?: string
   public_js?: string
   contributes?: string // raw JSON
-  pages?: string // raw JSON — Phase 4.2
+  pages?: string // raw JSON
 }
 
 interface PageDef {
@@ -69,7 +69,7 @@ export function usePluginLoader() {
           }
         }
 
-        // Phase 4.2: parse pages, merge nav items into contributes
+        // Parse pages, merge nav items into contributes
         let parsedPages: PageDef[] = []
         if (plugin.pages) {
           try {

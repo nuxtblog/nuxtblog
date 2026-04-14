@@ -1195,7 +1195,7 @@ export default {
         n_min_ago: "{n} 分钟前",
         n_hour_ago: "{n} 小时前",
       },
-      // Pipeline editor (Phase 4)
+      // Pipeline editor
       pipeline_edit_title: "编辑 Pipeline",
       pipeline_section_title: "声明式 Pipeline",
       pipeline_section_desc: "配置多步异步工作流，支持 JS 函数调用、Webhook 推送、条件分支。",

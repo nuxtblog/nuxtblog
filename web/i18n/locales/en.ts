@@ -1217,7 +1217,7 @@ export default {
         n_min_ago: "{n}m ago",
         n_hour_ago: "{n}h ago",
       },
-      // Pipeline editor (Phase 4)
+      // Pipeline editor
       pipeline_edit_title: "Edit Pipeline",
       pipeline_section_title: "Declarative Pipelines",
       pipeline_section_desc: "Configure multi-step async workflows: JS function calls, Webhook pushes, and conditional branching.",

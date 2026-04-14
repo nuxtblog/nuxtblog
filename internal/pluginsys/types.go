@@ -67,7 +67,7 @@ type PluginCapabilities struct {
 	Store  *StoreCap  `json:"store,omitempty"`
 	Events *EventsCap `json:"events,omitempty"`
 	DB     *DBCap     `json:"db,omitempty" yaml:"db,omitempty"`
-	AI     bool       `json:"ai,omitempty"`     // Phase 5.1: access to nuxtblog.ai service
+	AI     bool       `json:"ai,omitempty"`     // access to nuxtblog.ai service
 }
 
 // DBCap declares database access permissions for a plugin.
@@ -188,16 +188,16 @@ type Manifest struct {
 	ActivationEvents []string   `json:"activationEvents,omitempty"` // lazy-load triggers; nil/empty = "onStartup"
 	AdminJS          string     `json:"admin_js,omitempty"`         // browser-side script for admin panel
 	PublicJS         string     `json:"public_js,omitempty"`        // browser-side script for public frontend
-	Routes           []RouteDef    `json:"routes,omitempty"`           // Phase 2.7: custom HTTP endpoints
-	Contributes      *Contributes  `json:"contributes,omitempty"`    // Phase 2.2: UI contribution points
-	Migrations       []MigrationDef `json:"migrations,omitempty"`   // Phase 4.1: DB schema migrations
-	Pages            []PageDef     `json:"pages,omitempty"`          // Phase 4.2: frontend route extensions
-	Service          *ServiceDef   `json:"service,omitempty"`        // Phase 4.3: external service proxy
+	Routes           []RouteDef    `json:"routes,omitempty"`           // custom HTTP endpoints
+	Contributes      *Contributes  `json:"contributes,omitempty"`    // UI contribution points
+	Migrations       []MigrationDef `json:"migrations,omitempty"`   // DB schema migrations
+	Pages            []PageDef     `json:"pages,omitempty"`          // frontend route extensions
+	Service          *ServiceDef   `json:"service,omitempty"`        // external service proxy
 	Type             string        `json:"type,omitempty"`           // "builtin" | "js" | "yaml" | "full"
 	Permissions      []string      `json:"permissions,omitempty"`    // frontend API permissions: "user:read", "http:auth", "html:inject"
 }
 
-// ─── Route definitions (Phase 2.7) ──────────────────────────────────────────
+// ─── Route definitions ──────────────────────────────────────────────────────
 
 // RouteDef declares one custom HTTP endpoint registered by a plugin.
 // Paths are forced to /api/plugin/{id}/ prefix to prevent route collisions.
@@ -210,7 +210,7 @@ type RouteDef struct {
 	Description string `json:"description,omitempty"` // OpenAPI description
 }
 
-// ─── Contribution Points (Phase 2.2) ────────────────────────────────────────
+// ─── Contribution Points ────────────────────────────────────────────────────
 
 // Contributes declares UI extension points a plugin provides.
 type Contributes struct {
@@ -254,7 +254,7 @@ type ViewDef struct {
 	Icon  string `json:"icon,omitempty"`
 }
 
-// ─── Migration definitions (Phase 4.1) ──────────────────────────────────────
+// ─── Migration definitions ──────────────────────────────────────────────────
 
 // MigrationDef declares one versioned schema migration for a plugin.
 // Table names must be prefixed with plugin_{sanitized_id}_.
@@ -264,7 +264,7 @@ type MigrationDef struct {
 	Down    string `json:"down,omitempty"`  // rollback DDL
 }
 
-// ─── Page definitions (Phase 4.2) ───────────────────────────────────────────
+// ─── Page definitions ───────────────────────────────────────────────────────
 
 // PageDef declares a frontend page registered by a plugin.
 type PageDef struct {
@@ -283,7 +283,7 @@ type NavDef struct {
 	Order int    `json:"order,omitempty"`
 }
 
-// ─── Service proxy (Phase 4.3) ──────────────────────────────────────────────
+// ─── Service proxy ──────────────────────────────────────────────────────────
 
 // ServiceDef declares an external service that the blog proxies requests to.
 type ServiceDef struct {

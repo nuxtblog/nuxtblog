@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/gogf/gf/v2/frame/g"
 )
@@ -160,13 +162,29 @@ func upsertOption(ctx context.Context, key, value string) error {
 	return err
 }
 
-// pluginSettings implements sdk.Settings
+// pluginSettings implements sdk.Settings with a 30-second TTL cache
+// to avoid hitting the DB on every call (e.g. inside high-frequency filter handlers).
 type pluginSettings struct {
 	pluginID string
+
+	mu      sync.Mutex
+	cached  map[string]any
+	cachedAt time.Time
 }
+
+const settingsCacheTTL = 30 * time.Second
 
 func newPluginSettings(pluginID string) *pluginSettings {
 	return &pluginSettings{pluginID: pluginID}
+}
+
+// InvalidateCache forces the next GetAll to re-read from the database.
+// Called by ReactivatePlugin after settings may have changed.
+func (s *pluginSettings) InvalidateCache() {
+	s.mu.Lock()
+	s.cached = nil
+	s.cachedAt = time.Time{}
+	s.mu.Unlock()
 }
 
 func (s *pluginSettings) Get(key string) any {
@@ -174,6 +192,13 @@ func (s *pluginSettings) Get(key string) any {
 }
 
 func (s *pluginSettings) GetAll() map[string]any {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.cached != nil && time.Since(s.cachedAt) < settingsCacheTTL {
+		return s.cached
+	}
+
 	val, _ := g.DB().Ctx(context.Background()).
 		Model("plugins").Where("id", s.pluginID).Value("settings")
 	var m map[string]any
@@ -183,6 +208,8 @@ func (s *pluginSettings) GetAll() map[string]any {
 	if m == nil {
 		m = map[string]any{}
 	}
+	s.cached = m
+	s.cachedAt = time.Now()
 	return m
 }
 
@@ -208,5 +235,5 @@ func (l *pluginLogger) Error(msg string) {
 }
 
 func (l *pluginLogger) Debug(msg string) {
-	g.Log().Infof(context.Background(), "[plugin:%s] %s", l.pluginID, msg)
+	g.Log().Debugf(context.Background(), "[plugin:%s] %s", l.pluginID, msg)
 }

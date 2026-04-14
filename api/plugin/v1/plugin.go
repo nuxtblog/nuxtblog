@@ -125,7 +125,7 @@ type PluginStylesRes struct {
 	CSS string `json:"css"`
 }
 
-// ── Client Plugins (public) — Phase 2.4 ──────────────────────────────────
+// ── Client Plugins (public) ───────────────────────────────────────────────
 
 // PluginClientListReq returns enabled plugins' client-side info (contributes,
 // admin_js, trust_level) for the admin panel to render UI extensions.
@@ -143,7 +143,7 @@ type PluginClientItem struct {
 	AdminJS     string `json:"admin_js,omitempty"`
 	PublicJS    string `json:"public_js,omitempty"`
 	Contributes string `json:"contributes,omitempty"`  // raw JSON
-	Pages       string `json:"pages,omitempty"`        // raw JSON — Phase 4.2
+	Pages       string `json:"pages,omitempty"`        // raw JSON
 	Permissions string `json:"permissions,omitempty"`  // raw JSON — frontend API permissions
 }
 

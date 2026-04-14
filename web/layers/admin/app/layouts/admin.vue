@@ -37,7 +37,7 @@
 <script setup lang="ts">
 const { mobileOpen, closeMobile } = useAdminSidebar();
 
-// Phase 2.4: install nuxtblogAdmin global + load plugin scripts
+// Install nuxtblogAdmin global + load plugin scripts
 if (import.meta.client) {
   const { installNuxtblogAdmin } = await import('~/composables/useNuxtblogAdmin');
   const { usePluginLoader } = await import('~/composables/usePluginLoader');

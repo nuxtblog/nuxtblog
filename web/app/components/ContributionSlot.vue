@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Phase 2.3: ContributionSlot — renders plugin UI extensions in named anchor points.
+ * ContributionSlot — renders plugin UI extensions in named anchor points.
  *
  * Usage:
  *   <ContributionSlot name="post-editor:toolbar" />

@@ -8,7 +8,7 @@ import (
 	"github.com/gogf/gf/v2/frame/g"
 )
 
-// ─── Plugin DB Migration (Phase 4.1) ───────────────────────────────────────
+// ─── Plugin DB Migration ────────────────────────────────────────────────────
 //
 // Plugins declare migrations in their manifest. On install/upgrade the engine
 // runs pending "up" migrations in version order. On uninstall the admin may

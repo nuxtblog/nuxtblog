@@ -440,7 +440,7 @@ func (s *sPlugin) UpdateManifest(ctx context.Context, id string, manifest string
 	return nil
 }
 
-// ── ClientList (Phase 2.4) ────────────────────────────────────────────────
+// ── ClientList ─────────────────────────────────────────────────────────────
 
 func (s *sPlugin) ClientList(ctx context.Context) (*v1.PluginClientListRes, error) {
 	if err := requireAdmin(ctx); err != nil {

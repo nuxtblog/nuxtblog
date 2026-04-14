@@ -14,7 +14,7 @@ import (
 	"github.com/nuxtblog/nuxtblog/sdk"
 )
 
-// ─── Plugin HTTP Route Types (Phase 2.7) ────────────────────────────────────
+// ─── Plugin HTTP Route Types ─────────────────────────────────────────────────
 
 // PluginRequest is the object passed to a plugin route handler.
 type PluginRequest struct {

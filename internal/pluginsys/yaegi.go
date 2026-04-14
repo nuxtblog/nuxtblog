@@ -53,7 +53,12 @@ func (m *Manager) ReactivatePlugin(ctx context.Context, id string) bool {
 	}
 	unregisterPluginMedia(id)
 
-	// 2. Rebuild plugin context with fresh settings from DB
+	// 2. Invalidate settings cache so fresh values are loaded
+	if ps, ok := lp.ctx.Settings.(*pluginSettings); ok {
+		ps.InvalidateCache()
+	}
+
+	// 3. Rebuild plugin context with fresh settings from DB
 	mf := lp.plugin.Manifest()
 	var dbCaps *DBCap
 	if mf.Capabilities != nil && mf.Capabilities.DB != nil {
@@ -80,13 +85,13 @@ func (m *Manager) ReactivatePlugin(ctx context.Context, id string) bool {
 		Media:    newMediaService(id),
 	}
 
-	// 3. Re-activate
+	// 4. Re-activate
 	if err := lp.plugin.Activate(pctx); err != nil {
 		g.Log().Warningf(ctx, "[pluginmgr] reactivate %s failed: %v", id, err)
 		return true
 	}
 
-	// 4. Re-register media categories from manifest
+	// 5. Re-register media categories from manifest
 	if len(mf.MediaCategories) > 0 {
 		for _, cat := range mf.MediaCategories {
 			_ = pctx.Media.RegisterCategory(cat)

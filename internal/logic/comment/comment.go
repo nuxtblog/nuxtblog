@@ -443,7 +443,7 @@ func (s *sComment) UpdateContent(ctx context.Context, id int64, content string) 
 	if !service.Permission().Can(ctx, role, "manage_comments") {
 		return gerror.NewCode(gcode.CodeNotAuthorized, "permission denied: manage_comments")
 	}
-	// Phase 5.2: plugin filter — allows plugins to modify or reject comment edits
+	// Plugin filter — allows plugins to modify or reject comment edits
 	filtered, ferr := eng.Filter(ctx, eng.FilterCommentUpdate, map[string]any{
 		"id":      id,
 		"content": content,

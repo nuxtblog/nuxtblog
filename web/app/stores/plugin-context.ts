@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 
 /**
- * Phase 2.1: Plugin Context State Machine
+ * Plugin Context State Machine
  *
  * Maintains a global reactive context that drives `when` expression evaluation
  * for plugin contribution points. Plugins can also register custom context keys.

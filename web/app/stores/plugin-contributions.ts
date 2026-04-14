@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 
 /**
- * Phase 2.2 & 2.3: Plugin Contribution Points Registry
+ * Plugin Contribution Points Registry
  *
  * Collects and manages all plugin contributions (commands, navigation,
  * menus, views) from enabled plugins. The admin panel queries this store

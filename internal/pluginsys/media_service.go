@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"sync"
 
 	"github.com/gogf/gf/v2/frame/g"
 
@@ -15,7 +16,10 @@ import (
 
 // pluginAdapterNames tracks which storage adapter name each plugin registered,
 // so we can unregister by the correct name (not the plugin ID).
-var pluginAdapterNames = make(map[string]string) // pluginID → adapter name
+var (
+	pluginAdapterMu    sync.Mutex
+	pluginAdapterNames = make(map[string]string) // pluginID → adapter name
+)
 
 // mediaService implements sdk.MediaService, bridging the plugin SDK
 // to the internal media and storage logic.
@@ -32,7 +36,9 @@ func (ms *mediaService) RegisterStorageAdapter(name string, storageType int, ada
 	if err := storage.RegisterAdapter(name, storageType, adapter); err != nil {
 		return err
 	}
+	pluginAdapterMu.Lock()
 	pluginAdapterNames[ms.pluginID] = name
+	pluginAdapterMu.Unlock()
 	return nil
 }
 
@@ -71,9 +77,14 @@ func (ms *mediaService) Delete(ctx context.Context, mediaID int64) error {
 
 // unregisterPluginMedia cleans up storage adapters and categories registered by a plugin.
 func unregisterPluginMedia(pluginID string) {
-	if adapterName, ok := pluginAdapterNames[pluginID]; ok {
-		storage.UnregisterAdapter(adapterName)
+	pluginAdapterMu.Lock()
+	adapterName, ok := pluginAdapterNames[pluginID]
+	if ok {
 		delete(pluginAdapterNames, pluginID)
+	}
+	pluginAdapterMu.Unlock()
+	if ok {
+		storage.UnregisterAdapter(adapterName)
 	}
 	_ = unregisterPluginCategoriesViaOptions(context.Background(), pluginID)
 }
@@ -99,6 +110,8 @@ func readCategoriesFromOptions(ctx context.Context) ([]pluginCatItem, error) {
 	}
 	raw := val.String()
 	var cats []pluginCatItem
+	// Historical data may be double-encoded (JSON string wrapping JSON array)
+	// due to an earlier serialization bug. Try unwrapping first, then direct parse.
 	var inner string
 	if json.Unmarshal([]byte(raw), &inner) == nil {
 		_ = json.Unmarshal([]byte(inner), &cats)

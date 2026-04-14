@@ -1,5 +1,5 @@
 /**
- * Phase 2.4: nuxtblogAdmin — global object exposed to plugin admin_js scripts.
+ * nuxtblogAdmin — global object exposed to plugin admin_js scripts.
  *
  * Provides: field watching, suggest/set, getPost, commands, views, http, notify.
  * This composable sets up the global `nuxtblogAdmin` on window and manages
@@ -170,7 +170,7 @@ export function installNuxtblogAdmin() {
     // ── Views ──────────────────────────────────────────
     views: {
       register(_id: string, _provider: (webview: unknown) => void): Disposable {
-        // Webview support is Phase 2 stretch goal — stub for now
+        // Webview support — stub for now
         return { dispose: () => {} }
       },
     },
