@@ -38,6 +38,7 @@
     </div>
 
     <!-- Draggable cards -->
+    <ClientOnly>
     <VueDraggable
       :model-value="filteredVisibleCards"
       handle=".sidebar-drag-handle"
@@ -103,11 +104,15 @@
             </UFormField>
 
             <UFormField :label="t('admin.posts.editor.password')">
-              <UInput
-                v-model="formData.password"
-                type="password"
-                :placeholder="t('admin.posts.editor.password_placeholder')"
-                class="w-full" />
+              <form @submit.prevent>
+                <input type="text" autocomplete="username" class="hidden" aria-hidden="true" tabindex="-1" />
+                <UInput
+                  v-model="formData.password"
+                  type="password"
+                  autocomplete="off"
+                  :placeholder="t('admin.posts.editor.password_placeholder')"
+                  class="w-full" />
+              </form>
             </UFormField>
 
             <UFormField
@@ -449,6 +454,7 @@
         </SidebarCard>
       </div>
     </VueDraggable>
+    </ClientOnly>
   </div>
 
   <!-- 新建标签弹窗 -->

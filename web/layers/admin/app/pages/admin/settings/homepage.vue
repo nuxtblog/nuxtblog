@@ -43,7 +43,7 @@
                 variant="ghost"
                 color="neutral"
                 size="xs"
-                :icon="isAllWidgetsExpanded ? 'i-tabler-fold' : 'i-tabler-unfold'"
+                :icon="isAllWidgetsExpanded ? 'i-tabler-fold' : 'i-tabler-fold-down'"
                 @click="toggleExpandAllWidgets">
                 {{ isAllWidgetsExpanded ? $t('common.collapse_all') : $t('common.expand_all') }}
               </UButton>
@@ -155,7 +155,7 @@
                 variant="ghost"
                 color="neutral"
                 size="xs"
-                :icon="isAllSectionsExpanded ? 'i-tabler-fold' : 'i-tabler-unfold'"
+                :icon="isAllSectionsExpanded ? 'i-tabler-fold' : 'i-tabler-fold-down'"
                 @click="toggleExpandAllSections">
                 {{ isAllSectionsExpanded ? $t('common.collapse_all') : $t('common.expand_all') }}
               </UButton>

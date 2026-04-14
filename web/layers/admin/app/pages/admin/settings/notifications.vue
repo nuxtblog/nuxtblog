@@ -181,7 +181,8 @@ const verifyModeOptions = computed(() => [
                 <UInput v-model="email.username" placeholder="noreply@example.com" autocomplete="off" class="w-full" />
               </UFormField>
               <UFormField :label="$t('admin.settings.notifications.smtp_password_label')">
-                <div class="flex gap-2">
+                <form @submit.prevent class="flex gap-2">
+                  <input type="text" autocomplete="username" :value="email.username" class="hidden" aria-hidden="true" tabindex="-1" />
                   <UInput
                     v-model="email.password"
                     :type="showEmailPassword ? 'text' : 'password'"
@@ -192,7 +193,7 @@ const verifyModeOptions = computed(() => [
                     color="neutral" variant="outline" square
                     :icon="showEmailPassword ? 'i-tabler-eye-off' : 'i-tabler-eye'"
                     @click="showEmailPassword = !showEmailPassword" />
-                </div>
+                </form>
               </UFormField>
             </div>
 
@@ -258,7 +259,8 @@ const verifyModeOptions = computed(() => [
                   <UInput v-model="sms.access_key_id" placeholder="LTAI5t..." autocomplete="off" class="w-full" />
                 </UFormField>
                 <UFormField label="AccessKey Secret">
-                  <div class="flex gap-2">
+                  <form @submit.prevent class="flex gap-2">
+                    <input type="text" autocomplete="username" :value="sms.access_key_id" class="hidden" aria-hidden="true" tabindex="-1" />
                     <UInput
                       v-model="sms.access_key_secret"
                       :type="showSmsSecret ? 'text' : 'password'"
@@ -269,7 +271,7 @@ const verifyModeOptions = computed(() => [
                       color="neutral" variant="outline" square
                       :icon="showSmsSecret ? 'i-tabler-eye-off' : 'i-tabler-eye'"
                       @click="showSmsSecret = !showSmsSecret" />
-                  </div>
+                  </form>
                 </UFormField>
               </div>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">

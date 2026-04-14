@@ -24,6 +24,8 @@ export interface GroupedEntry {
   group?: MenuGroup
 }
 
+defineOptions({ inheritAttrs: false })
+
 const props = defineProps<{
   /** Slot name matching manifest menus/views keys */
   name: ContributionSlotName

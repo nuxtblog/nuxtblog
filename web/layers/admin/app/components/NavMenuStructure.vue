@@ -3,6 +3,7 @@ import type { UiMenuItem, MenuItemType } from '~/types/api/navMenu'
 
 const props = defineProps<{
   items: UiMenuItem[]
+  isHeaderActions: boolean
 }>()
 
 const emit = defineEmits<{
@@ -18,6 +19,7 @@ function getMenuIconName(type: MenuItemType) {
       category: 'i-tabler-folder',
       custom: 'i-tabler-link',
       archive: 'i-tabler-archive',
+      action: 'i-tabler-click',
     }[type] ?? 'i-tabler-circle'
   )
 }
@@ -29,6 +31,7 @@ function typeLabel(type: MenuItemType) {
       category: t('admin.appearance.menus.type_category'),
       custom: t('admin.appearance.menus.type_custom'),
       archive: t('admin.appearance.menus.type_archive'),
+      action: t('admin.appearance.menus.type_action'),
     }[type] ?? type
   )
 }
@@ -93,7 +96,7 @@ function updateOpenInNewTab(index: number, value: boolean) {
         <h3 class="font-semibold text-highlighted">
           {{ $t('admin.appearance.menus.menu_structure') }}
         </h3>
-        <span class="text-xs text-muted">{{ $t('admin.appearance.menus.indent_hint') }}</span>
+        <span class="text-xs text-muted">{{ isHeaderActions ? $t('admin.appearance.menus.header_actions_no_nest') : $t('admin.appearance.menus.indent_hint') }}</span>
       </div>
     </template>
 
@@ -115,12 +118,12 @@ function updateOpenInNewTab(index: number, value: boolean) {
           <UBadge :label="typeLabel(item.type)" color="neutral" variant="soft" size="xs" class="hidden sm:flex shrink-0" />
           <div class="flex items-center gap-0.5">
             <UButton
-              v-if="item.depth < 2 && index > 0"
+              v-if="!isHeaderActions && item.depth < 2 && index > 0"
               color="neutral" variant="ghost" icon="i-tabler-arrow-bar-right" size="xs"
               :title="$t('admin.appearance.menus.indent')"
               @click="indentItem(index)" />
             <UButton
-              v-if="item.depth > 0"
+              v-if="!isHeaderActions && item.depth > 0"
               color="neutral" variant="ghost" icon="i-tabler-arrow-bar-left" size="xs"
               :title="$t('admin.appearance.menus.outdent')"
               @click="outdentItem(index)" />
@@ -134,16 +137,16 @@ function updateOpenInNewTab(index: number, value: boolean) {
         </div>
 
         <div v-show="item.expanded" class="p-3 border-t border-default bg-elevated/30 space-y-2">
-          <div class="grid grid-cols-2 gap-2">
+          <div :class="item.type === 'action' ? '' : 'grid grid-cols-2 gap-2'">
             <UFormField :label="$t('admin.appearance.menus.nav_label')">
               <UInput :model-value="item.label" size="sm" class="w-full" @update:model-value="updateLabel(index, $event)" />
             </UFormField>
-            <UFormField label="URL">
+            <UFormField v-if="item.type !== 'action'" label="URL">
               <UInput :model-value="item.url" size="sm" class="w-full" @update:model-value="updateUrl(index, $event)" />
             </UFormField>
           </div>
-          <UFormField :label="$t('admin.appearance.menus.css_classes')">
-            <UInput :model-value="item.cssClasses" placeholder="my-class" size="sm" class="w-full" @update:model-value="updateCssClasses(index, $event)" />
+          <UFormField :label="item.type === 'action' ? $t('admin.appearance.menus.action_icon_label') : $t('admin.appearance.menus.css_classes')">
+            <UInput :model-value="item.cssClasses" :placeholder="item.type === 'action' ? 'i-tabler-brand-github' : 'my-class'" size="sm" class="w-full" @update:model-value="updateCssClasses(index, $event)" />
           </UFormField>
           <div class="flex items-center gap-2">
             <UCheckbox :model-value="item.openInNewTab" @update:model-value="updateOpenInNewTab(index, $event)" />

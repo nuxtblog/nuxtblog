@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import type { MenuItemType } from '~/types/api/navMenu'
+import { HEADER_BUILTIN_ACTIONS } from '~/types/api/navMenu'
 
 const props = defineProps<{
   isSocialSelected: boolean
+  isHeaderActionsSelected: boolean
 }>()
 
 const emit = defineEmits<{
-  addItems: [items: Array<{ label: string; url: string; type: MenuItemType; object_id: number }>]
+  addItems: [items: Array<{ label: string; url: string; type: MenuItemType; object_id: number; local_id?: string; css_classes?: string }>]
 }>()
 
 const { t } = useI18n()
@@ -17,7 +19,9 @@ const toast = useToast()
 interface SelectablePage { id: number; title: string; slug: string; selected: boolean }
 interface SelectableCategory { id: number; name: string; slug: string; selected: boolean }
 
-const expandedSections = ref({ builtin: true, pages: false, categories: false, custom: false })
+const expandedSections = ref({ builtin: true, pages: false, categories: false, custom: false, builtinActions: false, pluginPages: false })
+
+const builtinActionItems = ref(HEADER_BUILTIN_ACTIONS.map(a => ({ ...a, selected: false })))
 
 const builtinPages = ref([
   { label: '', url: '/', selected: false },
@@ -30,7 +34,17 @@ const builtinPages = ref([
 
 const availablePages = ref<SelectablePage[]>([])
 const availableCategories = ref<SelectableCategory[]>([])
-const customLink = ref({ label: '', customLabel: '', url: '' })
+const customLink = ref({ label: '', customLabel: '', url: '', icon: '' })
+
+interface PluginPageAction {
+  pluginId: string
+  pluginTitle: string
+  pluginIcon: string
+  pagePath: string
+  pageTitle: string
+  selected: boolean
+}
+const pluginPageActions = ref<PluginPageAction[]>([])
 
 // SOCIAL_PLATFORMS is auto-imported from ~/utils/social
 
@@ -50,6 +64,33 @@ onMounted(async () => {
     postApi.getPosts({ post_type: '2', status: '2', page: 1, page_size: 100 }).catch(() => null),
     termApi.getTerms({ taxonomy: 'category' }).catch(() => [] as any[]),
   ])
+
+  // Fetch plugin pages for header_actions mode
+  if (props.isHeaderActionsSelected) {
+    try {
+      const resp = await fetch('/api/v1/plugins/public-client')
+      if (resp.ok) {
+        const json = await resp.json()
+        const items: PluginPageAction[] = []
+        for (const plugin of json.data?.items ?? []) {
+          const pages = plugin.pages ? JSON.parse(plugin.pages) : []
+          for (const pg of pages) {
+            if (pg.slot === 'public' && pg.path) {
+              items.push({
+                pluginId: plugin.id,
+                pluginTitle: plugin.title,
+                pluginIcon: plugin.icon || 'i-tabler-puzzle',
+                pagePath: pg.path,
+                pageTitle: pg.title || plugin.title,
+                selected: false,
+              })
+            }
+          }
+        }
+        pluginPageActions.value = items
+      }
+    } catch { /* ignore */ }
+  }
   availablePages.value = (pagesRes?.data ?? []).map((p: any) => ({
     id: p.id, title: p.title, slug: p.slug, selected: false,
   }))
@@ -87,15 +128,85 @@ function addCustomLink() {
   const isCustomPlatform = customLink.value.label === '__custom__'
   const label = isCustomPlatform ? customLink.value.customLabel : customLink.value.label
   if (!label || !customLink.value.url) { toast.add({ title: t('admin.appearance.menus.fill_link'), color: 'warning' }); return }
-  emit('addItems', [{ label, url: customLink.value.url, type: 'custom' as MenuItemType, object_id: 0 }])
-  customLink.value = { label: '', customLabel: '', url: '' }
+  emit('addItems', [{ label, url: customLink.value.url, type: 'custom' as MenuItemType, object_id: 0, css_classes: customLink.value.icon || undefined }])
+  customLink.value = { label: '', customLabel: '', url: '', icon: '' }
+}
+
+function addPluginPages() {
+  const sel = pluginPageActions.value.filter(a => a.selected)
+  if (!sel.length) { toast.add({ title: t('admin.appearance.menus.select_first'), color: 'warning' }); return }
+  emit('addItems', sel.map(a => ({
+    label: a.pageTitle,
+    url: a.pagePath,
+    type: 'custom' as MenuItemType,
+    object_id: 0,
+    css_classes: a.pluginIcon,
+  })))
+  pluginPageActions.value.forEach(a => { a.selected = false })
+}
+
+function addBuiltinActions() {
+  const sel = builtinActionItems.value.filter(a => a.selected)
+  if (!sel.length) { toast.add({ title: t('admin.appearance.menus.select_first'), color: 'warning' }); return }
+  emit('addItems', sel.map(a => ({ label: a.label, url: '', type: 'action' as MenuItemType, object_id: 0, local_id: a.id })))
+  builtinActionItems.value.forEach(a => { a.selected = false })
 }
 </script>
 
 <template>
   <div class="space-y-3">
+    <!-- Built-in actions (header_actions mode only) -->
+    <UCard v-if="isHeaderActionsSelected" :ui="{ header: 'p-2.5 sm:px-4', body: 'p-0 sm:p-0' }">
+      <template #header>
+        <button class="w-full flex items-center justify-between" @click="toggleSection('builtinActions')">
+          <div class="flex items-center gap-2">
+            <UIcon name="i-tabler-click" class="size-4 text-primary" />
+            <span class="text-sm font-medium text-highlighted">{{ $t('admin.appearance.menus.builtin_actions') }}</span>
+          </div>
+          <UIcon name="i-tabler-chevron-down" class="size-4 text-muted transition-transform" :class="{ 'rotate-180': expandedSections.builtinActions }" />
+        </button>
+      </template>
+      <div v-if="expandedSections.builtinActions" class="p-3 space-y-1.5">
+        <div v-for="action in builtinActionItems" :key="action.id"
+          class="flex items-center gap-2 p-1.5 hover:bg-elevated rounded cursor-pointer"
+          @click="action.selected = !action.selected">
+          <UCheckbox v-model="action.selected" @click.stop />
+          <UIcon :name="action.icon" class="size-4 text-primary shrink-0" />
+          <span class="text-sm text-highlighted flex-1">{{ action.label }}</span>
+        </div>
+        <UButton color="primary" size="sm" class="w-full mt-1" @click="addBuiltinActions">
+          {{ $t('admin.appearance.menus.add_to_menu') }}
+        </UButton>
+      </div>
+    </UCard>
+
+    <!-- Plugin pages (header_actions mode only) -->
+    <UCard v-if="isHeaderActionsSelected && pluginPageActions.length" :ui="{ header: 'p-2.5 sm:px-4', body: 'p-0 sm:p-0' }">
+      <template #header>
+        <button class="w-full flex items-center justify-between" @click="toggleSection('pluginPages')">
+          <div class="flex items-center gap-2">
+            <UIcon name="i-tabler-puzzle" class="size-4 text-primary" />
+            <span class="text-sm font-medium text-highlighted">插件页面</span>
+          </div>
+          <UIcon name="i-tabler-chevron-down" class="size-4 text-muted transition-transform" :class="{ 'rotate-180': expandedSections.pluginPages }" />
+        </button>
+      </template>
+      <div v-if="expandedSections.pluginPages" class="p-3 space-y-1.5">
+        <div v-for="action in pluginPageActions" :key="action.pluginId + action.pagePath"
+          class="flex items-center gap-2 p-1.5 hover:bg-elevated rounded cursor-pointer"
+          @click="action.selected = !action.selected">
+          <UCheckbox v-model="action.selected" @click.stop />
+          <UIcon :name="action.pluginIcon" class="size-4 text-primary shrink-0" />
+          <span class="text-sm text-highlighted flex-1">{{ action.pageTitle }}</span>
+        </div>
+        <UButton color="primary" size="sm" class="w-full mt-1" @click="addPluginPages">
+          {{ $t('admin.appearance.menus.add_to_menu') }}
+        </UButton>
+      </div>
+    </UCard>
+
     <!-- Built-in pages -->
-    <UCard v-if="!isSocialSelected" :ui="{ header: 'p-2.5 sm:px-4', body: 'p-0 sm:p-0' }">
+    <UCard v-if="!isSocialSelected && !isHeaderActionsSelected" :ui="{ header: 'p-2.5 sm:px-4', body: 'p-0 sm:p-0' }">
       <template #header>
         <button class="w-full flex items-center justify-between" @click="toggleSection('builtin')">
           <div class="flex items-center gap-2">
@@ -122,7 +233,7 @@ function addCustomLink() {
     </UCard>
 
     <!-- Pages -->
-    <UCard v-if="!isSocialSelected" :ui="{ header: 'p-2.5 sm:px-4', body: 'p-0 sm:p-0' }">
+    <UCard v-if="!isSocialSelected && !isHeaderActionsSelected" :ui="{ header: 'p-2.5 sm:px-4', body: 'p-0 sm:p-0' }">
       <template #header>
         <button class="w-full flex items-center justify-between" @click="toggleSection('pages')">
           <div class="flex items-center gap-2">
@@ -149,7 +260,7 @@ function addCustomLink() {
     </UCard>
 
     <!-- Categories -->
-    <UCard v-if="!isSocialSelected" :ui="{ header: 'p-2.5 sm:px-4', body: 'p-0 sm:p-0' }">
+    <UCard v-if="!isSocialSelected && !isHeaderActionsSelected" :ui="{ header: 'p-2.5 sm:px-4', body: 'p-0 sm:p-0' }">
       <template #header>
         <button class="w-full flex items-center justify-between" @click="toggleSection('categories')">
           <div class="flex items-center gap-2">
@@ -196,10 +307,17 @@ function addCustomLink() {
           </template>
           <UInput v-else v-model="customLink.label" :placeholder="$t('admin.appearance.menus.link_label')" class="w-full" size="sm" />
         </UFormField>
-        <UFormField :label="$t('admin.appearance.menus.link_url')">
+        <UFormField v-if="!isHeaderActionsSelected" :label="$t('admin.appearance.menus.link_url')">
           <UInput v-model="customLink.url"
             :placeholder="isSocialSelected ? 'https://github.com/yourname' : 'https://example.com'"
             class="w-full" size="sm" />
+        </UFormField>
+        <UFormField v-else :label="$t('admin.appearance.menus.link_url')">
+          <UInput v-model="customLink.url" placeholder="https://example.com" class="w-full" size="sm" />
+        </UFormField>
+        <UFormField v-if="isHeaderActionsSelected" label="图标">
+          <UInput v-model="customLink.icon" placeholder="i-tabler-link" class="w-full" size="sm" />
+          <p class="text-xs text-muted mt-1">Iconify 图标名称，如 i-tabler-link</p>
         </UFormField>
         <UButton color="primary" size="sm" class="w-full" @click="addCustomLink">
           {{ $t('admin.appearance.menus.add_to_menu') }}

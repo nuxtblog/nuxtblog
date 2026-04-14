@@ -363,6 +363,10 @@ const updatingId = ref<string | null>(null);
 const cascadePlugins = ref<string[]>([]);
 const cascadeLoading = ref(false);
 
+// Resource impact state
+const impactHasDB = ref(false);
+const impactMediaCats = ref<string[]>([]);
+
 // Disable confirmation modal
 const disableModal = ref(false);
 const pendingDisable = ref<PluginItem | null>(null);
@@ -418,11 +422,15 @@ const confirmDisable = async () => {
 const openUninstall = async (item: PluginItem) => {
   pendingUninstall.value = item;
   cascadePlugins.value = [];
+  impactHasDB.value = false;
+  impactMediaCats.value = [];
   cascadeLoading.value = true;
   uninstallModal.value = true;
   try {
     const res = await pluginApi.unloadImpact(item.id);
     cascadePlugins.value = res.will_unload ?? [];
+    impactHasDB.value = res.has_db ?? false;
+    impactMediaCats.value = res.media_cat_slugs ?? [];
   } catch {
     // Non-critical
   } finally {
@@ -661,6 +669,25 @@ const confirmUninstall = async () => {
                     <li v-for="pid in cascadePlugins" :key="pid" class="flex items-center gap-1">
                       <UIcon name="i-tabler-plug" class="size-3" />
                       {{ items.find(p => p.id === pid)?.title || pid }}
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            <!-- Resource deletion warning -->
+            <div v-if="!cascadeLoading && (impactHasDB || impactMediaCats.length > 0)" class="mb-4 p-3 bg-error-50 dark:bg-error-950/30 border border-error-200 dark:border-error-800 rounded-md">
+              <div class="flex items-start gap-2">
+                <UIcon name="i-tabler-alert-triangle" class="size-4 text-error-600 dark:text-error-400 shrink-0 mt-0.5" />
+                <div>
+                  <p class="text-sm font-medium text-error-800 dark:text-error-200 mb-1">{{ $t("admin.plugins.uninstall_resource_warning") }}</p>
+                  <ul class="text-xs text-error-700 dark:text-error-300 space-y-0.5">
+                    <li v-if="impactHasDB" class="flex items-center gap-1">
+                      <UIcon name="i-tabler-database" class="size-3" />
+                      {{ $t("admin.plugins.uninstall_has_db") }}
+                    </li>
+                    <li v-if="impactMediaCats.length > 0" class="flex items-center gap-1">
+                      <UIcon name="i-tabler-photo" class="size-3" />
+                      {{ $t("admin.plugins.uninstall_has_media_cats", { cats: impactMediaCats.join(', ') }) }}
                     </li>
                   </ul>
                 </div>

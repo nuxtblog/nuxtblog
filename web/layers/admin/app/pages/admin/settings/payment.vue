@@ -85,9 +85,19 @@ onMounted(load)
               <!-- text / password -->
               <UFormField v-else-if="field.type === 'text' || field.type === 'password'"
                 :label="field.label" :required="field.required">
+                <form v-if="field.type === 'password'" @submit.prevent>
+                  <input type="text" autocomplete="username" class="hidden" aria-hidden="true" tabindex="-1" />
+                  <UInput
+                    v-model="forms[provider.slug][field.key]"
+                    type="password"
+                    :placeholder="field.placeholder"
+                    class="w-full font-mono"
+                  />
+                </form>
                 <UInput
+                  v-else
                   v-model="forms[provider.slug][field.key]"
-                  :type="field.type === 'password' ? 'password' : 'text'"
+                  type="text"
                   :placeholder="field.placeholder"
                   class="w-full font-mono"
                 />

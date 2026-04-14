@@ -45,16 +45,33 @@
       <!-- 右侧操作区 -->
       <div class="ml-auto flex items-center gap-1">
         <ClientOnly><ContributionSlot name="public:header-actions" /></ClientOnly>
-        <LangSwitcher />
-        <ThemeToggle />
-        <NuxtLink v-if="authStore.isLoggedIn" to="/messages" class="relative">
-          <UButton color="neutral" variant="ghost" icon="i-tabler-message" square size="sm" />
-          <span v-if="messageUnread > 0"
-            class="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-error text-white text-[10px] flex items-center justify-center">
-            {{ messageUnread > 9 ? '9+' : messageUnread }}
-          </span>
-        </NuxtLink>
-        <NotificationBox v-if="authStore.isLoggedIn" />
+        <template v-for="action in headerActions" :key="action.local_id">
+          <!-- Built-in actions -->
+          <LangSwitcher v-if="action.local_id === 'action:lang_switcher'" />
+          <ThemeToggle v-else-if="action.local_id === 'action:theme_toggle'" />
+          <template v-else-if="action.local_id === 'action:messages' && authStore.isLoggedIn">
+            <NuxtLink to="/messages" class="relative">
+              <UButton color="neutral" variant="ghost" icon="i-tabler-message" square size="sm" />
+              <span v-if="messageUnread > 0"
+                class="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-error text-white text-[10px] flex items-center justify-center">
+                {{ messageUnread > 9 ? '9+' : messageUnread }}
+              </span>
+            </NuxtLink>
+          </template>
+          <NotificationBox v-else-if="action.local_id === 'action:notifications' && authStore.isLoggedIn" />
+          <!-- Custom action: icon button link -->
+          <UTooltip v-else-if="action.object_type === 'custom'" :text="action.label">
+            <UButton
+              :to="action.url"
+              :target="action.target || undefined"
+              color="neutral"
+              variant="ghost"
+              :icon="action.css_classes || 'i-tabler-link'"
+              square
+              size="sm"
+            />
+          </UTooltip>
+        </template>
         <HeaderUserMenu />
 
         <!-- 移动端菜单按钮 -->
@@ -100,6 +117,7 @@ const messageApi = useMessageApi()
 const messageUnread = ref(0)
 
 const siteName = computed(() => getOption('site_name'))
+const headerActions = computed(() => getOption('header_actions'))
 
 onMounted(async () => {
   if (!authStore.isLoggedIn || !authStore.user?.id) return

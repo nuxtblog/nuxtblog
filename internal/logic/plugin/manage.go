@@ -293,7 +293,25 @@ func (s *sPlugin) UnloadImpact(ctx context.Context, id string) (*v1.PluginUnload
 	if willUnload == nil {
 		willUnload = []string{}
 	}
-	return &v1.PluginUnloadImpactRes{WillUnload: willUnload}, nil
+	res := &v1.PluginUnloadImpactRes{WillUnload: willUnload}
+
+	// Read manifest to populate resource impact fields
+	manifestVal, _ := g.DB().Ctx(ctx).Model("plugins").Where("id", id).Value("manifest")
+	if raw := manifestVal.String(); raw != "" && raw != "{}" {
+		var mf struct {
+			Migrations      []json.RawMessage      `json:"migrations"`
+			MediaCategories []struct{ Slug string } `json:"media_categories"`
+		}
+		if json.Unmarshal([]byte(raw), &mf) == nil {
+			res.HasDB = len(mf.Migrations) > 0
+			res.HasMediaCats = len(mf.MediaCategories) > 0
+			for _, mc := range mf.MediaCategories {
+				res.MediaCatSlugs = append(res.MediaCatSlugs, mc.Slug)
+			}
+		}
+	}
+
+	return res, nil
 }
 
 // ── GetStyles ─────────────────────────────────────────────────────────────

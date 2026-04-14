@@ -46,7 +46,7 @@ export const NavMenuItemSchema = z.object({
   local_id:        z.string(),
   label:           z.string(),
   url:             z.string(),
-  object_type:     z.enum(['custom', 'page', 'category', 'archive']),
+  object_type:     z.enum(['custom', 'page', 'category', 'archive', 'action']),
   object_id:       z.number(),
   target:          z.string(),
   css_classes:     z.string(),
@@ -200,6 +200,12 @@ export const OPTIONS_SCHEMA = {
   secondary_menu: optJSON(z.array(NavMenuItemSchema), [] as NavMenuItem[], '副导航'),
   footer_menu:    optJSON(z.array(NavMenuItemSchema), [] as NavMenuItem[], '页脚导航'),
   social_menu:    optJSON(z.array(NavMenuItemSchema), [] as NavMenuItem[], '社交链接'),
+  header_actions: optJSON(z.array(NavMenuItemSchema), [
+    { local_id: 'action:lang_switcher', label: '语言切换', url: '', object_type: 'action' as const, object_id: 0, target: '', css_classes: '', parent_local_id: '' },
+    { local_id: 'action:theme_toggle', label: '主题切换', url: '', object_type: 'action' as const, object_id: 0, target: '', css_classes: '', parent_local_id: '' },
+    { local_id: 'action:messages', label: '消息', url: '', object_type: 'action' as const, object_id: 0, target: '', css_classes: '', parent_local_id: '' },
+    { local_id: 'action:notifications', label: '通知', url: '', object_type: 'action' as const, object_id: 0, target: '', css_classes: '', parent_local_id: '' },
+  ] as NavMenuItem[], '顶栏操作按钮'),
   nav_custom_menus: optJSON(
     z.array(NavCustomMenuSchema),
     [] as NavCustomMenu[],

@@ -1,4 +1,4 @@
-export type MenuItemType = 'custom' | 'page' | 'category' | 'archive'
+export type MenuItemType = 'custom' | 'page' | 'category' | 'archive' | 'action'
 
 /**
  * Built-in menu slots registered by the theme.
@@ -10,11 +10,20 @@ export type MenuItemType = 'custom' | 'page' | 'category' | 'archive'
  */
 export const NAV_MENU_SLOTS = {
   primary_menu: '主导航',
+  header_actions: '顶栏操作按钮',
 } as const
 
 export const NAV_MENU_SLOT_HINTS: Record<keyof typeof NAV_MENU_SLOTS, string> = {
   primary_menu: '显示在页面顶部导航栏，支持下拉子菜单',
+  header_actions: '显示在顶栏右侧的操作按钮，如语言切换、主题切换等',
 }
+
+export const HEADER_BUILTIN_ACTIONS = [
+  { id: 'action:lang_switcher', label: '语言切换', icon: 'i-tabler-language' },
+  { id: 'action:theme_toggle', label: '主题切换', icon: 'i-tabler-sun-moon' },
+  { id: 'action:messages', label: '消息', icon: 'i-tabler-message' },
+  { id: 'action:notifications', label: '通知', icon: 'i-tabler-bell' },
+] as const
 
 export type NavMenuSlotKey = keyof typeof NAV_MENU_SLOTS
 

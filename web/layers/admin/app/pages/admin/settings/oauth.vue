@@ -261,7 +261,10 @@ onMounted(loadAll)
               <UInput v-model="builtinForms[p.slug].clientId" placeholder="粘贴 Client ID" class="w-full font-mono" />
             </UFormField>
             <UFormField label="Client Secret" required>
-              <UInput v-model="builtinForms[p.slug].clientSecret" type="password" placeholder="粘贴 Client Secret" class="w-full font-mono" />
+              <form @submit.prevent>
+                <input type="text" autocomplete="username" :value="builtinForms[p.slug].clientId" class="hidden" aria-hidden="true" tabindex="-1" />
+                <UInput v-model="builtinForms[p.slug].clientSecret" type="password" placeholder="粘贴 Client Secret" class="w-full font-mono" />
+              </form>
             </UFormField>
             <UFormField label="Callback URL">
               <div class="flex gap-2">
@@ -371,7 +374,10 @@ onMounted(loadAll)
               <UInput v-model="editingGeneric.clientId" class="font-mono" />
             </UFormField>
             <UFormField label="Client Secret" required>
-              <UInput v-model="editingGeneric.clientSecret" type="password" class="font-mono" />
+              <form @submit.prevent>
+                <input type="text" autocomplete="username" :value="editingGeneric.clientId" class="hidden" aria-hidden="true" tabindex="-1" />
+                <UInput v-model="editingGeneric.clientSecret" type="password" class="font-mono" />
+              </form>
             </UFormField>
           </div>
 

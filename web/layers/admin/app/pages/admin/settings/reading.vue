@@ -65,7 +65,7 @@
               <div class="flex items-center justify-between">
                 <p class="text-sm font-medium text-muted uppercase tracking-wide">{{ $t('admin.settings.reading.post_widgets_title') }}</p>
                 <UButton variant="ghost" color="neutral" size="xs"
-                  :icon="isAllPostWidgetsExpanded ? 'i-tabler-fold' : 'i-tabler-unfold'"
+                  :icon="isAllPostWidgetsExpanded ? 'i-tabler-fold' : 'i-tabler-fold-down'"
                   @click="toggleExpandAllPost">
                   {{ isAllPostWidgetsExpanded ? $t('common.collapse_all') : $t('common.expand_all') }}
                 </UButton>
@@ -110,7 +110,7 @@
               <div class="flex items-center justify-between">
                 <p class="text-sm font-medium text-muted uppercase tracking-wide">{{ $t('admin.settings.reading.post_widgets_title') }}</p>
                 <UButton variant="ghost" color="neutral" size="xs"
-                  :icon="isAllPageWidgetsExpanded ? 'i-tabler-fold' : 'i-tabler-unfold'"
+                  :icon="isAllPageWidgetsExpanded ? 'i-tabler-fold' : 'i-tabler-fold-down'"
                   @click="toggleExpandAllPage">
                   {{ isAllPageWidgetsExpanded ? $t('common.collapse_all') : $t('common.expand_all') }}
                 </UButton>

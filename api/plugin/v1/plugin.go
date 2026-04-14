@@ -279,7 +279,10 @@ type PluginUnloadImpactReq struct {
 	Id     string `v:"required" dc:"plugin id"`
 }
 type PluginUnloadImpactRes struct {
-	WillUnload []string `json:"will_unload"`
+	WillUnload    []string `json:"will_unload"`
+	HasDB         bool     `json:"has_db"`          // has migrations (uninstall will DROP tables)
+	HasMediaCats  bool     `json:"has_media_cats"`  // has media_categories
+	MediaCatSlugs []string `json:"media_cat_slugs"` // specific category slug list
 }
 
 // ── Manifest (P-B11) ──────────────────────────────────────────────────────────

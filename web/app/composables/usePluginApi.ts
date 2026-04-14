@@ -200,7 +200,7 @@ export const usePluginApi = () => {
     apiFetch<{ need_restart?: boolean }>(`/admin/plugins/${encodeURIComponent(id)}`, { method: 'DELETE' })
 
   const unloadImpact = (id: string) =>
-    apiFetch<{ will_unload: string[] }>(`/admin/plugins/${encodeURIComponent(id)}/unload-impact`)
+    apiFetch<{ will_unload: string[]; has_db: boolean; has_media_cats: boolean; media_cat_slugs: string[] }>(`/admin/plugins/${encodeURIComponent(id)}/unload-impact`)
 
   const batchUninstall = (ids: string[]) =>
     apiFetch<{ succeeded: string[]; failed: string[]; need_restart?: boolean }>('/admin/plugins/batch-uninstall', {

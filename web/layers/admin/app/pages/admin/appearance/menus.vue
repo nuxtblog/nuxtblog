@@ -86,12 +86,12 @@
 
               <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
                 <!-- Add items panel -->
-                <NavMenuAddPanel :is-social-selected="isSocialSelected" @add-items="onAddItems" />
+                <NavMenuAddPanel :is-social-selected="isSocialSelected" :is-header-actions-selected="isHeaderActionsSelected" @add-items="onAddItems" />
 
                 <!-- Menu structure + preview -->
                 <div class="xl:col-span-2 space-y-4">
-                  <NavMenuStructure v-model:items="menuItems" />
-                  <NavMenuPreview :items="menuItems" />
+                  <NavMenuStructure v-model:items="menuItems" :is-header-actions="isHeaderActionsSelected" />
+                  <NavMenuPreview :items="menuItems" :is-header-actions="isHeaderActionsSelected" />
 
                   <!-- Save / Reset -->
                   <div class="flex justify-end gap-3">
@@ -204,6 +204,7 @@ const selectedKey = ref<SelectedKey>('')
 
 const isBuiltinSelected = computed(() => selectedKey.value in NAV_MENU_SLOTS)
 const isSocialSelected = computed(() => selectedKey.value === 'social_menu')
+const isHeaderActionsSelected = computed(() => selectedKey.value === 'header_actions')
 const selectedHint = computed(() =>
   isBuiltinSelected.value ? (NAV_MENU_SLOT_HINTS[selectedKey.value as NavMenuSlotKey] ?? '') : '',
 )
@@ -292,15 +293,15 @@ function makeId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
-function onAddItems(items: Array<{ label: string; url: string; type: MenuItemType; object_id: number }>) {
+function onAddItems(items: Array<{ label: string; url: string; type: MenuItemType; object_id: number; local_id?: string; css_classes?: string }>) {
   menuItems.value.push(...items.map(it => ({
-    local_id: makeId(),
+    local_id: it.local_id || makeId(),
     label: it.label,
     url: it.url,
     type: it.type,
     object_id: it.object_id,
     openInNewTab: false,
-    cssClasses: '',
+    cssClasses: it.css_classes || '',
     depth: 0,
     parent_local_id: '',
     expanded: false,
