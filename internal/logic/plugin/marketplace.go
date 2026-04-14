@@ -338,7 +338,7 @@ func (s *sPlugin) Preview(ctx context.Context, repo string) (*v1.PluginPreviewRe
 		Author:       author,
 		Icon:         orDefault(pkg.Plugin.Icon, "i-tabler-plug"),
 		Priority:     pkg.Plugin.Priority,
-		HasCSS:       pkg.Plugin.CSS != "",
+		HasCSS:       false, // CSS now in contributes.styles
 		Capabilities: caps,
 		Settings:     settings,
 		Webhooks:     webhooks,
@@ -378,7 +378,7 @@ func buildPreviewFromManifest(mf *eng.Manifest) *v1.PluginPreviewRes {
 		Version:      mf.Version,
 		Author:       mf.Author,
 		Icon:         orDefault(mf.Icon, "i-tabler-plug"),
-		HasCSS:       mf.CSS != "",
+		HasCSS:       false, // CSS now in contributes.styles
 		Capabilities: caps,
 		Settings:     settings,
 		Permissions:  mf.Permissions,

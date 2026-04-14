@@ -140,11 +140,8 @@ type PluginClientItem struct {
 	Icon        string `json:"icon"`
 	Version     string `json:"version"`
 	TrustLevel  string `json:"trust_level"`
-	AdminJS     string `json:"admin_js,omitempty"`
-	PublicJS    string `json:"public_js,omitempty"`
-	Contributes string `json:"contributes,omitempty"`  // raw JSON
-	Pages       string `json:"pages,omitempty"`        // raw JSON
-	Permissions string `json:"permissions,omitempty"`  // raw JSON — frontend API permissions
+	Contributes string `json:"contributes,omitempty"` // raw JSON
+	Permissions string `json:"permissions,omitempty"` // raw JSON — frontend API permissions
 }
 
 type PluginClientListRes struct {
@@ -153,10 +150,10 @@ type PluginClientListRes struct {
 
 // ── Public Client Plugins ─────────────────────────────────────────────────
 
-// PluginPublicClientReq returns enabled plugins with public_js info for the
-// public frontend. No auth required — similar to PluginStylesReq.
+// PluginPublicClientReq returns enabled plugins with public-facing contributes
+// for the public frontend. No auth required.
 type PluginPublicClientReq struct {
-	g.Meta `path:"/plugins/client" method:"get" tags:"Plugin" summary:"Public: enabled plugins with public_js"`
+	g.Meta `path:"/plugins/client" method:"get" tags:"Plugin" summary:"Public: enabled plugins with public contributes"`
 }
 type PluginPublicClientRes struct {
 	Items []PluginClientItem `json:"items"`

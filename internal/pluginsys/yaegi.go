@@ -91,9 +91,9 @@ func (m *Manager) ReactivatePlugin(ctx context.Context, id string) bool {
 		return true
 	}
 
-	// 5. Re-register media categories from manifest
-	if len(mf.MediaCategories) > 0 {
-		for _, cat := range mf.MediaCategories {
+	// 5. Re-register media categories from capabilities.media
+	if mf.Capabilities != nil && mf.Capabilities.Media != nil {
+		for _, cat := range mf.Capabilities.Media.Categories {
 			_ = pctx.Media.RegisterCategory(cat)
 		}
 	}

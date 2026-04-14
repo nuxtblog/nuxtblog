@@ -1,10 +1,10 @@
 /**
- * Public Plugin Loader — fetches enabled plugins and loads their public_js scripts.
+ * Public Plugin Loader — fetches enabled plugins and loads their public scripts.
  *
  * Called once in public layouts (default, home, post). Handles:
- * 1. Fetching enabled plugins with public_js info from the public endpoint
+ * 1. Fetching enabled plugins with public contributes info from the public endpoint
  * 2. Registering contribution points in the contributions store
- * 3. Loading public_js scripts (official/local = inline, community = iframe sandbox)
+ * 3. Loading public activation modules (official/local = inline, community = iframe sandbox)
  * 4. Creating per-plugin permission-scoped nuxtblogPublic API objects
  */
 import type { PluginContributes } from '~/stores/plugin-contributions'
@@ -18,18 +18,22 @@ interface PluginClientItem {
   icon: string
   version: string
   trust_level: string
-  public_js?: string
   contributes?: string // raw JSON
   permissions?: string // raw JSON
-  pages?: string // raw JSON
 }
 
 interface PageDef {
-  path: string
+  path?: string
   slot: string
-  component: string
+  component?: string
+  module?: string
   title?: string
   nav?: { slot?: string; icon?: string; order?: number }
+}
+
+interface ActivationEntry {
+  scope: string // admin | public
+  module: string
 }
 
 // Module-level flag — safe because this only runs on the client (guarded by import.meta.client)
@@ -77,7 +81,7 @@ export function usePublicPluginLoader() {
         // Register version for cache busting
         registerPluginVersion(plugin.id, plugin.version)
 
-        // Parse contributes
+        // Parse contributes (now includes pages, activation, styles)
         let contributes: PluginContributes = {}
         if (plugin.contributes) {
           try {
@@ -88,28 +92,20 @@ export function usePublicPluginLoader() {
           }
         }
 
-        // Parse public pages, merge nav items into contributes
-        let parsedPages: PageDef[] = []
-        if (plugin.pages) {
-          try {
-            const allPages: PageDef[] = JSON.parse(plugin.pages)
-            parsedPages = allPages.filter(p => p.slot === 'public')
-            const pageNavItems = parsedPages
-              .filter(p => p.nav)
-              .map(p => ({
-                slot: p.nav!.slot || 'public:header-actions',
-                title: p.title || p.component,
-                icon: p.nav!.icon,
-                route: p.path || `/p/${encodeURIComponent(plugin.id)}/${encodeURIComponent(p.component)}`,
-                order: p.nav!.order ?? 100,
-              }))
-            if (pageNavItems.length > 0) {
-              contributes.navigation = [...(contributes.navigation || []), ...pageNavItems]
-            }
-          }
-          catch (e) {
-            console.warn(`[public-plugin-loader] failed to parse pages for ${plugin.id}:`, e)
-          }
+        // Extract public pages from contributes.pages
+        const allPages: PageDef[] = contributes.pages || []
+        const parsedPages = allPages.filter(p => p.slot === 'public')
+        const pageNavItems = parsedPages
+          .filter(p => p.nav)
+          .map(p => ({
+            slot: p.nav!.slot || 'public:header-actions',
+            title: p.title || p.component || '',
+            icon: p.nav!.icon,
+            route: p.path || `/p/${encodeURIComponent(plugin.id)}/${encodeURIComponent(p.component || '')}`,
+            order: p.nav!.order ?? 100,
+          }))
+        if (pageNavItems.length > 0) {
+          contributes.navigation = [...(contributes.navigation || []), ...pageNavItems]
         }
 
         // Single registerPlugin call (calls unregisterPlugin internally, which clears pluginPages)
@@ -121,12 +117,13 @@ export function usePublicPluginLoader() {
 
         // Register public pages AFTER registerPlugin to avoid being wiped by unregisterPlugin()
         for (const page of parsedPages) {
+          if (!page.path || !page.component) continue
           contributionsStore.registerPluginPage({
             pluginId: plugin.id,
             component: page.component,
             title: page.title,
             path: page.path,
-            moduleFile: 'public.mjs',
+            moduleFile: page.module || 'public.mjs',
           })
         }
 
@@ -137,14 +134,16 @@ export function usePublicPluginLoader() {
           catch { /* empty */ }
         }
 
-        // Load public_js with per-plugin API
-        if (plugin.public_js) {
+        // Load public activation module
+        const activations: ActivationEntry[] = contributes.activation || []
+        const publicActivation = activations.find(a => a.scope === 'public')
+        if (publicActivation) {
           const meta: PublicPluginPermissions = {
             pluginId: plugin.id,
             trustLevel: plugin.trust_level,
             permissions,
           }
-          await loadPublicScript(plugin, meta, _createPluginApi!, backendOrigin)
+          await loadPublicScript(plugin, publicActivation.module, meta, _createPluginApi!, backendOrigin)
         }
       }
 
@@ -160,17 +159,18 @@ export function usePublicPluginLoader() {
 }
 
 /**
- * Load a plugin's public_js script. Loading method depends on trust_level:
+ * Load a plugin's public activation module. Loading method depends on trust_level:
  * - official/local: loaded as inline <script> with per-plugin nuxtblogPublic
  * - community: loaded in a sandboxed iframe with postMessage bridge
  */
 async function loadPublicScript(
   plugin: PluginClientItem,
+  moduleFile: string,
   meta: PublicPluginPermissions,
   createPluginApi: (meta: PublicPluginPermissions) => Record<string, any>,
   backendOrigin: string,
 ) {
-  const assetFilename = plugin.public_js!.split('/').pop()!
+  const assetFilename = moduleFile.split('/').pop()!
   const scriptUrl = `${backendOrigin}/api/plugins/${encodeURIComponent(plugin.id)}/assets/${assetFilename}?v=${plugin.version}`
 
   if (plugin.trust_level === 'official' || plugin.trust_level === 'local') {
@@ -187,11 +187,11 @@ async function loadPublicScript(
 
       await new Promise<void>((resolve, reject) => {
         script.onload = () => resolve()
-        script.onerror = () => reject(new Error(`Failed to load public_js for ${plugin.id}`))
+        script.onerror = () => reject(new Error(`Failed to load public module for ${plugin.id}`))
       })
     }
     catch (e) {
-      console.warn(`[public-plugin-loader] failed to load public_js for ${plugin.id}:`, e)
+      console.warn(`[public-plugin-loader] failed to load public module for ${plugin.id}:`, e)
     }
   }
   else {
@@ -200,7 +200,7 @@ async function loadPublicScript(
 }
 
 /**
- * Load a community plugin's public_js in a sandboxed iframe.
+ * Load a community plugin's public script in a sandboxed iframe.
  * Only safe APIs (page, theme, notify, slots.render with text only) are available.
  */
 function loadInSandbox(pluginId: string, scriptUrl: string, _meta: PublicPluginPermissions, _backendOrigin: string) {

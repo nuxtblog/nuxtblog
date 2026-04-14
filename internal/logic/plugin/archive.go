@@ -94,9 +94,7 @@ type pluginYAMLManifest struct {
 	JSEntry string `yaml:"js_entry"` // JS entry file (default "plugin.js")
 	Layer   any    `yaml:"layer"`    // int or []int
 	Entry   string `yaml:"entry"`
-	AdminJS string `yaml:"admin_js"`
-	PublicJS string `yaml:"public_js"`
-	CSS     string `yaml:"css"`
+	// (admin_js/public_js/css removed in manifest v2 — now in contributes)
 
 	Settings []struct {
 		Key         string   `yaml:"key"`
@@ -256,8 +254,7 @@ func parseArchive(data []byte) (*parseArchiveResult, error) {
 					MinHostVersion   string                 `json:"minHostVersion"`
 					TrustLevel       eng.TrustLevel         `json:"trust_level"`
 					ActivationEvents []string               `json:"activationEvents"`
-					AdminJS          string                 `json:"admin_js"`
-					PublicJS         string                 `json:"public_js"`
+					// (admin_js/public_js removed in manifest v2)
 					Routes           []eng.RouteDef         `json:"routes"`
 					Contributes      *eng.Contributes       `json:"contributes"`
 					Migrations       []eng.MigrationDef     `json:"migrations"`
@@ -282,7 +279,6 @@ func parseArchive(data []byte) (*parseArchiveResult, error) {
 			m.Title = pkg.Plugin.Title
 			m.Icon = pkg.Plugin.Icon
 			m.Entry = pkg.Plugin.Entry
-			m.CSS = pkg.Plugin.CSS
 			m.Priority = pkg.Plugin.Priority
 			m.Settings = pkg.Plugin.Settings
 			m.Capabilities = pkg.Plugin.Capabilities
@@ -291,12 +287,10 @@ func parseArchive(data []byte) (*parseArchiveResult, error) {
 			m.MinHostVersion = pkg.Plugin.MinHostVersion
 			m.TrustLevel = pkg.Plugin.TrustLevel
 			m.ActivationEvents = pkg.Plugin.ActivationEvents
-			m.AdminJS = pkg.Plugin.AdminJS
-			m.PublicJS = pkg.Plugin.PublicJS
+			// (admin_js/public_js now in contributes)
 			m.Routes = pkg.Plugin.Routes
 			m.Contributes = pkg.Plugin.Contributes
 			m.Migrations = pkg.Plugin.Migrations
-			m.Pages = pkg.Plugin.Pages
 			m.Service = pkg.Plugin.Service
 			homepage = pkg.Homepage
 			resolved = true
@@ -358,8 +352,10 @@ func parseArchive(data []byte) (*parseArchiveResult, error) {
 			break
 		}
 	}
-	// Layer 2/3 plugins may have no Goja entry script — that's OK
-	if script == "" && m.AdminJS == "" && m.PublicJS == "" {
+	// Layer 2/3 plugins may have no Goja entry script — that's OK if they have frontend assets
+	hasActivation := m.Contributes != nil && len(m.Contributes.Activation) > 0
+	hasPages := m.Contributes != nil && len(m.Contributes.Pages) > 0
+	if script == "" && !hasActivation && !hasPages {
 		return nil, fmt.Errorf("entry file %s not found in archive", m.Entry)
 	}
 
@@ -406,9 +402,6 @@ func parsePluginYAML(data []byte) (*eng.Manifest, string, error) {
 		Description: y.Description,
 		TrustLevel:  eng.TrustLevel(y.TrustLevel),
 		Type:        y.Type,
-		AdminJS:     y.AdminJS,
-		PublicJS:    y.PublicJS,
-		CSS:         y.CSS,
 		Entry:       y.Entry,
 	}
 
@@ -429,6 +422,28 @@ func parsePluginYAML(data []byte) (*eng.Manifest, string, error) {
 		m.Settings = append(m.Settings, sf)
 	}
 
+	// Contributes (pages are now inside contributes)
+	c := m.Contributes
+	if c == nil && (len(y.Pages) > 0 || y.Contributes != nil) {
+		c = &eng.Contributes{}
+	}
+	if y.Contributes != nil {
+		for _, cmd := range y.Contributes.Commands {
+			c.Commands = append(c.Commands, eng.CommandDef{
+				ID:    cmd.ID,
+				Title: cmd.Title,
+				Icon:  cmd.Icon,
+			})
+		}
+		if len(y.Contributes.Menus) > 0 {
+			c.Menus = make(map[string][]eng.MenuEntry)
+			for slot, entries := range y.Contributes.Menus {
+				for _, e := range entries {
+					c.Menus[slot] = append(c.Menus[slot], eng.MenuEntry{Command: e.Command})
+				}
+			}
+		}
+	}
 	// Pages
 	for _, p := range y.Pages {
 		pd := eng.PageDef{
@@ -445,29 +460,9 @@ func parsePluginYAML(data []byte) (*eng.Manifest, string, error) {
 				Order: p.Nav.Order,
 			}
 		}
-		m.Pages = append(m.Pages, pd)
+		c.Pages = append(c.Pages, pd)
 	}
-
-	// Contributes
-	if y.Contributes != nil {
-		c := &eng.Contributes{}
-		for _, cmd := range y.Contributes.Commands {
-			c.Commands = append(c.Commands, eng.CommandDef{
-				ID:    cmd.ID,
-				Title: cmd.Title,
-				Icon:  cmd.Icon,
-			})
-		}
-		if len(y.Contributes.Menus) > 0 {
-			c.Menus = make(map[string][]eng.MenuEntry)
-			for slot, entries := range y.Contributes.Menus {
-				for _, e := range entries {
-					c.Menus[slot] = append(c.Menus[slot], eng.MenuEntry{Command: e.Command})
-				}
-			}
-		}
-		m.Contributes = c
-	}
+	m.Contributes = c
 
 	// Migrations
 	for _, mig := range y.Migrations {

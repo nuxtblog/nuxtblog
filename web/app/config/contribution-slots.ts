@@ -65,6 +65,9 @@ export const CONTRIBUTION_SLOTS = {
   // ── Public: User Profile ────────────────────────────────────────────────
   PUBLIC_USER_PROFILE_TOP: 'public:user-profile-top',
   PUBLIC_USER_PROFILE_BOTTOM: 'public:user-profile-bottom',
+
+  // ── Public: User Menu ────────────────────────────────────────────────
+  PUBLIC_USER_MENU: 'public:user-menu',
 } as const
 
 export type ContributionSlotName = typeof CONTRIBUTION_SLOTS[keyof typeof CONTRIBUTION_SLOTS]

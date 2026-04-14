@@ -126,11 +126,6 @@ type Manifest struct {
 	// ── JS plugin specific ──
 	JSEntry string `yaml:"js_entry" json:"js_entry,omitempty"` // e.g. "plugin.js"; default "plugin.js"
 
-	// ── Frontend assets ──
-	AdminJS  string `yaml:"admin_js"  json:"admin_js,omitempty"`
-	PublicJS string `yaml:"public_js" json:"public_js,omitempty"`
-	CSS      string `yaml:"css"       json:"css,omitempty"`
-
 	// ── Configuration schema ──
 	Settings []SettingDef `yaml:"settings" json:"settings,omitempty"`
 
@@ -138,19 +133,15 @@ type Manifest struct {
 	Depends []Dependency `yaml:"depends" json:"depends,omitempty"`
 
 	// ── Functionality declarations ──
-	Pages       []PageDef      `yaml:"pages"       json:"pages,omitempty"`
-	Routes      []RouteDef     `yaml:"routes"      json:"routes,omitempty"`
-	Migrations  []Migration    `yaml:"migrations"  json:"migrations,omitempty"`
-	Contributes *Contributes   `yaml:"contributes" json:"contributes,omitempty"`
+	Routes      []RouteDef   `yaml:"routes"      json:"routes,omitempty"`
+	Migrations  []Migration  `yaml:"migrations"  json:"migrations,omitempty"`
+	Contributes *Contributes `yaml:"contributes" json:"contributes,omitempty"`
 
 	// ── Capabilities ──
 	Capabilities *Capabilities `yaml:"capabilities" json:"capabilities,omitempty"`
 
 	// ── Permissions (frontend API access) ──
 	Permissions []string `yaml:"permissions" json:"permissions,omitempty"`
-
-	// ── Media categories declared by plugins ──
-	MediaCategories []CategoryDef `yaml:"media_categories" json:"media_categories,omitempty"`
 
 	// ── YAML plugin specific (declarative logic) ──
 	Webhooks []WebhookDef `yaml:"webhooks" json:"webhooks,omitempty"`
@@ -174,7 +165,20 @@ type DBTableAccess struct {
 
 // Capabilities declares which platform APIs the plugin is permitted to use.
 type Capabilities struct {
-	DB *DBCapability `yaml:"db" json:"db,omitempty"`
+	DB     *DBCapability     `yaml:"db"     json:"db,omitempty"`
+	Events *EventsCapability `yaml:"events" json:"events,omitempty"`
+	Media  *MediaCapability  `yaml:"media"  json:"media,omitempty"`
+}
+
+// EventsCapability declares which events the plugin subscribes to or publishes.
+type EventsCapability struct {
+	Subscribe []string `yaml:"subscribe" json:"subscribe,omitempty"`
+	Publish   []string `yaml:"publish"   json:"publish,omitempty"`
+}
+
+// MediaCapability declares media-related capabilities (e.g. custom categories).
+type MediaCapability struct {
+	Categories []CategoryDef `yaml:"categories" json:"categories,omitempty"`
 }
 
 // ─── Setting ──────────────────────────────────────────────────────────────
@@ -197,9 +201,10 @@ type SettingDef struct {
 
 // PageDef declares a frontend page registered by the plugin.
 type PageDef struct {
-	Path      string  `yaml:"path"      json:"path"`
-	Slot      string  `yaml:"slot"      json:"slot"`      // "admin" or "public"
-	Component string  `yaml:"component" json:"component"` // Vue component export name
+	Path      string  `yaml:"path"      json:"path,omitempty"`
+	Slot      string  `yaml:"slot"      json:"slot"`                // "admin" or "public"
+	Component string  `yaml:"component" json:"component,omitempty"` // Vue component export name
+	Module    string  `yaml:"module"    json:"module,omitempty"`    // module file containing the component
 	Title     string  `yaml:"title"     json:"title,omitempty"`
 	Nav       *NavDef `yaml:"nav"       json:"nav,omitempty"`
 }
@@ -231,6 +236,21 @@ type Contributes struct {
 	Menus      map[string][]MenuEntry `yaml:"menus"      json:"menus,omitempty"`
 	Navigation []NavigationDef        `yaml:"navigation" json:"navigation,omitempty"`
 	Views      map[string][]ViewDef   `yaml:"views"      json:"views,omitempty"`
+	Pages      []PageDef              `yaml:"pages"      json:"pages,omitempty"`
+	Styles     []StyleEntry           `yaml:"styles"     json:"styles,omitempty"`
+	Activation []ActivationEntry      `yaml:"activation" json:"activation,omitempty"`
+}
+
+// StyleEntry declares a CSS file to inject into a specific scope.
+type StyleEntry struct {
+	Scope string `yaml:"scope" json:"scope"` // admin | public | both
+	File  string `yaml:"file"  json:"file"`
+}
+
+// ActivationEntry declares a module to load on layout startup (non-page global script).
+type ActivationEntry struct {
+	Scope  string `yaml:"scope"  json:"scope"`  // admin | public
+	Module string `yaml:"module" json:"module"`
 }
 
 // NavigationDef declares a navigation item injected into a named slot.
@@ -245,10 +265,12 @@ type NavigationDef struct {
 
 // ViewDef declares a view panel injected into a named slot.
 type ViewDef struct {
-	ID    string `yaml:"id"    json:"id"`
-	Title string `yaml:"title" json:"title"`
-	Type  string `yaml:"type"  json:"type,omitempty"`
-	Icon  string `yaml:"icon"  json:"icon,omitempty"`
+	ID        string `yaml:"id"        json:"id"`
+	Title     string `yaml:"title"     json:"title,omitempty"`
+	Type      string `yaml:"type"      json:"type,omitempty"`
+	Icon      string `yaml:"icon"      json:"icon,omitempty"`
+	Component string `yaml:"component" json:"component,omitempty"` // Vue component export name
+	Module    string `yaml:"module"    json:"module,omitempty"`    // module file containing the component
 }
 
 // CommandDef declares a command triggered from menus or keyboard shortcuts.

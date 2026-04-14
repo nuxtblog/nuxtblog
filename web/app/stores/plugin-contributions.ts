@@ -49,6 +49,8 @@ export interface PluginViewItem {
   title: string
   type?: string
   icon?: string
+  component?: string
+  module?: string
 }
 
 export interface PluginContentBlock {
@@ -86,10 +88,28 @@ export interface PluginContributes {
   }>>
   views?: Record<string, Array<{
     id: string
-    title: string
+    title?: string
     type?: string
     icon?: string
+    component?: string
+    module?: string
   }>>
+  pages?: Array<{
+    path?: string
+    slot: string
+    component?: string
+    module?: string
+    title?: string
+    nav?: { type?: string; group?: string; icon?: string; order?: number; slot?: string }
+  }>
+  styles?: Array<{
+    scope: string
+    file: string
+  }>
+  activation?: Array<{
+    scope: string
+    module: string
+  }>
 }
 
 export interface PluginPageDef {
@@ -174,9 +194,11 @@ export const usePluginContributionsStore = defineStore('plugin-contributions', (
             pluginId,
             slot,
             id: view.id,
-            title: view.title,
+            title: view.title || '',
             type: view.type,
             icon: view.icon,
+            component: view.component,
+            module: view.module,
           })
         }
       }

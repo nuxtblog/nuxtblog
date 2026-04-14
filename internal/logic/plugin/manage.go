@@ -299,14 +299,20 @@ func (s *sPlugin) UnloadImpact(ctx context.Context, id string) (*v1.PluginUnload
 	manifestVal, _ := g.DB().Ctx(ctx).Model("plugins").Where("id", id).Value("manifest")
 	if raw := manifestVal.String(); raw != "" && raw != "{}" {
 		var mf struct {
-			Migrations      []json.RawMessage      `json:"migrations"`
-			MediaCategories []struct{ Slug string } `json:"media_categories"`
+			Migrations   []json.RawMessage `json:"migrations"`
+			Capabilities *struct {
+				Media *struct {
+					Categories []struct{ Slug string } `json:"categories"`
+				} `json:"media"`
+			} `json:"capabilities"`
 		}
 		if json.Unmarshal([]byte(raw), &mf) == nil {
 			res.HasDB = len(mf.Migrations) > 0
-			res.HasMediaCats = len(mf.MediaCategories) > 0
-			for _, mc := range mf.MediaCategories {
-				res.MediaCatSlugs = append(res.MediaCatSlugs, mc.Slug)
+			if mf.Capabilities != nil && mf.Capabilities.Media != nil {
+				res.HasMediaCats = len(mf.Capabilities.Media.Categories) > 0
+				for _, mc := range mf.Capabilities.Media.Categories {
+					res.MediaCatSlugs = append(res.MediaCatSlugs, mc.Slug)
+				}
 			}
 		}
 	}
@@ -472,8 +478,6 @@ func (s *sPlugin) ClientList(ctx context.Context) (*v1.PluginClientListRes, erro
 			Icon:       r.Icon,
 			Version:    mf.Version,
 			TrustLevel: string(mf.TrustLevel),
-			AdminJS:    mf.AdminJS,
-			PublicJS:   mf.PublicJS,
 		}
 		if item.TrustLevel == "" {
 			item.TrustLevel = "community"
@@ -481,10 +485,6 @@ func (s *sPlugin) ClientList(ctx context.Context) (*v1.PluginClientListRes, erro
 		if mf.Contributes != nil {
 			cb, _ := json.Marshal(mf.Contributes)
 			item.Contributes = string(cb)
-		}
-		if len(mf.Pages) > 0 {
-			pb, _ := json.Marshal(mf.Pages)
-			item.Pages = string(pb)
 		}
 		if len(mf.Permissions) > 0 {
 			pb, _ := json.Marshal(mf.Permissions)
@@ -497,8 +497,8 @@ func (s *sPlugin) ClientList(ctx context.Context) (*v1.PluginClientListRes, erro
 
 // ── PublicClientList ─────────────────────────────────────────────────────
 
-// PublicClientList returns enabled plugins with public_js or public-facing
-// contributes. No admin auth required.
+// PublicClientList returns enabled plugins with public-facing contributes
+// (activation, pages, views, navigation, menus, styles). No admin auth required.
 func (s *sPlugin) PublicClientList(ctx context.Context) (*v1.PluginPublicClientRes, error) {
 	type row struct {
 		Id       string `orm:"id"`
@@ -519,43 +519,59 @@ func (s *sPlugin) PublicClientList(ctx context.Context) (*v1.PluginPublicClientR
 		var mf eng.Manifest
 		_ = json.Unmarshal([]byte(r.Manifest), &mf)
 
-		// Only include plugins that have public_js or public-facing contributes
-		hasPublicJS := mf.PublicJS != ""
+		if mf.Contributes == nil {
+			continue
+		}
+
+		// Only include plugins that have public-facing contributes
+		hasPublicActivation := false
+		for _, a := range mf.Contributes.Activation {
+			if a.Scope == "public" {
+				hasPublicActivation = true
+				break
+			}
+		}
 		hasPublicContrib := false
-		if mf.Contributes != nil {
-			for _, nav := range mf.Contributes.Navigation {
-				if strings.HasPrefix(nav.Slot, "public:") {
+		for _, nav := range mf.Contributes.Navigation {
+			if strings.HasPrefix(nav.Slot, "public:") {
+				hasPublicContrib = true
+				break
+			}
+		}
+		if !hasPublicContrib {
+			for slot := range mf.Contributes.Views {
+				if strings.HasPrefix(slot, "public:") {
 					hasPublicContrib = true
 					break
 				}
 			}
-			if !hasPublicContrib {
-				for slot := range mf.Contributes.Views {
-					if strings.HasPrefix(slot, "public:") {
-						hasPublicContrib = true
-						break
-					}
-				}
-			}
-			if !hasPublicContrib {
-				for slot := range mf.Contributes.Menus {
-					if strings.HasPrefix(slot, "public:") {
-						hasPublicContrib = true
-						break
-					}
+		}
+		if !hasPublicContrib {
+			for slot := range mf.Contributes.Menus {
+				if strings.HasPrefix(slot, "public:") {
+					hasPublicContrib = true
+					break
 				}
 			}
 		}
 
 		hasPublicPages := false
-		for _, pg := range mf.Pages {
+		for _, pg := range mf.Contributes.Pages {
 			if pg.Slot == "public" {
 				hasPublicPages = true
 				break
 			}
 		}
 
-		if !hasPublicJS && !hasPublicContrib && !hasPublicPages {
+		hasPublicStyles := false
+		for _, st := range mf.Contributes.Styles {
+			if st.Scope == "public" || st.Scope == "both" {
+				hasPublicStyles = true
+				break
+			}
+		}
+
+		if !hasPublicActivation && !hasPublicContrib && !hasPublicPages && !hasPublicStyles {
 			continue
 		}
 
@@ -565,19 +581,12 @@ func (s *sPlugin) PublicClientList(ctx context.Context) (*v1.PluginPublicClientR
 			Icon:       r.Icon,
 			Version:    mf.Version,
 			TrustLevel: string(mf.TrustLevel),
-			PublicJS:   mf.PublicJS,
 		}
 		if item.TrustLevel == "" {
 			item.TrustLevel = "community"
 		}
-		if mf.Contributes != nil {
-			cb, _ := json.Marshal(mf.Contributes)
-			item.Contributes = string(cb)
-		}
-		if len(mf.Pages) > 0 {
-			pb, _ := json.Marshal(mf.Pages)
-			item.Pages = string(pb)
-		}
+		cb, _ := json.Marshal(mf.Contributes)
+		item.Contributes = string(cb)
 		if len(mf.Permissions) > 0 {
 			pb, _ := json.Marshal(mf.Permissions)
 			item.Permissions = string(pb)

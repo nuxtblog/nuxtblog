@@ -176,7 +176,6 @@ type Manifest struct {
 	Icon         string             `json:"icon"`
 	Entry        string             `json:"entry"`      // path inside the archive, e.g. "dist/index.js"
 	Settings     []SettingField     `json:"settings"`   // admin-configurable parameters
-	CSS          string             `json:"css"`        // optional CSS injected into frontend <head>
 	Priority     int                `json:"priority"`   // execution order: lower runs first (default 10)
 	Capabilities PluginCapabilities `json:"capabilities"`
 	Webhooks     []WebhookDef       `json:"webhooks,omitempty"`  // W-B1
@@ -186,12 +185,9 @@ type Manifest struct {
 	MinHostVersion   string     `json:"minHostVersion,omitempty"`   // e.g. "2.0.0"; engine rejects if host is older
 	TrustLevel       TrustLevel `json:"trust_level,omitempty"`      // frontend sandbox level; default "community"
 	ActivationEvents []string   `json:"activationEvents,omitempty"` // lazy-load triggers; nil/empty = "onStartup"
-	AdminJS          string     `json:"admin_js,omitempty"`         // browser-side script for admin panel
-	PublicJS         string     `json:"public_js,omitempty"`        // browser-side script for public frontend
 	Routes           []RouteDef    `json:"routes,omitempty"`           // custom HTTP endpoints
 	Contributes      *Contributes  `json:"contributes,omitempty"`    // UI contribution points
 	Migrations       []MigrationDef `json:"migrations,omitempty"`   // DB schema migrations
-	Pages            []PageDef     `json:"pages,omitempty"`          // frontend route extensions
 	Service          *ServiceDef   `json:"service,omitempty"`        // external service proxy
 	Type             string        `json:"type,omitempty"`           // "builtin" | "js" | "yaml" | "full"
 	Permissions      []string      `json:"permissions,omitempty"`    // frontend API permissions: "user:read", "http:auth", "html:inject"
@@ -218,6 +214,21 @@ type Contributes struct {
 	Navigation []NavigationDef         `json:"navigation,omitempty"`
 	Menus      map[string][]MenuEntry  `json:"menus,omitempty"`
 	Views      map[string][]ViewDef    `json:"views,omitempty"`
+	Pages      []PageDef               `json:"pages,omitempty"`
+	Styles     []StyleEntry            `json:"styles,omitempty"`
+	Activation []ActivationEntry       `json:"activation,omitempty"`
+}
+
+// StyleEntry declares a CSS file to inject into a specific scope.
+type StyleEntry struct {
+	Scope string `json:"scope"` // admin | public | both
+	File  string `json:"file"`
+}
+
+// ActivationEntry declares a module to load on layout startup.
+type ActivationEntry struct {
+	Scope  string `json:"scope"`  // admin | public
+	Module string `json:"module"`
 }
 
 // CommandDef declares a command that can be triggered from menus or keyboard shortcuts.
@@ -248,10 +259,12 @@ type MenuEntry struct {
 
 // ViewDef declares a panel or widget in a named slot.
 type ViewDef struct {
-	ID    string `json:"id"`
-	Title string `json:"title"`
-	Type  string `json:"type,omitempty"` // "webview" or empty for declarative
-	Icon  string `json:"icon,omitempty"`
+	ID        string `json:"id"`
+	Title     string `json:"title,omitempty"`
+	Type      string `json:"type,omitempty"`      // "webview" or empty for declarative
+	Icon      string `json:"icon,omitempty"`
+	Component string `json:"component,omitempty"` // Vue component export name
+	Module    string `json:"module,omitempty"`    // module file containing the component
 }
 
 // ─── Migration definitions ──────────────────────────────────────────────────
@@ -268,9 +281,10 @@ type MigrationDef struct {
 
 // PageDef declares a frontend page registered by a plugin.
 type PageDef struct {
-	Path      string  `json:"path"`               // e.g. "/admin/community" or "/community"
-	Slot      string  `json:"slot"`               // "admin" or "public"
-	Component string  `json:"component"`          // Vue component export name
+	Path      string  `json:"path,omitempty"`      // e.g. "/admin/community" or "/community"
+	Slot      string  `json:"slot"`                // "admin" or "public"
+	Component string  `json:"component,omitempty"` // Vue component export name
+	Module    string  `json:"module,omitempty"`    // module file containing the component
 	Title     string  `json:"title,omitempty"`
 	Nav       *NavDef `json:"nav,omitempty"`       // optional sidebar nav entry
 }

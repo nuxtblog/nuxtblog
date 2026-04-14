@@ -56,9 +56,6 @@ type YAMLPlugin struct {
 	Settings    []SettingField    `yaml:"settings"`
 	Webhooks    []YAMLWebhook     `yaml:"webhooks"`
 	Filters     []YAMLFilter      `yaml:"filters"`
-	CSS         string            `yaml:"css"`
-	PublicJS    string            `yaml:"public_js"`
-	AdminJS     string            `yaml:"admin_js"`
 	Navigation  []NavigationDef   `yaml:"navigation"`
 	Enabled     bool              `yaml:"-"` // runtime state, not from YAML file
 	FilePath    string            `yaml:"-"` // source file path, for reload
@@ -381,9 +378,6 @@ func YAMLPluginToManifest(yp *YAMLPlugin) Manifest {
 		Icon:        yp.Icon,
 		Priority:    yp.Priority,
 		Settings:    yp.Settings,
-		CSS:         yp.CSS,
-		AdminJS:     yp.AdminJS,
-		PublicJS:    yp.PublicJS,
 		Webhooks:    webhooks,
 		TrustLevel:  tl,
 		Contributes: contributes,

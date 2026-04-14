@@ -1,10 +1,10 @@
 /**
- * Plugin Loader — fetches enabled plugins and loads their admin_js scripts.
+ * Plugin Loader — fetches enabled plugins and loads their admin scripts.
  *
  * Called once in the admin layout. Handles:
- * 1. Fetching enabled plugins with their contributes/admin_js info
+ * 1. Fetching enabled plugins with their contributes info
  * 2. Registering contribution points in the contributions store
- * 3. Loading admin_js scripts (official/local = inline, community = iframe sandbox)
+ * 3. Loading activation scripts (official/local = inline, community = iframe sandbox)
  */
 import type { PluginContributes } from '~/stores/plugin-contributions'
 import { usePluginContributionsStore } from '~/stores/plugin-contributions'
@@ -16,18 +16,21 @@ interface PluginClientItem {
   icon: string
   version: string
   trust_level: string
-  admin_js?: string
-  public_js?: string
   contributes?: string // raw JSON
-  pages?: string // raw JSON
 }
 
 interface PageDef {
-  path: string
+  path?: string
   slot: string
-  component: string
+  component?: string
+  module?: string
   title?: string
   nav?: { type?: string; group?: string; icon?: string; order?: number }
+}
+
+interface ActivationEntry {
+  scope: string // admin | public
+  module: string
 }
 
 /** Resolves when admin plugins have been loaded (or immediately if already done). */
@@ -56,8 +59,7 @@ export function usePluginLoader() {
       // Register plugin versions for cache busting, then contribution points
       for (const plugin of plugins.value) {
         registerPluginVersion(plugin.id, plugin.version)
-        // Merge contributes + page navigation into a single registerPlugin call
-        // to avoid the second call wiping out the first via unregisterPlugin().
+        // Parse contributes (now includes pages, activation, styles)
         let contributes: PluginContributes = {}
 
         if (plugin.contributes) {
@@ -69,53 +71,45 @@ export function usePluginLoader() {
           }
         }
 
-        // Parse pages, merge nav items into contributes
-        let parsedPages: PageDef[] = []
-        if (plugin.pages) {
-          try {
-            parsedPages = JSON.parse(plugin.pages)
+        // Extract admin pages from contributes.pages
+        const parsedPages: PageDef[] = contributes.pages || []
 
-            // Find explicit group definition (nav.type === 'group')
-            const groupPage = parsedPages.find(p => p.slot === 'admin' && p.nav?.type === 'group')
+        // Find explicit group definition (nav.type === 'group')
+        const groupPage = parsedPages.find(p => p.slot === 'admin' && p.nav?.type === 'group')
 
-            // Collect normal nav items (non-group)
-            const pageNavItems = parsedPages
-              .filter(p => p.slot === 'admin' && p.nav && p.nav.type !== 'group')
-              .map(p => ({
-                slot: 'admin:sidebar-nav',
-                parent: p.nav?.group,
-                title: p.title || p.component,
-                icon: p.nav?.icon,
-                route: p.path || `/admin/plugin-page/${encodeURIComponent(plugin.id)}/${encodeURIComponent(p.component)}`,
-                order: p.nav?.order ?? 100,
-                groupKey: undefined as string | undefined,
-              }))
+        // Collect normal nav items (non-group)
+        const pageNavItems = parsedPages
+          .filter(p => p.slot === 'admin' && p.nav && p.nav.type !== 'group')
+          .map(p => ({
+            slot: 'admin:sidebar-nav',
+            parent: p.nav?.group,
+            title: p.title || p.component || '',
+            icon: p.nav?.icon,
+            route: p.path || `/admin/plugin-page/${encodeURIComponent(plugin.id)}/${encodeURIComponent(p.component || '')}`,
+            order: p.nav?.order ?? 100,
+            groupKey: undefined as string | undefined,
+          }))
 
-            // If an explicit group is declared, create a parent item and attach ungrouped children
-            if (groupPage && pageNavItems.length > 0) {
-              const groupKey = `plugin:${plugin.id}`
-              pageNavItems.unshift({
-                slot: 'admin:sidebar-nav',
-                parent: undefined,
-                title: groupPage.title || plugin.title,
-                icon: groupPage.nav!.icon || plugin.icon,
-                route: '',
-                order: groupPage.nav!.order ?? Math.min(...pageNavItems.map(n => n.order)),
-                groupKey,
-              })
-              // Attach children that don't have an explicit group to the plugin group
-              for (const item of pageNavItems.slice(1)) {
-                if (!item.parent) item.parent = groupKey
-              }
-            }
-
-            if (pageNavItems.length > 0) {
-              contributes.navigation = [...(contributes.navigation || []), ...pageNavItems]
-            }
+        // If an explicit group is declared, create a parent item and attach ungrouped children
+        if (groupPage && pageNavItems.length > 0) {
+          const groupKey = `plugin:${plugin.id}`
+          pageNavItems.unshift({
+            slot: 'admin:sidebar-nav',
+            parent: undefined,
+            title: groupPage.title || plugin.title,
+            icon: groupPage.nav!.icon || plugin.icon,
+            route: '',
+            order: groupPage.nav!.order ?? Math.min(...pageNavItems.map(n => n.order)),
+            groupKey,
+          })
+          // Attach children that don't have an explicit group to the plugin group
+          for (const item of pageNavItems.slice(1)) {
+            if (!item.parent) item.parent = groupKey
           }
-          catch (e) {
-            console.warn(`[plugin-loader] failed to parse pages for ${plugin.id}:`, e)
-          }
+        }
+
+        if (pageNavItems.length > 0) {
+          contributes.navigation = [...(contributes.navigation || []), ...pageNavItems]
         }
 
         // Single registration: contributes + page nav merged
@@ -136,13 +130,15 @@ export function usePluginLoader() {
             component: p.component,
             title: p.title,
             path: p.path,
-            moduleFile: 'admin.mjs',
+            moduleFile: p.module || 'admin.mjs',
           })
         }
 
-        // Load admin_js
-        if (plugin.admin_js) {
-          await loadAdminScript(plugin)
+        // Load admin activation modules
+        const activations: ActivationEntry[] = contributes.activation || []
+        const adminActivation = activations.find(a => a.scope === 'admin')
+        if (adminActivation) {
+          await loadAdminScript(plugin, adminActivation.module)
         }
       }
 
@@ -158,14 +154,14 @@ export function usePluginLoader() {
 }
 
 /**
- * Load a plugin's admin_js script. The loading method depends on trust_level:
+ * Load a plugin's admin activation module. The loading method depends on trust_level:
  * - official/local: loaded via loadPluginModule (source rewriting + activate())
  * - community: loaded in a sandboxed iframe with postMessage bridge
  */
-async function loadAdminScript(plugin: PluginClientItem) {
-  // admin_js may include a directory prefix (e.g. "dist/admin.mjs"), but the
+async function loadAdminScript(plugin: PluginClientItem, moduleFile: string) {
+  // module may include a directory prefix (e.g. "dist/admin.mjs"), but the
   // backend saves assets as flat filenames. Strip any directory prefix.
-  const assetFilename = plugin.admin_js!.split('/').pop()!
+  const assetFilename = moduleFile.split('/').pop()!
 
   if (plugin.trust_level === 'official' || plugin.trust_level === 'local') {
     // Main context — load via loadPluginModule (source rewriting + Blob URL import)
@@ -176,7 +172,7 @@ async function loadAdminScript(plugin: PluginClientItem) {
       }
     }
     catch (e) {
-      console.warn(`[plugin-loader] failed to load admin_js for ${plugin.id}:`, e)
+      console.warn(`[plugin-loader] failed to load admin module for ${plugin.id}:`, e)
     }
   }
   else {
@@ -188,7 +184,7 @@ async function loadAdminScript(plugin: PluginClientItem) {
 }
 
 /**
- * Load a community plugin's admin_js in a sandboxed iframe.
+ * Load a community plugin's admin script in a sandboxed iframe.
  * Only suggest() is available (no set()), no cookie/DOM access.
  */
 function loadInSandbox(pluginId: string, scriptUrl: string) {

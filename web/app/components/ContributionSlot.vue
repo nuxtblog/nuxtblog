@@ -10,7 +10,8 @@
 import DOMPurify from 'dompurify'
 import type { ContributionSlotName } from '~/config/contribution-slots'
 import { usePluginContextStore } from '~/stores/plugin-context'
-import { usePluginContributionsStore, type PluginContentBlock, type PluginMenuItem } from '~/stores/plugin-contributions'
+import { usePluginContributionsStore, type PluginContentBlock, type PluginMenuItem, type PluginViewItem } from '~/stores/plugin-contributions'
+import { createPluginAsyncComponent } from '~/composables/usePluginComponents'
 
 export interface MenuGroup {
   group: string
@@ -108,6 +109,17 @@ function handleCommand(commandId: string) {
   emit('command', commandId, props.ctx)
 }
 
+// ── Rich component views: resolve async components for views with component+module ──
+const viewComponentCache = new Map<string, ReturnType<typeof createPluginAsyncComponent>>()
+function getViewComponent(view: PluginViewItem) {
+  if (!view.component || !view.module) return null
+  const key = `${view.pluginId}:${view.component}:${view.module}`
+  if (!viewComponentCache.has(key)) {
+    viewComponentCache.set(key, createPluginAsyncComponent(view.pluginId, view.component, view.module))
+  }
+  return viewComponentCache.get(key)!
+}
+
 // ── renderFn support: mount DOM render functions when blocks appear ──────
 const renderFnRefs = ref<Map<string, HTMLElement>>(new Map())
 const cleanupFns = ref<Map<string, () => void>>(new Map())
@@ -203,7 +215,14 @@ onBeforeUnmount(() => {
   <!-- View panels -->
   <template v-for="view in viewItems" :key="`view-${view.pluginId}-${view.id}`">
     <slot name="view" :item="view">
-      <div class="plugin-view-panel">
+      <!-- Rich component view: render via createPluginAsyncComponent -->
+      <template v-if="view.component && view.module">
+        <ClientOnly>
+          <component :is="getViewComponent(view)" v-if="getViewComponent(view)" />
+        </ClientOnly>
+      </template>
+      <!-- Legacy declarative view panel -->
+      <div v-else class="plugin-view-panel">
         <div class="flex items-center gap-2 mb-2 text-sm font-medium">
           <UIcon v-if="view.icon" :name="view.icon" class="size-4" />
           <span>{{ view.title }}</span>

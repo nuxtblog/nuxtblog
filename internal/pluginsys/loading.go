@@ -60,9 +60,9 @@ func (m *Manager) activatePlugin(ctx context.Context, p sdk.Plugin, source strin
 		return fmt.Errorf("activate: %w", err)
 	}
 
-	// Register media categories declared in manifest
-	if len(mf.MediaCategories) > 0 {
-		for _, cat := range mf.MediaCategories {
+	// Register media categories declared in capabilities.media
+	if mf.Capabilities != nil && mf.Capabilities.Media != nil {
+		for _, cat := range mf.Capabilities.Media.Categories {
 			if err := pctx.Media.RegisterCategory(cat); err != nil {
 				g.Log().Warningf(ctx, "[pluginmgr] %s: register media category %s: %v", id, cat.Slug, err)
 			}
