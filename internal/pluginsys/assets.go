@@ -197,6 +197,14 @@ export const UCollapsible = _lazy('UCollapsible');
 export const UAccordion = _lazy('UAccordion');
 export const ULink = _lazy('ULink');
 export const UBreadcrumb = _lazy('UBreadcrumb');
+export const AdminPageContainer = _lazy('AdminPageContainer');
+export const AdminPageHeader = _lazy('AdminPageHeader');
+export const AdminPageContent = _lazy('AdminPageContent');
+export const AdminPageFooter = _lazy('AdminPageFooter');
+export const AdminRichEditor = _lazy('AdminRichEditor');
+export const PageHeader = _lazy('PageHeader');
+export const PageContent = _lazy('PageContent');
+export const PageFooter = _lazy('PageFooter');
 `
 
 // RegisterAssetRoutes registers the static asset serving endpoint for plugins.

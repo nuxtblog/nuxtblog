@@ -26,7 +26,11 @@ const pageDef = computed(() => {
       title: (route.meta.pluginPageTitle as string) || '',
     }
   }
-  return store.pluginPages.find(p => p.path && (route.path === p.path || route.path.startsWith(p.path + '/'))) || null
+  // Prefer the longest matching path to avoid parent routes shadowing child routes
+  // e.g. /admin/shop/products/form should match before /admin/shop/products
+  const matches = store.pluginPages.filter(p => p.path && (route.path === p.path || route.path.startsWith(p.path + '/')))
+  if (matches.length === 0) return null
+  return matches.reduce((best, p) => (p.path!.length > best.path!.length ? p : best))
 })
 
 const pluginId = computed(() => pageDef.value?.pluginId || '')

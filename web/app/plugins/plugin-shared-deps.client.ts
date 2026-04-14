@@ -26,6 +26,8 @@ import {
   ULink, UBreadcrumb,
   // Admin layout (4)
   AdminPageContainer, AdminPageHeader, AdminPageContent, AdminPageFooter,
+  // Admin editor (1)
+  AdminRichEditor,
   // Public layout (3)
   PageHeader, PageContent, PageFooter,
 } from '#components'
@@ -45,6 +47,7 @@ export default defineNuxtPlugin(() => {
     UAvatar, UAvatarGroup, UProgress, UPagination, UChip, UKbd, UCollapsible, UAccordion,
     ULink, UBreadcrumb,
     AdminPageContainer, AdminPageHeader, AdminPageContent, AdminPageFooter,
+    AdminRichEditor,
     PageHeader, PageContent, PageFooter,
   }
   // Legacy alias — kept for backward compatibility with plugins that import from @nuxtblog/admin
