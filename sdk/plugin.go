@@ -165,9 +165,10 @@ type DBTableAccess struct {
 
 // Capabilities declares which platform APIs the plugin is permitted to use.
 type Capabilities struct {
-	DB     *DBCapability     `yaml:"db"     json:"db,omitempty"`
-	Events *EventsCapability `yaml:"events" json:"events,omitempty"`
-	Media  *MediaCapability  `yaml:"media"  json:"media,omitempty"`
+	DB       *DBCapability     `yaml:"db"       json:"db,omitempty"`
+	Events   *EventsCapability `yaml:"events"   json:"events,omitempty"`
+	Media    *MediaCapability  `yaml:"media"    json:"media,omitempty"`
+	Commerce bool              `yaml:"commerce" json:"commerce,omitempty"`
 }
 
 // EventsCapability declares which events the plugin subscribes to or publishes.
@@ -405,6 +406,30 @@ type PluginContext struct {
 	Plugins  PluginQuery
 	AI       AI
 	Media    MediaService
+	Commerce Commerce
+}
+
+// Commerce provides access to payment, wallet, and credits services.
+type Commerce interface {
+	// GetEnabledPaymentMethods returns enabled payment providers (slug, label, icon).
+	GetEnabledPaymentMethods(ctx context.Context) ([]PaymentMethod, error)
+	// GetUserBalance returns wallet balance and credits for a user.
+	GetUserBalance(ctx context.Context, userID int64) (balance int, credits int, err error)
+	// SpendBalance deducts from wallet. Returns balance after.
+	SpendBalance(ctx context.Context, userID int64, amount int, refType, refID, note string) (int, error)
+	// SpendCredits deducts credits. Returns balance after.
+	SpendCredits(ctx context.Context, userID int64, amount int, refType, refID, note string) (int, error)
+	// RefundBalance refunds to wallet. Returns balance after.
+	RefundBalance(ctx context.Context, userID int64, amount int, refType, refID, note string) (int, error)
+	// RefundCredits refunds credits. Returns balance after.
+	RefundCredits(ctx context.Context, userID int64, amount int, refType, refID, note string) (int, error)
+}
+
+// PaymentMethod describes an enabled payment provider.
+type PaymentMethod struct {
+	Slug  string `json:"slug"`
+	Label string `json:"label"`
+	Icon  string `json:"icon"`
 }
 
 // DB provides isolated database access for plugins.

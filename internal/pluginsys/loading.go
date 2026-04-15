@@ -45,6 +45,7 @@ func (m *Manager) activatePlugin(ctx context.Context, p sdk.Plugin, source strin
 		Plugins:  &pluginQuery{mgr: m},
 		AI:       DefaultAI(),
 		Media:    newMediaService(id),
+		Commerce: newPluginCommerce(id),
 	}
 	lp.ctx = pctx
 

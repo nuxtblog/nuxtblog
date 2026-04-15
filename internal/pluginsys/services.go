@@ -9,6 +9,9 @@ import (
 	"time"
 
 	"github.com/gogf/gf/v2/frame/g"
+
+	sdk "github.com/nuxtblog/nuxtblog/sdk"
+	"github.com/nuxtblog/nuxtblog/internal/service"
 )
 
 // ─── Platform service implementations ───────────────────────────────────────
@@ -211,6 +214,62 @@ func (s *pluginSettings) GetAll() map[string]any {
 	s.cached = m
 	s.cachedAt = time.Now()
 	return m
+}
+
+// ─── Commerce service ─────────────────────────────────────────────────────────
+
+// pluginCommerce implements sdk.Commerce by wrapping core Payment/Wallet/Credits services.
+type pluginCommerce struct{ pluginID string }
+
+func newPluginCommerce(pluginID string) *pluginCommerce {
+	return &pluginCommerce{pluginID: pluginID}
+}
+
+func (c *pluginCommerce) GetEnabledPaymentMethods(ctx context.Context) ([]sdk.PaymentMethod, error) {
+	svc := service.Payment()
+	if svc == nil {
+		return nil, fmt.Errorf("payment service not registered")
+	}
+	res, err := svc.ListProviders(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var methods []sdk.PaymentMethod
+	for _, p := range res.Items {
+		if p.Enabled {
+			methods = append(methods, sdk.PaymentMethod{
+				Slug:  p.Slug,
+				Label: p.Label,
+				Icon:  p.Icon,
+			})
+		}
+	}
+	return methods, nil
+}
+
+func (c *pluginCommerce) GetUserBalance(ctx context.Context, userID int64) (int, int, error) {
+	walletSvc := service.Wallet()
+	res, err := walletSvc.GetBalance(ctx, userID)
+	if err != nil {
+		return 0, 0, err
+	}
+	return res.Balance, res.Credits, nil
+}
+
+func (c *pluginCommerce) SpendBalance(ctx context.Context, userID int64, amount int, refType, refID, note string) (int, error) {
+	return service.Wallet().Spend(ctx, userID, amount, refType, refID, note)
+}
+
+func (c *pluginCommerce) SpendCredits(ctx context.Context, userID int64, amount int, refType, refID, note string) (int, error) {
+	return service.Credits().Spend(ctx, userID, amount, refType, refID, note)
+}
+
+func (c *pluginCommerce) RefundBalance(ctx context.Context, userID int64, amount int, refType, refID, note string) (int, error) {
+	return service.Wallet().Refund(ctx, userID, amount, refType, refID, note)
+}
+
+func (c *pluginCommerce) RefundCredits(ctx context.Context, userID int64, amount int, refType, refID, note string) (int, error) {
+	return service.Credits().Earn(ctx, userID, amount, "refund", refType, refID, note)
 }
 
 // pluginLogger implements sdk.Logger
