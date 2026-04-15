@@ -161,14 +161,10 @@ export function usePluginLoader() {
  * - community: loaded in a sandboxed iframe with postMessage bridge
  */
 async function loadAdminScript(plugin: PluginClientItem, moduleFile: string) {
-  // module may include a directory prefix (e.g. "dist/admin.mjs"), but the
-  // backend saves assets as flat filenames. Strip any directory prefix.
-  const assetFilename = moduleFile.split('/').pop()!
-
   if (plugin.trust_level === 'official' || plugin.trust_level === 'local') {
     // Main context — load via loadPluginModule (source rewriting + Blob URL import)
     try {
-      const mod = await loadPluginModule(plugin.id, assetFilename, plugin.version)
+      const mod = await loadPluginModule(plugin.id, moduleFile, plugin.version)
       if (typeof mod.activate === 'function') {
         await mod.activate((window as any).nuxtblogAdmin)
       }
@@ -180,7 +176,7 @@ async function loadAdminScript(plugin: PluginClientItem, moduleFile: string) {
   else {
     // Community plugins: sandboxed iframe
     // The iframe only has access to a restricted postMessage-based API
-    const scriptUrl = `/api/plugins/${encodeURIComponent(plugin.id)}/assets/${assetFilename}?v=${plugin.version}`
+    const scriptUrl = `/api/plugins/${encodeURIComponent(plugin.id)}/assets/${moduleFile}?v=${plugin.version}`
     loadInSandbox(plugin.id, scriptUrl)
   }
 }

@@ -170,8 +170,7 @@ async function loadPublicScript(
   createPluginApi: (meta: PublicPluginPermissions) => Record<string, any>,
   backendOrigin: string,
 ) {
-  const assetFilename = moduleFile.split('/').pop()!
-  const scriptUrl = `${backendOrigin}/api/plugins/${encodeURIComponent(plugin.id)}/assets/${assetFilename}?v=${plugin.version}`
+  const scriptUrl = `${backendOrigin}/api/plugins/${encodeURIComponent(plugin.id)}/assets/${moduleFile}?v=${plugin.version}`
 
   if (plugin.trust_level === 'official' || plugin.trust_level === 'local') {
     try {

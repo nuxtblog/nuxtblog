@@ -235,11 +235,25 @@ func (m *Manager) RegisterAssetRoutes(s *ghttp.Server, assetsDir string) {
 		}
 	})
 
-	s.BindHandler("GET:/api/plugins/{id}/assets/{filename}", func(r *ghttp.Request) {
-		pluginID := r.Get("id").String()
-		filename := r.Get("filename").String()
+	const assetRoutePrefix = "/api/plugins/"
+	const assetRouteSuffix = "/assets/"
 
-		if pluginID == "" || filename == "" {
+	s.BindHandler("GET:/api/plugins/{id}/assets/*", func(r *ghttp.Request) {
+		pluginID := r.Get("id").String()
+		if pluginID == "" {
+			r.Response.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		// Extract the file path after /api/plugins/{id}/assets/
+		prefix := assetRoutePrefix + pluginID + assetRouteSuffix
+		filename := strings.TrimPrefix(r.URL.Path, prefix)
+		// Strip query string if GoFrame leaks it into the path
+		if idx := strings.IndexByte(filename, '?'); idx >= 0 {
+			filename = filename[:idx]
+		}
+
+		if filename == "" {
 			r.Response.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -251,15 +265,17 @@ func (m *Manager) RegisterAssetRoutes(s *ghttp.Server, assetsDir string) {
 			return
 		}
 
-		// Prevent path traversal.
-		cleanName := filepath.Base(filename)
-		if cleanName != filename || strings.Contains(filename, "..") {
+		// Prevent path traversal: reject ".." segments.
+		// Allow subdirectories like "dist/public.mjs" but not "../../etc/passwd".
+		cleaned := filepath.ToSlash(filepath.Clean(filename))
+		if strings.Contains(cleaned, "..") || strings.HasPrefix(cleaned, "/") {
 			r.Response.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
 		// Sanitize plugin ID to directory name.
 		dirName := strings.ReplaceAll(pluginID, "/", "--")
+		baseName := filepath.Base(cleaned)
 
 		// 1) In-memory lookup via sdk.HasAssets — required for builtin plugins
 		//    whose assets are //go:embed'd into the binary and never on disk.
@@ -270,12 +286,14 @@ func (m *Manager) RegisterAssetRoutes(s *ghttp.Server, assetsDir string) {
 			if ap, ok := lp.plugin.(sdk.HasAssets); ok {
 				if assets := ap.Assets(); len(assets) > 0 {
 					var memData []byte
-					if d, hit := assets[cleanName]; hit {
+					// Try exact path first (e.g. "dist/admin.mjs"), then base name only
+					if d, hit := assets[cleaned]; hit {
+						memData = d
+					} else if d, hit := assets[baseName]; hit {
 						memData = d
 					} else {
-						// Defensive: some plugins use keys like "dist/admin.mjs"
 						for k, d := range assets {
-							if filepath.Base(k) == cleanName {
+							if filepath.Base(k) == baseName {
 								memData = d
 								break
 							}
@@ -294,11 +312,19 @@ func (m *Manager) RegisterAssetRoutes(s *ghttp.Server, assetsDir string) {
 		}
 
 		// 2) Disk fallback for JS/yaegi plugins.
-		filePath := filepath.Join(assetsDir, dirName, cleanName)
+		// Support subdirectories: "dist/public.mjs" → data/plugins/{id}/dist/public.mjs
+		filePath := filepath.Join(assetsDir, dirName, filepath.FromSlash(cleaned))
 		data, err := os.ReadFile(filePath)
 		if err != nil {
-			r.Response.WriteHeader(http.StatusNotFound)
-			return
+			// Fallback: try base name only (flat layout) for backward compatibility
+			if cleaned != baseName {
+				flatPath := filepath.Join(assetsDir, dirName, baseName)
+				data, err = os.ReadFile(flatPath)
+			}
+			if err != nil {
+				r.Response.WriteHeader(http.StatusNotFound)
+				return
+			}
 		}
 
 		if ct, ok := extContentType[ext]; ok {
