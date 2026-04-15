@@ -168,7 +168,13 @@
           </template>
           <p class="text-sm text-muted mb-4">{{ $t('admin.settings.homepage.sections_hint') }}</p>
 
-          <div class="space-y-2">
+          <VueDraggable
+            tag="div"
+            class="space-y-2"
+            v-model="form.sections"
+            :animation="200"
+            handle=".section-drag-handle"
+          >
             <div
               v-for="(section, index) in form.sections"
               :key="section.id"
@@ -179,11 +185,18 @@
                 class="flex items-center gap-3 px-3 py-2.5"
                 :class="expandedSection[section.id] ? 'bg-elevated' : 'bg-default'"
               >
+                <UIcon
+                  name="i-tabler-grip-vertical"
+                  class="section-drag-handle size-4 shrink-0 cursor-grab text-muted hover:text-primary active:cursor-grabbing"
+                />
                 <UCheckbox v-model="section.enabled" />
                 <span
                   class="flex-1 text-sm select-none"
                   :class="section.enabled ? 'text-highlighted' : 'text-muted'"
-                >{{ $t(section.label) }}</span>
+                >
+                  {{ section.isPlugin ? section.label : $t(section.label) }}
+                  <UIcon v-if="section.isPlugin" name="i-tabler-puzzle" class="size-3.5 text-muted ml-1 inline-block align-text-bottom" />
+                </span>
                 <UButton
                   :icon="expandedSection[section.id] ? 'i-tabler-chevron-up' : 'i-tabler-settings'"
                   variant="ghost"
@@ -204,130 +217,143 @@
                   <span class="text-sm text-default flex-1">{{ $t('admin.settings.homepage.section_title_label') }}</span>
                   <UInput
                     v-model="section.title"
-                    :placeholder="$t(section.label)"
+                    :placeholder="section.isPlugin ? section.label : $t(section.label)"
                     size="sm"
                     class="w-40"
                   />
                 </div>
 
-                <!-- 布局 -->
-                <div class="flex items-center gap-3">
-                  <span class="text-sm text-default flex-1">{{ $t('admin.settings.homepage.section_layout_label') }}</span>
-                  <USelect
-                    v-model="section.layout"
-                    :items="LAYOUT_OPTIONS"
-                    value-key="value"
-                    label-key="label"
-                    size="sm"
-                    class="w-40"
+                <!-- 插件区块：仅自定义设置 -->
+                <template v-if="section.isPlugin">
+                  <PluginSettingFields
+                    v-if="getSectionSettings(section.id)?.length && section.pluginSettings"
+                    :schema="getSectionSettings(section.id)!"
+                    :model-value="section.pluginSettings"
+                    @update:model-value="section.pluginSettings = $event"
                   />
-                </div>
+                </template>
 
-                <!-- 数量 -->
-                <div class="flex items-center gap-3">
-                  <span class="text-sm text-default flex-1">{{ $t('admin.settings.homepage.section_count_label') }}</span>
-                  <UInput
-                    v-model.number="section.count"
-                    type="number"
-                    :min="1"
-                    :max="50"
-                    size="sm"
-                    class="w-20"
-                  />
-                  <span class="text-xs text-muted">{{ $t('admin.settings.homepage.count_unit2') }}</span>
-                </div>
-
-                <!-- 分类过滤（仅最新文章） -->
-                <template v-if="section.id === 'latest'">
-                  <div class="space-y-2">
-                    <p class="text-xs font-medium text-muted uppercase tracking-wide">{{ $t('admin.settings.homepage.include_categories') }}</p>
-                    <div v-if="categories.length === 0" class="text-xs text-muted">{{ $t('admin.settings.homepage.no_categories') }}</div>
-                    <div v-else class="grid grid-cols-2 gap-1.5">
-                      <label
-                        v-for="cat in categories"
-                        :key="cat.term_taxonomy_id"
-                        class="flex items-center gap-2 cursor-pointer"
-                      >
-                        <UCheckbox
-                          :model-value="section.includeCategoryIds?.includes(cat.term_taxonomy_id) ?? false"
-                          @update:model-value="toggleCategoryId(section, 'includeCategoryIds', cat.term_taxonomy_id, $event)"
-                        />
-                        <span class="text-sm text-default">{{ cat.name }}</span>
-                      </label>
-                    </div>
-                    <p class="text-xs text-muted">{{ $t('admin.settings.homepage.all_categories_hint') }}</p>
+                <!-- 内置区块配置 -->
+                <template v-else>
+                  <!-- 布局 -->
+                  <div class="flex items-center gap-3">
+                    <span class="text-sm text-default flex-1">{{ $t('admin.settings.homepage.section_layout_label') }}</span>
+                    <USelect
+                      v-model="section.layout"
+                      :items="LAYOUT_OPTIONS"
+                      value-key="value"
+                      label-key="label"
+                      size="sm"
+                      class="w-40"
+                    />
                   </div>
-                  <div class="space-y-2">
-                    <p class="text-xs font-medium text-muted uppercase tracking-wide">{{ $t('admin.settings.homepage.exclude_categories') }}</p>
-                    <div v-if="categories.length === 0" class="text-xs text-muted">{{ $t('admin.settings.homepage.no_categories') }}</div>
-                    <div v-else class="grid grid-cols-2 gap-1.5">
-                      <label
-                        v-for="cat in categories"
-                        :key="cat.term_taxonomy_id"
-                        class="flex items-center gap-2 cursor-pointer"
-                      >
-                        <UCheckbox
-                          :model-value="section.excludeCategoryIds?.includes(cat.term_taxonomy_id) ?? false"
-                          @update:model-value="toggleCategoryId(section, 'excludeCategoryIds', cat.term_taxonomy_id, $event)"
-                        />
-                        <span class="text-sm text-default">{{ cat.name }}</span>
-                      </label>
+
+                  <!-- 数量 -->
+                  <div class="flex items-center gap-3">
+                    <span class="text-sm text-default flex-1">{{ $t('admin.settings.homepage.section_count_label') }}</span>
+                    <UInput
+                      v-model.number="section.count"
+                      type="number"
+                      :min="1"
+                      :max="50"
+                      size="sm"
+                      class="w-20"
+                    />
+                    <span class="text-xs text-muted">{{ $t('admin.settings.homepage.count_unit2') }}</span>
+                  </div>
+
+                  <!-- 分类过滤（仅最新文章） -->
+                  <template v-if="section.id === 'latest'">
+                    <div class="space-y-2">
+                      <p class="text-xs font-medium text-muted uppercase tracking-wide">{{ $t('admin.settings.homepage.include_categories') }}</p>
+                      <div v-if="categories.length === 0" class="text-xs text-muted">{{ $t('admin.settings.homepage.no_categories') }}</div>
+                      <div v-else class="grid grid-cols-2 gap-1.5">
+                        <label
+                          v-for="cat in categories"
+                          :key="cat.term_taxonomy_id"
+                          class="flex items-center gap-2 cursor-pointer"
+                        >
+                          <UCheckbox
+                            :model-value="section.includeCategoryIds?.includes(cat.term_taxonomy_id) ?? false"
+                            @update:model-value="toggleCategoryId(section, 'includeCategoryIds', cat.term_taxonomy_id, $event)"
+                          />
+                          <span class="text-sm text-default">{{ cat.name }}</span>
+                        </label>
+                      </div>
+                      <p class="text-xs text-muted">{{ $t('admin.settings.homepage.all_categories_hint') }}</p>
+                    </div>
+                    <div class="space-y-2">
+                      <p class="text-xs font-medium text-muted uppercase tracking-wide">{{ $t('admin.settings.homepage.exclude_categories') }}</p>
+                      <div v-if="categories.length === 0" class="text-xs text-muted">{{ $t('admin.settings.homepage.no_categories') }}</div>
+                      <div v-else class="grid grid-cols-2 gap-1.5">
+                        <label
+                          v-for="cat in categories"
+                          :key="cat.term_taxonomy_id"
+                          class="flex items-center gap-2 cursor-pointer"
+                        >
+                          <UCheckbox
+                            :model-value="section.excludeCategoryIds?.includes(cat.term_taxonomy_id) ?? false"
+                            @update:model-value="toggleCategoryId(section, 'excludeCategoryIds', cat.term_taxonomy_id, $event)"
+                          />
+                          <span class="text-sm text-default">{{ cat.name }}</span>
+                        </label>
+                      </div>
+                    </div>
+                  </template>
+
+                  <!-- 头部操作按钮 -->
+                  <div class="space-y-3 pt-3 border-t border-default">
+                    <p class="text-xs font-medium text-muted uppercase tracking-wide">{{ $t('admin.settings.homepage.section_action_label') }}</p>
+                    <div class="flex items-center justify-between">
+                      <span class="text-sm text-default">{{ $t('admin.settings.homepage.section_action_enable') }}</span>
+                      <UCheckbox v-model="ensureAction(section).enabled" />
+                    </div>
+                    <template v-if="section.action?.enabled">
+                      <!-- 按钮文字 -->
+                      <div class="flex items-center gap-3">
+                        <span class="text-sm text-default flex-1">{{ $t('admin.settings.homepage.section_action_btn_label') }}</span>
+                        <UInput
+                          v-model="ensureAction(section).label"
+                          :placeholder="sectionDefaultActionLabel(section.id)"
+                          size="sm"
+                          class="w-40" />
+                      </div>
+                      <!-- 跳转分类（仅最新文章） -->
+                      <div v-if="section.id === 'latest'" class="flex items-center gap-3">
+                        <span class="text-sm text-default flex-1">{{ $t('admin.settings.homepage.section_action_category') }}</span>
+                        <AdminSearchableSelect
+                          v-model="ensureAction(section).categorySlug"
+                          :items="[{ label: $t('admin.posts.all_categories'), value: '' }, ...categories.map(c => ({ label: c.name, value: c.slug }))]"
+                          :placeholder="$t('admin.posts.all_categories')"
+                          :search-placeholder="$t('admin.posts.search_categories')"
+                          trigger-class="w-40 justify-between" />
+                      </div>
+                      <!-- 自定义链接（非随机刷新类型） -->
+                      <div v-if="section.id !== 'random'" class="flex items-center gap-3">
+                        <span class="text-sm text-default flex-1">{{ $t('admin.settings.homepage.section_action_href') }}</span>
+                        <UInput
+                          v-model="ensureAction(section).href"
+                          :placeholder="section.id === 'latest' ? (section.action?.categorySlug ? `/category/${section.action.categorySlug}` : '/posts') : sectionDefaultActionHref(section.id)"
+                          size="sm"
+                          class="w-40" />
+                      </div>
+                    </template>
+                  </div>
+
+                  <!-- 瀑布流：底部加载更多 -->
+                  <div v-if="section.id === 'masonry'" class="space-y-1 pt-3 border-t border-default">
+                    <div class="flex items-center justify-between">
+                      <div>
+                        <span class="text-sm text-default">{{ $t('admin.settings.homepage.section_load_more_enable') }}</span>
+                        <p class="text-xs text-muted mt-0.5">{{ $t('admin.settings.homepage.section_load_more_enable_desc') }}</p>
+                      </div>
+                      <UCheckbox v-model="section.loadMoreEnabled" />
                     </div>
                   </div>
                 </template>
-
-                <!-- 头部操作按钮 -->
-                <div class="space-y-3 pt-3 border-t border-default">
-                  <p class="text-xs font-medium text-muted uppercase tracking-wide">{{ $t('admin.settings.homepage.section_action_label') }}</p>
-                  <div class="flex items-center justify-between">
-                    <span class="text-sm text-default">{{ $t('admin.settings.homepage.section_action_enable') }}</span>
-                    <UCheckbox v-model="ensureAction(section).enabled" />
-                  </div>
-                  <template v-if="section.action?.enabled">
-                    <!-- 按钮文字 -->
-                    <div class="flex items-center gap-3">
-                      <span class="text-sm text-default flex-1">{{ $t('admin.settings.homepage.section_action_btn_label') }}</span>
-                      <UInput
-                        v-model="ensureAction(section).label"
-                        :placeholder="sectionDefaultActionLabel(section.id)"
-                        size="sm"
-                        class="w-40" />
-                    </div>
-                    <!-- 跳转分类（仅最新文章） -->
-                    <div v-if="section.id === 'latest'" class="flex items-center gap-3">
-                      <span class="text-sm text-default flex-1">{{ $t('admin.settings.homepage.section_action_category') }}</span>
-                      <AdminSearchableSelect
-                        v-model="ensureAction(section).categorySlug"
-                        :items="[{ label: $t('admin.posts.all_categories'), value: '' }, ...categories.map(c => ({ label: c.name, value: c.slug }))]"
-                        :placeholder="$t('admin.posts.all_categories')"
-                        :search-placeholder="$t('admin.posts.search_categories')"
-                        trigger-class="w-40 justify-between" />
-                    </div>
-                    <!-- 自定义链接（非随机刷新类型） -->
-                    <div v-if="section.id !== 'random'" class="flex items-center gap-3">
-                      <span class="text-sm text-default flex-1">{{ $t('admin.settings.homepage.section_action_href') }}</span>
-                      <UInput
-                        v-model="ensureAction(section).href"
-                        :placeholder="section.id === 'latest' ? (section.action?.categorySlug ? `/category/${section.action.categorySlug}` : '/posts') : sectionDefaultActionHref(section.id)"
-                        size="sm"
-                        class="w-40" />
-                    </div>
-                  </template>
-                </div>
-
-                <!-- 瀑布流：底部加载更多 -->
-                <div v-if="section.id === 'masonry'" class="space-y-1 pt-3 border-t border-default">
-                  <div class="flex items-center justify-between">
-                    <div>
-                      <span class="text-sm text-default">{{ $t('admin.settings.homepage.section_load_more_enable') }}</span>
-                      <p class="text-xs text-muted mt-0.5">{{ $t('admin.settings.homepage.section_load_more_enable_desc') }}</p>
-                    </div>
-                    <UCheckbox v-model="section.loadMoreEnabled" />
-                  </div>
-                </div>
               </div>
             </div>
-          </div>
+          </VueDraggable>
         </UCard>
 
       </div>
@@ -375,6 +401,54 @@ const pluginWidgetDefaults = computed((): WidgetConfig[] =>
     }),
 )
 
+// Plugin home sections from contributions
+const pluginSectionViews = contributionsStore.getViewItems('public:home-section')
+const pluginSectionDefaults = computed((): SectionConfig[] =>
+  pluginSectionViews.value
+    .filter((v: { component?: string; module?: string }) => v.component && v.module)
+    .map((v: { pluginId: string; id: string; title: string; component?: string; module?: string; settings?: PluginSettingField[] }) => {
+      const pluginSettings: Record<string, unknown> = {}
+      if (v.settings) {
+        for (const s of v.settings) {
+          if (s.default !== undefined) pluginSettings[s.key] = s.default
+        }
+      }
+      return {
+        id: `plugin:${v.pluginId}:${v.id}`,
+        label: v.title || v.id,
+        enabled: false,
+        count: 0,
+        isPlugin: true as const,
+        pluginId: v.pluginId,
+        component: v.component,
+        module: v.module,
+        ...(Object.keys(pluginSettings).length > 0 ? { pluginSettings } : {}),
+      }
+    }),
+)
+
+/** Look up section settings schema from the plugin contributions store. */
+function getSectionSettings(sectionId: string): PluginSettingField[] | undefined {
+  const parts = sectionId.split(':')
+  if (parts.length < 3 || parts[0] !== 'plugin') return undefined
+  const pluginId = parts[1]
+  const viewId = parts.slice(2).join(':')
+  const view = pluginSectionViews.value.find(v => v.pluginId === pluginId && v.id === viewId)
+  return view?.settings?.length ? view.settings : undefined
+}
+
+/** Initialize pluginSettings on a section if missing. Must be called OUTSIDE render. */
+function initSectionPluginSettings(section: SectionConfig) {
+  if (section.pluginSettings) return
+  const schema = getSectionSettings(section.id)
+  if (!schema) return
+  const defaults: Record<string, unknown> = {}
+  for (const field of schema) {
+    if (field.default !== undefined) defaults[field.key] = field.default
+  }
+  section.pluginSettings = defaults
+}
+
 /** Look up widget settings schema from the plugin contributions store. */
 function getWidgetSettings(widgetId: string): PluginSettingField[] | undefined {
   const parts = widgetId.split(':')
@@ -420,6 +494,8 @@ const toggleExpand = (id: string) => {
   expanded.value[id] = !expanded.value[id]
 }
 const toggleSectionExpand = (id: string) => {
+  const section = form.value.sections.find(s => s.id === id)
+  if (section?.isPlugin) initSectionPluginSettings(section)
   expandedSection.value[id] = !expandedSection.value[id]
 }
 
@@ -437,6 +513,7 @@ const isAllSectionsExpanded = computed(() =>
 )
 const toggleExpandAllSections = () => {
   const val = !isAllSectionsExpanded.value
+  if (val) form.value.sections.forEach(s => { if (s.isPlugin) initSectionPluginSettings(s) })
   form.value.sections.forEach(s => { expandedSection.value[s.id] = val })
 }
 
@@ -474,13 +551,17 @@ const toggleCategoryId = (
   }
 }
 
-// Cache raw saved widgets from API for late-arriving plugin contribution merges
+// Cache raw saved data from API for late-arriving plugin contribution merges
 const savedWidgetsRaw = ref<WidgetConfig[]>([])
+const savedSectionsRaw = ref<SectionConfig[]>([])
 
 const form = ref({
   sidebarEnabled: false,
   widgets: [...HOMEPAGE_WIDGET_DEFAULTS, ...pluginWidgetDefaults.value].map(w => ({ ...w, title: w.isPlugin ? w.label : resolveTitle(w.title ?? w.label) })),
-  sections: SECTION_DEFAULTS.map(s => ({ ...s, title: resolveTitle(s.title ?? s.label), layout: s.layout ?? 'grid', includeCategoryIds: [...(s.includeCategoryIds ?? [])], excludeCategoryIds: [...(s.excludeCategoryIds ?? [])], action: { enabled: false, ...s.action }, loadMoreEnabled: s.loadMoreEnabled ?? false })),
+  sections: [
+    ...SECTION_DEFAULTS.map(s => ({ ...s, title: resolveTitle(s.title ?? s.label), layout: s.layout ?? 'grid', includeCategoryIds: [...(s.includeCategoryIds ?? [])], excludeCategoryIds: [...(s.excludeCategoryIds ?? [])], action: { enabled: false, ...s.action }, loadMoreEnabled: s.loadMoreEnabled ?? false })),
+    ...pluginSectionDefaults.value.map(s => ({ ...s, title: s.label })),
+  ],
 })
 
 const loadSettings = async () => {
@@ -525,12 +606,52 @@ const loadSettings = async () => {
     }
     if (opts.homepage_sections !== undefined) {
       const parsed = JSON.parse(opts.homepage_sections) as SectionConfig[]
-      form.value.sections = SECTION_DEFAULTS.map(def => {
+      savedSectionsRaw.value = parsed
+
+      // Built-in sections: merge saved over defaults (preserve order from saved)
+      const builtinSections = SECTION_DEFAULTS.map(def => {
         const saved = parsed.find(s => s.id === def.id)
         return saved
           ? { ...def, ...saved, label: def.label, title: resolveTitle(saved.title ?? def.title ?? def.label), layout: saved.layout ?? def.layout ?? 'grid', includeCategoryIds: saved.includeCategoryIds ?? [], excludeCategoryIds: saved.excludeCategoryIds ?? [], action: { enabled: false, ...def.action, ...saved.action }, loadMoreEnabled: saved.loadMoreEnabled ?? def.loadMoreEnabled ?? false }
           : { ...def, title: resolveTitle(def.title ?? def.label), layout: def.layout ?? 'grid', action: { enabled: false, ...def.action }, loadMoreEnabled: def.loadMoreEnabled ?? false }
       })
+
+      // Plugin sections: filter out uninstalled, merge saved config, append new
+      const allPluginDefaults = pluginSectionDefaults.value
+      const savedPluginSections = parsed
+        .filter(s => s.isPlugin)
+        .filter(s => allPluginDefaults.some(pd => pd.id === s.id))
+        .map(saved => {
+          const def = allPluginDefaults.find(pd => pd.id === saved.id)!
+          return { ...def, ...saved, label: def.label, title: saved.title || def.label, component: def.component, module: def.module }
+        })
+      const savedPluginIds = new Set(savedPluginSections.map(s => s.id))
+      const newPluginSections = allPluginDefaults
+        .filter(pd => !savedPluginIds.has(pd.id))
+        .map(pd => ({ ...pd, title: pd.label }))
+
+      // Reconstruct: use saved order for sections that exist in saved array, append rest
+      const savedOrder = parsed.map(s => s.id)
+      const allSections = [...builtinSections, ...savedPluginSections, ...newPluginSections]
+      const orderedSections: SectionConfig[] = []
+      // First, add sections in saved order
+      for (const id of savedOrder) {
+        const section = allSections.find(s => s.id === id)
+        if (section) orderedSections.push(section)
+      }
+      // Then, add any sections not in saved order (new builtins or new plugins)
+      for (const section of allSections) {
+        if (!orderedSections.some(s => s.id === section.id)) {
+          orderedSections.push(section)
+        }
+      }
+      form.value.sections = orderedSections
+    } else {
+      // No saved config — use all defaults including plugin sections
+      form.value.sections = [
+        ...SECTION_DEFAULTS.map(s => ({ ...s, title: resolveTitle(s.title ?? s.label), layout: s.layout ?? 'grid', action: { enabled: false, ...s.action }, loadMoreEnabled: s.loadMoreEnabled ?? false })),
+        ...pluginSectionDefaults.value.map(s => ({ ...s, title: s.label })),
+      ]
     }
   } catch (e) {
     console.error(e)
@@ -585,6 +706,25 @@ watch(pluginWidgetDefaults, (newPluginWidgets) => {
   }
   if (toAdd.length > 0) {
     form.value.widgets = [...form.value.widgets, ...toAdd] as typeof form.value.widgets
+  }
+})
+
+// When plugin section contributions arrive after initial load, merge new plugin sections into form.
+watch(pluginSectionDefaults, (newPluginSections) => {
+  if (!newPluginSections.length) return
+  const existingIds = new Set(form.value.sections.map(s => s.id))
+  const toAdd: SectionConfig[] = []
+  for (const ps of newPluginSections) {
+    if (existingIds.has(ps.id)) continue
+    const saved = savedSectionsRaw.value.find(s => s.id === ps.id)
+    if (saved) {
+      toAdd.push({ ...ps, ...saved, label: ps.label, title: saved.title || ps.label })
+    } else {
+      toAdd.push({ ...ps, title: ps.label })
+    }
+  }
+  if (toAdd.length > 0) {
+    form.value.sections = [...form.value.sections, ...toAdd]
   }
 })
 </script>

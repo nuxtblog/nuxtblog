@@ -28,6 +28,7 @@ export const CONTRIBUTION_SLOTS = {
   // ── Public: Home ────────────────────────────────────────────────────────
   PUBLIC_HOME_TOP: 'public:home-top',
   PUBLIC_HOME_BOTTOM: 'public:home-bottom',
+  PUBLIC_HOME_SECTION: 'public:home-section',
 
   // ── Public: Posts list ──────────────────────────────────────────────────
   PUBLIC_POSTS_TOP: 'public:posts-top',

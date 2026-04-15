@@ -16,6 +16,11 @@ export interface SectionConfig {
   excludeCategoryIds?: number[]
   action?: SectionActionConfig
   loadMoreEnabled?: boolean
+  isPlugin?: boolean
+  pluginId?: string
+  component?: string
+  module?: string
+  pluginSettings?: Record<string, unknown>
 }
 
 /** label values are i18n keys — call $t(layout.label) in templates */
@@ -45,8 +50,15 @@ export const useHomepageSections = () => {
 
   const getSectionConfig = (id: string): SectionConfig => {
     const saved = optionStore.getJSON<SectionConfig[]>('homepage_sections', SECTION_DEFAULTS)
-    const def = SECTION_DEFAULTS.find(s => s.id === id) ?? { id, label: id, enabled: false, count: 5 }
     const found = saved.find(s => s.id === id)
+    const def = SECTION_DEFAULTS.find(s => s.id === id)
+
+    // Plugin section: no built-in default, return saved entry directly
+    if (!def) {
+      return found ?? { id, label: id, enabled: false, count: 5 }
+    }
+
+    // Built-in section: merge saved over defaults
     // label: always i18n key (used in admin UI with $t())
     // title: resolved plain text — user custom value or translated default
     const resolvedTitle = found?.title && !found.title.startsWith('admin.') ? found.title : t(def.title ?? def.label)

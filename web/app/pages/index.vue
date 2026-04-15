@@ -12,53 +12,67 @@
         <ClientOnly><ContributionSlot name="public:home-top" /></ClientOnly>
 
         <section v-for="section in activeSections" :key="section.id">
-          <!-- Section Header -->
-          <div class="flex items-center gap-3 mb-4 md:mb-6">
-            <UIcon :name="sectionIcon(section.id)" class="size-5 text-primary" />
-            <h3 class="md:text-2xl font-bold text-highlighted">{{ section.title }}</h3>
-            <UBadge v-if="section.id === 'latest'" color="primary" variant="soft" size="sm">New</UBadge>
-            <!-- Action button -->
-            <div v-if="section.action?.enabled" class="ml-auto flex items-center">
-              <UButton
-                v-if="section.id === 'random'"
-                variant="ghost"
-                color="neutral"
-                size="sm"
-                icon="i-tabler-refresh"
-                :loading="randomLoading"
-                @click="refreshRandom">
-                {{ section.action.label || $t('common.refresh') }}
-              </UButton>
-              <NuxtLink
-                v-else
-                :to="getActionHref(section)"
-                class="flex items-center gap-0.5 text-sm text-primary hover:opacity-75 transition-opacity font-medium">
-                {{ section.action.label || $t('common.view_more') }}
-                <UIcon name="i-tabler-chevron-right" class="size-4" />
-              </NuxtLink>
+          <!-- Plugin section -->
+          <template v-if="section.isPlugin">
+            <div v-if="section.title" class="flex items-center gap-3 mb-4 md:mb-6">
+              <UIcon name="i-tabler-puzzle" class="size-5 text-primary" />
+              <h3 class="md:text-2xl font-bold text-highlighted">{{ section.title }}</h3>
             </div>
-          </div>
+            <ClientOnly>
+              <component :is="getPluginSectionComponent(section)" v-if="getPluginSectionComponent(section)" :config="section" />
+            </ClientOnly>
+          </template>
 
-          <HomePostGridWithImage   v-if="section.layout === 'grid'"     :posts="sectionPosts(section.id)" :max-length="section.count" />
-          <HomePostListWithImage   v-else-if="section.layout === 'list'"    :posts="sectionPosts(section.id)" :max-length="section.count" />
-          <HomePostSimpleList      v-else-if="section.layout === 'simple'"  :posts="sectionPosts(section.id)" :max-length="section.count" />
-          <HomePostMasonry         v-else-if="section.layout === 'masonry'" :posts="sectionPosts(section.id)" :max-length="section.count" />
-          <HomePostFeaturedHero    v-else-if="section.layout === 'hero'"    :posts="sectionPosts(section.id)" :max-length="section.count" />
-          <HomePostTimeline        v-else-if="section.layout === 'timeline'":posts="sectionPosts(section.id)" :max-length="section.count" />
-          <HomePostRanking         v-else-if="section.layout === 'ranking'" :posts="sectionPosts(section.id)" :max-length="section.count" />
-          <HomePostGridWithImage   v-else                                    :posts="sectionPosts(section.id)" :max-length="section.count" />
+          <!-- Built-in section -->
+          <template v-else>
+            <!-- Section Header -->
+            <div class="flex items-center gap-3 mb-4 md:mb-6">
+              <UIcon :name="sectionIcon(section.id)" class="size-5 text-primary" />
+              <h3 class="md:text-2xl font-bold text-highlighted">{{ section.title }}</h3>
+              <UBadge v-if="section.id === 'latest'" color="primary" variant="soft" size="sm">New</UBadge>
+              <!-- Action button -->
+              <div v-if="section.action?.enabled" class="ml-auto flex items-center">
+                <UButton
+                  v-if="section.id === 'random'"
+                  variant="ghost"
+                  color="neutral"
+                  size="sm"
+                  icon="i-tabler-refresh"
+                  :loading="randomLoading"
+                  @click="refreshRandom">
+                  {{ section.action.label || $t('common.refresh') }}
+                </UButton>
+                <NuxtLink
+                  v-else
+                  :to="getActionHref(section)"
+                  class="flex items-center gap-0.5 text-sm text-primary hover:opacity-75 transition-opacity font-medium">
+                  {{ section.action.label || $t('common.view_more') }}
+                  <UIcon name="i-tabler-chevron-right" class="size-4" />
+                </NuxtLink>
+              </div>
+            </div>
 
-          <!-- Masonry load more -->
-          <div v-if="section.id === 'masonry' && section.loadMoreEnabled && masonryHasMore" class="flex justify-center mt-6">
-            <UButton
-              variant="outline"
-              color="neutral"
-              :loading="masonryLoading"
-              icon="i-tabler-loader-2"
-              @click="loadMoreMasonry">
-              {{ $t('common.load_more') }}
-            </UButton>
-          </div>
+            <HomePostGridWithImage   v-if="section.layout === 'grid'"     :posts="sectionPosts(section.id)" :max-length="section.count" />
+            <HomePostListWithImage   v-else-if="section.layout === 'list'"    :posts="sectionPosts(section.id)" :max-length="section.count" />
+            <HomePostSimpleList      v-else-if="section.layout === 'simple'"  :posts="sectionPosts(section.id)" :max-length="section.count" />
+            <HomePostMasonry         v-else-if="section.layout === 'masonry'" :posts="sectionPosts(section.id)" :max-length="section.count" />
+            <HomePostFeaturedHero    v-else-if="section.layout === 'hero'"    :posts="sectionPosts(section.id)" :max-length="section.count" />
+            <HomePostTimeline        v-else-if="section.layout === 'timeline'":posts="sectionPosts(section.id)" :max-length="section.count" />
+            <HomePostRanking         v-else-if="section.layout === 'ranking'" :posts="sectionPosts(section.id)" :max-length="section.count" />
+            <HomePostGridWithImage   v-else                                    :posts="sectionPosts(section.id)" :max-length="section.count" />
+
+            <!-- Masonry load more -->
+            <div v-if="section.id === 'masonry' && section.loadMoreEnabled && masonryHasMore" class="flex justify-center mt-6">
+              <UButton
+                variant="outline"
+                color="neutral"
+                :loading="masonryLoading"
+                icon="i-tabler-loader-2"
+                @click="loadMoreMasonry">
+                {{ $t('common.load_more') }}
+              </UButton>
+            </div>
+          </template>
         </section>
 
         <ClientOnly><ContributionSlot name="public:home-bottom" /></ClientOnly>
@@ -72,10 +86,12 @@
 </template>
 
 <script setup lang="ts">
+import type { Component } from 'vue'
 import type { PostCard } from "~/types/models/post";
 import type { SectionConfig } from "~/composables/useHomepageSections";
 import { transformPostList } from "~/utils/transformers/post";
 import { SECTION_DEFAULTS } from "~/composables/useHomepageSections";
+import { createPluginAsyncComponent } from "~/composables/usePluginComponents";
 
 const { defaultCover } = usePostCover();
 const postApi = usePostApi();
@@ -89,13 +105,41 @@ const sidebarEnabled = computed(() =>
 
 const { getSectionConfig } = useHomepageSections();
 
-// Load all section configs
-const allSections = computed(() =>
-  SECTION_DEFAULTS.map((def) => getSectionConfig(def.id)),
-);
+// Plugin section contributions — used to get latest component/module values
+const contributionsStore = usePluginContributionsStore()
+const pluginSectionViews = contributionsStore.getViewItems('public:home-section')
+
+// Load all section configs — built-in + plugin sections from saved order
+const allSections = computed(() => {
+  const saved = optionsStore.getJSON<SectionConfig[]>('homepage_sections', SECTION_DEFAULTS)
+  return saved.map((s) => {
+    if (!s.isPlugin) return getSectionConfig(s.id)
+    // For plugin sections, prefer latest component/module from contributions over saved values
+    if (s.pluginId) {
+      const parts = s.id.split(':')
+      const viewId = parts.slice(2).join(':')
+      const view = pluginSectionViews.value.find(v => v.pluginId === s.pluginId && v.id === viewId)
+      if (view) {
+        return { ...s, component: view.component || s.component, module: view.module || s.module }
+      }
+    }
+    return s
+  })
+});
 const activeSections = computed(() =>
   allSections.value.filter((s) => s.enabled),
 );
+
+// Plugin section component cache
+const pluginSectionCache = new Map<string, Component>()
+function getPluginSectionComponent(section: SectionConfig) {
+  if (!section.pluginId || !section.component || !section.module) return null
+  const key = `${section.pluginId}:${section.component}:${section.module}`
+  if (!pluginSectionCache.has(key)) {
+    pluginSectionCache.set(key, createPluginAsyncComponent(section.pluginId, section.component, section.module))
+  }
+  return pluginSectionCache.get(key)!
+}
 
 // Section icon map
 const sectionIcon = (id: string) => ({
