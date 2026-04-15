@@ -24,7 +24,6 @@ const USER_MENU_ICONS: Record<string, string> = {
 
 const FLOATING_TOOLBAR_ICONS: Record<string, string> = {
   'action:profile_login': 'i-tabler-user-circle',
-  'action:checkin': 'i-tabler-calendar-event',
   'action:ft_notifications': 'i-tabler-bell',
   'action:ft_theme_toggle': 'i-tabler-sun-moon',
 }

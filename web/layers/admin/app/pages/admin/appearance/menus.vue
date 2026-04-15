@@ -305,7 +305,12 @@ onMounted(async () => {
 
 function selectSlot(key: NavMenuSlotKey) {
   selectedKey.value = key
-  loadMenuItems(slotData.value[key] ?? [])
+  let items = slotData.value[key] ?? []
+  if (!items.length) {
+    const defaults = NAV_MENU_SLOT_CONFIGS[key]?.defaultItems
+    if (defaults) items = defaults
+  }
+  loadMenuItems(items)
 }
 
 function selectCustom(id: string) {
@@ -320,7 +325,7 @@ function makeId() {
 }
 
 function onAddItems(items: Array<{ label: string; url: string; type: MenuItemType; object_id: number; local_id?: string; css_classes?: string }>) {
-  menuItems.value.push(...items.map(it => ({
+  menuItems.value = [...menuItems.value, ...items.map(it => ({
     local_id: it.local_id || makeId(),
     label: it.label,
     url: it.url,
@@ -331,7 +336,7 @@ function onAddItems(items: Array<{ label: string; url: string; type: MenuItemTyp
     depth: 0,
     parent_local_id: '',
     expanded: false,
-  })))
+  }))]
 }
 
 // ─── Reset ────────────────────────────────────────────────────────────────────

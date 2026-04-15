@@ -42,7 +42,6 @@ export const USER_MENU_BUILTIN_ACTIONS = [
 
 export const FLOATING_TOOLBAR_BUILTIN_ACTIONS = [
   { id: 'action:profile_login', label: '个人中心', icon: 'i-tabler-user-circle' },
-  { id: 'action:checkin', label: '每日签到', icon: 'i-tabler-calendar-event' },
   { id: 'action:ft_notifications', label: '通知', icon: 'i-tabler-bell' },
   { id: 'action:ft_theme_toggle', label: '主题切换', icon: 'i-tabler-sun-moon' },
 ] as const
@@ -94,14 +93,28 @@ export interface NavMenuSlotConfig {
   customLinkHasIcon?: boolean
   supportsNesting?: boolean
   contributionSlot?: string
+  defaultItems?: NavMenuItem[]
+}
+
+function actionsToDefaultItems(actions: readonly { id: string; label: string }[]): NavMenuItem[] {
+  return actions.map(a => ({
+    local_id: a.id,
+    label: a.label,
+    url: '',
+    object_type: 'action' as MenuItemType,
+    object_id: 0,
+    target: '',
+    css_classes: '',
+    parent_local_id: '',
+  }))
 }
 
 export const NAV_MENU_SLOT_CONFIGS: Partial<Record<NavMenuSlotKey, NavMenuSlotConfig>> = {
   primary_menu: { showPages: true, showCategories: true, showCustomLink: true, supportsNesting: true },
-  header_actions: { builtinActions: HEADER_BUILTIN_ACTIONS, showCustomLink: true, customLinkHasIcon: true, contributionSlot: 'public:header-actions' },
-  user_menu: { builtinActions: USER_MENU_BUILTIN_ACTIONS, showCustomLink: true, contributionSlot: 'public:user-menu' },
-  floating_toolbar: { builtinActions: FLOATING_TOOLBAR_BUILTIN_ACTIONS, contributionSlot: 'public:floating-toolbar' },
-  post_actions: { builtinActions: POST_ACTIONS_BUILTIN_ACTIONS, contributionSlot: 'public:post-actions' },
+  header_actions: { builtinActions: HEADER_BUILTIN_ACTIONS, showCustomLink: true, customLinkHasIcon: true, contributionSlot: 'public:header-actions', defaultItems: actionsToDefaultItems(HEADER_BUILTIN_ACTIONS) },
+  user_menu: { builtinActions: USER_MENU_BUILTIN_ACTIONS, showCustomLink: true, contributionSlot: 'public:user-menu', defaultItems: actionsToDefaultItems(USER_MENU_BUILTIN_ACTIONS) },
+  floating_toolbar: { builtinActions: FLOATING_TOOLBAR_BUILTIN_ACTIONS, contributionSlot: 'public:floating-toolbar', defaultItems: actionsToDefaultItems(FLOATING_TOOLBAR_BUILTIN_ACTIONS) },
+  post_actions: { builtinActions: POST_ACTIONS_BUILTIN_ACTIONS, contributionSlot: 'public:post-actions', defaultItems: actionsToDefaultItems(POST_ACTIONS_BUILTIN_ACTIONS) },
 }
 
 /**
