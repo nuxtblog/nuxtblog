@@ -46,6 +46,30 @@ const effectiveSidebar = computed(() => {
   return defaultSidebar.value;
 });
 
+// ── Sidebar context for plugin widgets ────────────────────────────────────
+const postSummary = computed(() => post.value ? {
+  id: post.value.id,
+  slug: post.value.slug,
+  title: post.value.title,
+  excerpt: post.value.excerpt,
+  featuredImg: post.value.featured_img?.url,
+  author: post.value.author ? {
+    id: post.value.author.id,
+    nickname: post.value.author.nickname,
+    avatar: post.value.author.avatar,
+  } : undefined,
+  terms: post.value.terms?.map((t: any) => ({
+    id: t.id ?? t.term_taxonomy_id,
+    name: t.name,
+    taxonomy: t.taxonomy,
+    slug: t.slug,
+  })),
+  publishedAt: post.value.published_at,
+  viewCount: post.value.view_count,
+  commentCount: post.value.comment_count,
+  likeCount: post.value.like_count,
+} : undefined)
+
 // ── Derived data ────────────────────────────────────────────────────────────
 const coverUrl = computed(
   () => post.value?.featured_img?.url || defaultCover.value,
@@ -290,6 +314,7 @@ onMounted(() => {
         <BlogSidebar
           v-if="effectiveSidebar"
           option-key="blog_sidebar_widgets"
+          :context="{ pageType: 'post', post: postSummary }"
           class="lg:col-span-4" />
       </div>
     </template>
@@ -386,6 +411,7 @@ onMounted(() => {
         <BlogSidebar
           v-if="effectiveSidebar"
           option-key="blog_sidebar_widgets"
+          :context="{ pageType: 'post', post: postSummary }"
           class="lg:col-span-4" />
       </div>
     </template>
@@ -468,6 +494,7 @@ onMounted(() => {
         <BlogSidebar
           v-if="effectiveSidebar"
           option-key="blog_sidebar_widgets"
+          :context="{ pageType: 'post', post: postSummary }"
           class="lg:col-span-4" />
       </div>
     </template>

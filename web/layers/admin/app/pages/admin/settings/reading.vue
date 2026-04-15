@@ -128,6 +128,34 @@
 
 <script setup lang="ts">
 import { type WidgetConfig, WIDGET_DEFAULTS } from '~/composables/useWidgetConfig'
+import type { PluginSettingField } from '~/composables/usePluginApi'
+import { usePluginContributionsStore } from '~/stores/plugin-contributions'
+
+const contributionsStore = usePluginContributionsStore()
+const pluginWidgetViews = contributionsStore.getViewItems('public:sidebar-widget')
+const pluginWidgetDefaults = computed((): WidgetConfig[] =>
+  pluginWidgetViews.value
+    .filter((v: { component?: string; module?: string }) => v.component && v.module)
+    .map((v: { pluginId: string; id: string; title: string; component?: string; module?: string; settings?: PluginSettingField[] }) => {
+      const pluginSettings: Record<string, unknown> = {}
+      if (v.settings) {
+        for (const s of v.settings) {
+          if (s.default !== undefined) pluginSettings[s.key] = s.default
+        }
+      }
+      return {
+        id: `plugin:${v.pluginId}:${v.id}`,
+        label: v.title || v.id,
+        enabled: false,
+        isPlugin: true as const,
+        pluginId: v.pluginId,
+        component: v.component,
+        module: v.module,
+        maxCount: 5,
+        ...(Object.keys(pluginSettings).length > 0 ? { pluginSettings } : {}),
+      }
+    }),
+)
 
 const { apiFetch } = useApiFetch();
 const toast = useToast();
@@ -162,14 +190,18 @@ const toggleExpandAllPage = () => {
   form.value.pageWidgets.forEach(w => { expandedPage.value[w.id] = val })
 }
 
+// Cache raw saved widgets from API for late-arriving plugin contribution merges
+const savedPostWidgetsRaw = ref<WidgetConfig[]>([])
+const savedPageWidgetsRaw = ref<WidgetConfig[]>([])
+
 const form = ref({
   postsPerPage: 10,
   postDefaultLayout: 'hero' as 'hero' | 'half' | 'none',
   postSidebarEnabled: false,
   pageDefaultLayout: 'none' as 'hero' | 'half' | 'none',
   pageSidebarEnabled: false,
-  postWidgets: WIDGET_DEFAULTS.map(w => ({ ...w, title: resolveTitle(w.title ?? w.label) })),
-  pageWidgets: WIDGET_DEFAULTS.map(w => ({ ...w, title: resolveTitle(w.title ?? w.label) })),
+  postWidgets: [...WIDGET_DEFAULTS, ...pluginWidgetDefaults.value].map(w => ({ ...w, title: w.isPlugin ? w.label : resolveTitle(w.title ?? w.label) })),
+  pageWidgets: [...WIDGET_DEFAULTS, ...pluginWidgetDefaults.value].map(w => ({ ...w, title: w.isPlugin ? w.label : resolveTitle(w.title ?? w.label) })),
 })
 
 const loadSettings = async () => {
@@ -183,18 +215,33 @@ const loadSettings = async () => {
     if (opts.page_sidebar_enabled !== undefined) form.value.pageSidebarEnabled = JSON.parse(opts.page_sidebar_enabled);
     const mergeWidgets = (raw: string) => {
       const parsed = JSON.parse(raw) as WidgetConfig[]
+      const allDefaults = [...WIDGET_DEFAULTS, ...pluginWidgetDefaults.value]
       const savedIds = parsed.map(w => w.id)
-      const newIds = WIDGET_DEFAULTS.map(w => w.id).filter(id => !savedIds.includes(id))
-      return [
-        ...parsed.map(saved => {
-          const def = WIDGET_DEFAULTS.find(w => w.id === saved.id)
-          return def ? { ...def, ...saved, title: resolveTitle(saved.title ?? def.title ?? def.label) } : saved
-        }),
-        ...WIDGET_DEFAULTS.filter(w => newIds.includes(w.id)).map(w => ({ ...w, title: resolveTitle(w.title ?? w.label) })),
-      ]
+      // Filter out uninstalled plugin widgets, keep valid saved entries
+      const validSaved = parsed
+        .filter(saved =>
+          !saved.id.startsWith('plugin:')
+            ? WIDGET_DEFAULTS.some(d => d.id === saved.id)
+            : pluginWidgetDefaults.value.some(pw => pw.id === saved.id),
+        )
+        .map(saved => {
+          const def = allDefaults.find(w => w.id === saved.id)
+          return def ? { ...def, ...saved, label: def.label, title: saved.isPlugin ? (saved.title || def.label) : resolveTitle(saved.title ?? def.title ?? def.label) } : saved
+        })
+      // Append newly registered widgets not yet in saved config
+      const newWidgets = allDefaults
+        .filter(w => !savedIds.includes(w.id))
+        .map(w => ({ ...w, title: w.isPlugin ? w.label : resolveTitle(w.title ?? w.label) }))
+      return [...validSaved, ...newWidgets]
     }
-    if (opts.blog_sidebar_widgets !== undefined) form.value.postWidgets = mergeWidgets(opts.blog_sidebar_widgets)
-    if (opts.page_sidebar_widgets !== undefined) form.value.pageWidgets = mergeWidgets(opts.page_sidebar_widgets)
+    if (opts.blog_sidebar_widgets !== undefined) {
+      savedPostWidgetsRaw.value = JSON.parse(opts.blog_sidebar_widgets) as WidgetConfig[]
+      form.value.postWidgets = mergeWidgets(opts.blog_sidebar_widgets) as typeof form.value.postWidgets
+    }
+    if (opts.page_sidebar_widgets !== undefined) {
+      savedPageWidgetsRaw.value = JSON.parse(opts.page_sidebar_widgets) as WidgetConfig[]
+      form.value.pageWidgets = mergeWidgets(opts.page_sidebar_widgets) as typeof form.value.pageWidgets
+    }
   } catch (e) {
     console.error(e);
     toast.add({ title: t('common.load_failed'), description: t('common.cannot_read_settings'), color: "error", icon: "i-tabler-alert-circle" });
@@ -246,4 +293,28 @@ const saveSettings = async () => {
 };
 
 await loadSettings();
+
+// When plugin contributions arrive after initial load, merge new plugin widgets into form.
+// Restore saved config for plugin widgets that were filtered out during loadSettings
+// (because contributions hadn't loaded yet at that point).
+watch(pluginWidgetDefaults, (newPluginWidgets) => {
+  if (!newPluginWidgets.length) return
+  const mergeInto = (widgets: WidgetConfig[], savedRaw: WidgetConfig[]) => {
+    const existingIds = new Set(widgets.map(w => w.id))
+    const toAdd: WidgetConfig[] = []
+    for (const pw of newPluginWidgets) {
+      if (existingIds.has(pw.id)) continue
+      // Prefer saved config (from initial API load) over defaults
+      const saved = savedRaw.find(s => s.id === pw.id)
+      if (saved) {
+        toAdd.push({ ...pw, ...saved, label: pw.label, title: saved.title || pw.label })
+      } else {
+        toAdd.push({ ...pw, title: pw.label })
+      }
+    }
+    return toAdd.length > 0 ? [...widgets, ...toAdd] : widgets
+  }
+  form.value.postWidgets = mergeInto(form.value.postWidgets, savedPostWidgetsRaw.value) as typeof form.value.postWidgets
+  form.value.pageWidgets = mergeInto(form.value.pageWidgets, savedPageWidgetsRaw.value) as typeof form.value.pageWidgets
+})
 </script>

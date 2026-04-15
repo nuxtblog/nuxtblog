@@ -11,6 +11,7 @@
 import * as Vue from 'vue'
 import { reactive } from 'vue'
 import { DEFAULT_THEME, PRIMARY_COLORS, NEUTRAL_COLORS } from '~/config/theme'
+import { SIDEBAR_CONTEXT_KEY } from '~/composables/useSidebarContext'
 import {
   // Existing (12)
   UButton, UCard, UBadge, UIcon, USkeleton, UTable,
@@ -39,7 +40,7 @@ function findHex(colors: { name: string; hex: string }[], name: string): string 
 }
 
 export default defineNuxtPlugin(() => {
-  ;(window as any).__nuxtblog_vue = Vue
+  ;(window as any).__nuxtblog_vue = { ...Vue, __SIDEBAR_CONTEXT_KEY: SIDEBAR_CONTEXT_KEY }
   ;(window as any).__nuxtblog_ui = {
     UButton, UCard, UBadge, UIcon, USkeleton, UTable,
     UInput, USelect, UTabs, UAlert, USwitch, USeparator,

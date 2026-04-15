@@ -38,6 +38,8 @@ export let adminPluginsLoadedPromise: Promise<void> | null = null
 /** Reactive flag — true once admin plugins have finished loading. */
 export const adminPluginsLoaded = ref(false)
 
+
+
 export function usePluginLoader() {
   const { apiFetch } = useApiFetch()
   const contributionsStore = usePluginContributionsStore()

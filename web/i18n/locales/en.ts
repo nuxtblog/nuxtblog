@@ -692,6 +692,7 @@ export default {
       id_random_posts: "Random Posts",
       id_toc: "Table of Contents",
       id_downloads: "Attachments",
+      no_settings: "No configurable options for this widget",
     },
     pages: {
       title: "Pages",

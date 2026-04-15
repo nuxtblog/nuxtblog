@@ -1,11 +1,47 @@
 <script setup lang="ts">
 import type { NavMenuItem } from '~/types/api/navMenu'
+import type { Component } from 'vue'
 import { executePublicCommand } from '~/composables/useNuxtblogPublic'
+import { createPluginAsyncComponent } from '~/composables/usePluginComponents'
 
 const { t } = useI18n();
 const authStore = useAuthStore();
 const checkinApi = useCheckinApi();
 const { getOption } = useOption();
+const contributionsStore = usePluginContributionsStore();
+
+// ── 插件 Popover 逻辑 ─────────────────────────────────────────────────────────
+const pluginViews = contributionsStore.getViewItems('public:floating-toolbar')
+
+function getPluginView(localId: string) {
+  const pluginId = localId.replace('plugin:', '')
+  return pluginViews.value.find(v => v.id === pluginId && v.component && v.module)
+}
+
+const viewComponentCache = new Map<string, Component>()
+
+function resolvePluginComponent(localId: string) {
+  const view = getPluginView(localId)
+  if (!view) return null
+  const key = `${view.pluginId}:${view.component}:${view.module}`
+  if (!viewComponentCache.has(key)) {
+    viewComponentCache.set(key, createPluginAsyncComponent(view.pluginId, view.component!, view.module!))
+  }
+  return viewComponentCache.get(key)!
+}
+
+// Hover-controlled popover state
+const openPopoverId = ref<string | null>(null)
+let hoverTimer: ReturnType<typeof setTimeout> | null = null
+
+function onPluginEnter(id: string) {
+  if (hoverTimer) clearTimeout(hoverTimer)
+  openPopoverId.value = id
+}
+
+function onPluginLeave() {
+  hoverTimer = setTimeout(() => { openPopoverId.value = null }, 200)
+}
 
 // ── 签到状态 ──────────────────────────────────────────────────────────────────
 const hasCheckedIn = ref(false);
@@ -179,7 +215,28 @@ const visibleActions = computed(() => new Set(toolbarItems.value.map(i => i.loca
             class="flex items-center justify-center size-10 rounded-md hover:bg-primary/10 transition-all duration-200 text-muted hover:text-primary" />
         </UTooltip>
 
-        <!-- 插件项 -->
+        <!-- 插件项：Popover 模式（有 component 的插件） -->
+        <UPopover
+          v-else-if="item.local_id.startsWith('plugin:') && getPluginView(item.local_id)"
+          :open="openPopoverId === item.local_id"
+          side="left"
+          :ui="{ content: 'p-0 w-72' }"
+          @mouseenter="onPluginEnter(item.local_id)"
+          @mouseleave="onPluginLeave"
+        >
+          <button class="group flex items-center justify-center size-10 rounded-md hover:bg-primary/10 transition-all duration-200">
+            <UIcon :name="item.css_classes || 'i-tabler-puzzle'" class="size-5 text-muted group-hover:text-primary transition-colors" />
+          </button>
+          <template #content>
+            <div @mouseenter="onPluginEnter(item.local_id)" @mouseleave="onPluginLeave">
+              <ClientOnly>
+                <component :is="resolvePluginComponent(item.local_id)" />
+              </ClientOnly>
+            </div>
+          </template>
+        </UPopover>
+
+        <!-- 插件项：按钮模式（无 component 的命令型插件） -->
         <UTooltip
           v-else-if="item.local_id.startsWith('plugin:')"
           :text="item.label"

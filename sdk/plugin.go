@@ -265,12 +265,13 @@ type NavigationDef struct {
 
 // ViewDef declares a view panel injected into a named slot.
 type ViewDef struct {
-	ID        string `yaml:"id"        json:"id"`
-	Title     string `yaml:"title"     json:"title,omitempty"`
-	Type      string `yaml:"type"      json:"type,omitempty"`
-	Icon      string `yaml:"icon"      json:"icon,omitempty"`
-	Component string `yaml:"component" json:"component,omitempty"` // Vue component export name
-	Module    string `yaml:"module"    json:"module,omitempty"`    // module file containing the component
+	ID        string       `yaml:"id"        json:"id"`
+	Title     string       `yaml:"title"     json:"title,omitempty"`
+	Type      string       `yaml:"type"      json:"type,omitempty"`
+	Icon      string       `yaml:"icon"      json:"icon,omitempty"`
+	Component string       `yaml:"component" json:"component,omitempty"` // Vue component export name
+	Module    string       `yaml:"module"    json:"module,omitempty"`    // module file containing the component
+	Settings  []SettingDef `yaml:"settings"  json:"settings,omitempty"` // widget-level custom settings
 }
 
 // CommandDef declares a command triggered from menus or keyboard shortcuts.

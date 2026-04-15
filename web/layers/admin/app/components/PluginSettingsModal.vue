@@ -42,43 +42,6 @@ watch(() => props.open, async (val) => {
   }
 });
 
-/** Group settings fields by their `group` property, preserving order. */
-const settingsGroups = computed(() => {
-  const groups: Array<{ name: string | undefined; fields: PluginSettingField[] }> = [];
-  const groupMap = new Map<string | undefined, PluginSettingField[]>();
-  for (const field of settingsSchema.value) {
-    const key = field.group || undefined;
-    if (!groupMap.has(key)) {
-      const fields: PluginSettingField[] = [];
-      groupMap.set(key, fields);
-      groups.push({ name: key, fields });
-    }
-    groupMap.get(key)!.push(field);
-  }
-  return groups;
-});
-
-/** Evaluate a field's showIf condition against current settings values. */
-function isFieldVisible(field: PluginSettingField): boolean {
-  if (!field.showIf) return true;
-  try {
-    const expr = field.showIf.trim();
-    const match = expr.match(/^(\w+)\s*(===|!==|==|!=)\s*(.+)$/);
-    if (!match) return true;
-    const [, key, op, rawVal] = match;
-    const actual = settingsValues.value[key];
-    let expected: unknown = rawVal.trim();
-    if (expected === 'true') expected = true;
-    else if (expected === 'false') expected = false;
-    else if (expected === 'null') expected = null;
-    else if (/^['"].*['"]$/.test(expected as string)) expected = (expected as string).slice(1, -1);
-    else if (!isNaN(Number(expected))) expected = Number(expected);
-    if (op === '===' || op === '==') return actual === expected;
-    if (op === '!==' || op === '!=') return actual !== expected;
-  } catch { /* show field on parse error */ }
-  return true;
-}
-
 const saveSettings = async () => {
   if (!props.plugin) return;
   settingsSaving.value = true;
@@ -108,21 +71,11 @@ const saveSettings = async () => {
         </div>
         <p v-else-if="settingsSchema.length === 0" class="text-sm text-muted py-4 text-center">{{ $t("admin.plugins.settings_no_schema") }}</p>
         <div v-else class="space-y-5">
-          <template v-for="(group, groupIdx) in settingsGroups" :key="group.name ?? '__default__'">
-            <div v-if="group.name" :class="{ 'pt-3 border-t border-default': groupIdx > 0 }">
-              <p class="text-xs font-medium text-muted mb-3 uppercase tracking-wide">{{ group.name }}</p>
-            </div>
-            <template v-for="field in group.fields" :key="field.key">
-              <UFormField v-if="isFieldVisible(field)" :label="field.label || field.key" :description="field.description" :required="field.required">
-                <USwitch v-if="field.type === 'boolean'" :model-value="!!settingsValues[field.key]" @update:model-value="settingsValues[field.key] = $event" />
-                <USelect v-else-if="field.type === 'select'" :model-value="String(settingsValues[field.key] ?? '')" :items="(field.options ?? []).map(o => ({ label: o, value: o }))" class="w-full" @update:model-value="settingsValues[field.key] = $event" />
-                <UTextarea v-else-if="field.type === 'textarea'" :model-value="String(settingsValues[field.key] ?? '')" :placeholder="field.placeholder" class="w-full" :rows="3" @update:model-value="settingsValues[field.key] = $event" />
-                <UInput v-else-if="field.type === 'password'" type="password" :model-value="String(settingsValues[field.key] ?? '')" :placeholder="field.placeholder" class="w-full" @update:model-value="settingsValues[field.key] = $event" />
-                <UInput v-else-if="field.type === 'number'" type="number" :model-value="String(settingsValues[field.key] ?? '')" :placeholder="field.placeholder" class="w-full" @update:model-value="settingsValues[field.key] = Number($event)" />
-                <UInput v-else :model-value="String(settingsValues[field.key] ?? '')" :placeholder="field.placeholder" class="w-full" @update:model-value="settingsValues[field.key] = $event" />
-              </UFormField>
-            </template>
-          </template>
+          <PluginSettingFields
+            :schema="settingsSchema"
+            :model-value="settingsValues"
+            @update:model-value="settingsValues = $event"
+          />
         </div>
 
         <!-- Capabilities display -->

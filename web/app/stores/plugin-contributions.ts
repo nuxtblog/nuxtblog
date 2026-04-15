@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import type { PluginSettingField } from '~/composables/usePluginApi'
 
 /**
  * Plugin Contribution Points Registry
@@ -51,6 +52,7 @@ export interface PluginViewItem {
   icon?: string
   component?: string
   module?: string
+  settings?: PluginSettingField[]
 }
 
 export interface PluginContentBlock {
@@ -93,6 +95,7 @@ export interface PluginContributes {
     icon?: string
     component?: string
     module?: string
+    settings?: PluginSettingField[]
   }>>
   pages?: Array<{
     path?: string
@@ -199,6 +202,7 @@ export const usePluginContributionsStore = defineStore('plugin-contributions', (
             icon: view.icon,
             component: view.component,
             module: view.module,
+            settings: view.settings,
           })
         }
       }

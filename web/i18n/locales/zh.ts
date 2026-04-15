@@ -683,6 +683,7 @@ export default {
       id_random_posts: "随机看看",
       id_toc: "文章大纲",
       id_downloads: "附件下载",
+      no_settings: "该小部件暂无可配置项",
     },
     pages: {
       title: "页面",

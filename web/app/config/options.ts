@@ -29,6 +29,7 @@ export const WidgetConfigSchema = z.object({
   showRecent:  z.boolean().optional(),
   showHot:     z.boolean().optional(),
   maxCount:    z.number().int().positive().optional(),
+  pluginSettings: z.record(z.unknown()).optional(),
 })
 
 export const SectionConfigSchema = z.object({

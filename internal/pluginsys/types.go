@@ -259,12 +259,13 @@ type MenuEntry struct {
 
 // ViewDef declares a panel or widget in a named slot.
 type ViewDef struct {
-	ID        string `json:"id"`
-	Title     string `json:"title,omitempty"`
-	Type      string `json:"type,omitempty"`      // "webview" or empty for declarative
-	Icon      string `json:"icon,omitempty"`
-	Component string `json:"component,omitempty"` // Vue component export name
-	Module    string `json:"module,omitempty"`    // module file containing the component
+	ID        string         `json:"id"`
+	Title     string         `json:"title,omitempty"`
+	Type      string         `json:"type,omitempty"`      // "webview" or empty for declarative
+	Icon      string         `json:"icon,omitempty"`
+	Component string         `json:"component,omitempty"` // Vue component export name
+	Module    string         `json:"module,omitempty"`    // module file containing the component
+	Settings  []SettingField `json:"settings,omitempty"`  // widget-level custom settings
 }
 
 // ─── Migration definitions ──────────────────────────────────────────────────

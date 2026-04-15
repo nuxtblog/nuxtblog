@@ -115,6 +115,7 @@ export const normalizeProps = (...a) => _get('normalizeProps')(...a);
 export const guardReactiveProps = (...a) => _get('guardReactiveProps')(...a);
 export const cloneVNode = (...a) => _get('cloneVNode')(...a);
 export const isVNode = (...a) => _get('isVNode')(...a);
+export const createSlots = (...a) => _get('createSlots')(...a);
 
 // Special non-function exports (accessed as values, not called)
 export let Fragment, Teleport, Suspense, KeepAlive, Transition, TransitionGroup;

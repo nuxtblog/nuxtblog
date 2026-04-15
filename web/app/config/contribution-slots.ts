@@ -23,6 +23,7 @@ export const CONTRIBUTION_SLOTS = {
   PUBLIC_FOOTER_EXTRA: 'public:footer-extra',
   PUBLIC_SIDEBAR_TOP: 'public:sidebar-top',
   PUBLIC_SIDEBAR_BOTTOM: 'public:sidebar-bottom',
+  PUBLIC_SIDEBAR_WIDGET: 'public:sidebar-widget',
 
   // ── Public: Home ────────────────────────────────────────────────────────
   PUBLIC_HOME_TOP: 'public:home-top',

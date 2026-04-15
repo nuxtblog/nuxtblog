@@ -51,9 +51,15 @@
           </template>
           <p class="text-sm text-muted mb-4">{{ $t('admin.settings.homepage.widget_hint') }}</p>
 
-          <div class="space-y-2">
+          <VueDraggable
+            tag="div"
+            class="space-y-2"
+            v-model="form.widgets"
+            :animation="200"
+            handle=".widget-drag-handle"
+          >
             <div
-              v-for="(widget, index) in form.widgets"
+              v-for="widget in form.widgets"
               :key="widget.id"
               class="rounded-md border border-default overflow-hidden"
             >
@@ -62,11 +68,18 @@
                 class="flex items-center gap-3 px-3 py-2.5"
                 :class="expanded[widget.id] ? 'bg-elevated' : 'bg-default'"
               >
+                <UIcon
+                  name="i-tabler-grip-vertical"
+                  class="widget-drag-handle size-4 shrink-0 cursor-grab text-muted hover:text-primary active:cursor-grabbing"
+                />
                 <UCheckbox v-model="widget.enabled" />
                 <span
                   class="flex-1 text-sm select-none"
                   :class="widget.enabled ? 'text-highlighted' : 'text-muted'"
-                >{{ $t(widget.label) }}</span>
+                >
+                  {{ widget.isPlugin ? widget.label : $t(widget.label) }}
+                  <UIcon v-if="widget.isPlugin" name="i-tabler-puzzle" class="size-3.5 text-muted ml-1 inline-block align-text-bottom" />
+                </span>
                 <div class="flex items-center gap-0.5">
                   <!-- 展开配置按钮（author 无配置项） -->
                   <UButton
@@ -76,24 +89,6 @@
                     size="xs"
                     square
                     @click="toggleExpand(widget.id)"
-                  />
-                  <UButton
-                    icon="i-tabler-arrow-up"
-                    variant="ghost"
-                    color="neutral"
-                    size="xs"
-                    square
-                    :disabled="index === 0"
-                    @click="moveUp(index)"
-                  />
-                  <UButton
-                    icon="i-tabler-arrow-down"
-                    variant="ghost"
-                    color="neutral"
-                    size="xs"
-                    square
-                    :disabled="index === form.widgets.length - 1"
-                    @click="moveDown(index)"
                   />
                 </div>
               </div>
@@ -108,14 +103,24 @@
                   <span class="text-sm text-default flex-1">{{ $t('admin.settings.homepage.widget_title_label') }}</span>
                   <UInput
                     v-model="widget.title"
-                    :placeholder="$t(widget.label)"
+                    :placeholder="widget.isPlugin ? widget.label : $t(widget.label)"
                     size="sm"
                     class="w-40"
                   />
                 </div>
 
+                <!-- 插件 widget: 仅自定义设置 -->
+                <template v-if="widget.isPlugin">
+                  <PluginSettingFields
+                    v-if="getWidgetSettings(widget.id)?.length && widget.pluginSettings"
+                    :schema="getWidgetSettings(widget.id)!"
+                    :model-value="widget.pluginSettings"
+                    @update:model-value="widget.pluginSettings = $event"
+                  />
+                </template>
+
                 <!-- 搜索组件 -->
-                <template v-if="widget.id === 'search'">
+                <template v-else-if="widget.id === 'search'">
                   <div class="flex items-center justify-between">
                     <span class="text-sm text-default">{{ $t('admin.settings.homepage.show_recent_search') }}</span>
                     <UCheckbox v-model="widget.showRecent" />
@@ -126,7 +131,7 @@
                   </div>
                 </template>
 
-                <!-- 数量配置 -->
+                <!-- 内建 widget 数量配置 -->
                 <template v-else>
                   <div class="flex items-center gap-3">
                     <span class="text-sm text-default flex-1">{{ $t('admin.settings.homepage.max_count_label') }}</span>
@@ -143,7 +148,7 @@
                 </template>
               </div>
             </div>
-          </div>
+          </VueDraggable>
         </UCard>
 
         <!-- 内容区块 -->
@@ -331,14 +336,66 @@
 </template>
 
 <script setup lang="ts">
+import { VueDraggable } from 'vue-draggable-plus'
 import { type WidgetConfig, WIDGET_DEFAULTS } from '~/composables/useWidgetConfig'
+import type { PluginSettingField } from '~/composables/usePluginApi'
 import { type SectionConfig, type SectionActionConfig, SECTION_DEFAULTS, LAYOUT_OPTIONS as LAYOUT_OPTIONS_RAW } from '~/composables/useHomepageSections'
 import { getWidgetsByContext } from '~/config/widgets'
+import { usePluginContributionsStore } from '~/stores/plugin-contributions'
 
 // Widgets filtered to homepage context
 const HOMEPAGE_WIDGET_DEFAULTS: WidgetConfig[] = WIDGET_DEFAULTS.filter(w =>
   getWidgetsByContext('homepage').some(def => def.id === w.id),
 )
+
+// Plugin sidebar widgets from contributions
+const contributionsStore = usePluginContributionsStore()
+const pluginWidgetViews = contributionsStore.getViewItems('public:sidebar-widget')
+const pluginWidgetDefaults = computed((): WidgetConfig[] =>
+  pluginWidgetViews.value
+    .filter((v: { component?: string; module?: string }) => v.component && v.module)
+    .map((v: { pluginId: string; id: string; title: string; component?: string; module?: string; settings?: PluginSettingField[] }) => {
+      const pluginSettings: Record<string, unknown> = {}
+      if (v.settings) {
+        for (const s of v.settings) {
+          if (s.default !== undefined) pluginSettings[s.key] = s.default
+        }
+      }
+      return {
+        id: `plugin:${v.pluginId}:${v.id}`,
+        label: v.title || v.id,
+        enabled: false,
+        isPlugin: true as const,
+        pluginId: v.pluginId,
+        component: v.component,
+        module: v.module,
+        maxCount: 5,
+        ...(Object.keys(pluginSettings).length > 0 ? { pluginSettings } : {}),
+      }
+    }),
+)
+
+/** Look up widget settings schema from the plugin contributions store. */
+function getWidgetSettings(widgetId: string): PluginSettingField[] | undefined {
+  const parts = widgetId.split(':')
+  if (parts.length < 3 || parts[0] !== 'plugin') return undefined
+  const pluginId = parts[1]
+  const viewId = parts.slice(2).join(':')
+  const view = pluginWidgetViews.value.find(v => v.pluginId === pluginId && v.id === viewId)
+  return view?.settings?.length ? view.settings : undefined
+}
+
+/** Initialize pluginSettings on a widget if missing. Must be called OUTSIDE render. */
+function initPluginSettings(widget: WidgetConfig) {
+  if (widget.pluginSettings) return
+  const schema = getWidgetSettings(widget.id)
+  if (!schema) return
+  const defaults: Record<string, unknown> = {}
+  for (const field of schema) {
+    if (field.default !== undefined) defaults[field.key] = field.default
+  }
+  widget.pluginSettings = defaults
+}
 
 const { apiFetch } = useApiFetch()
 const termApi = useTermApi()
@@ -357,6 +414,9 @@ const expanded = ref<Record<string, boolean>>({})
 const expandedSection = ref<Record<string, boolean>>({})
 
 const toggleExpand = (id: string) => {
+  // Init pluginSettings before expanding (avoids render-phase mutation)
+  const widget = form.value.widgets.find(w => w.id === id)
+  if (widget?.isPlugin) initPluginSettings(widget)
   expanded.value[id] = !expanded.value[id]
 }
 const toggleSectionExpand = (id: string) => {
@@ -368,6 +428,7 @@ const isAllWidgetsExpanded = computed(() =>
 )
 const toggleExpandAllWidgets = () => {
   const val = !isAllWidgetsExpanded.value
+  if (val) form.value.widgets.forEach(w => { if (w.isPlugin) initPluginSettings(w) })
   form.value.widgets.forEach(w => { expanded.value[w.id] = val })
 }
 
@@ -413,23 +474,14 @@ const toggleCategoryId = (
   }
 }
 
+// Cache raw saved widgets from API for late-arriving plugin contribution merges
+const savedWidgetsRaw = ref<WidgetConfig[]>([])
+
 const form = ref({
   sidebarEnabled: false,
-  widgets: HOMEPAGE_WIDGET_DEFAULTS.map(w => ({ ...w, title: resolveTitle(w.title ?? w.label) })),
+  widgets: [...HOMEPAGE_WIDGET_DEFAULTS, ...pluginWidgetDefaults.value].map(w => ({ ...w, title: w.isPlugin ? w.label : resolveTitle(w.title ?? w.label) })),
   sections: SECTION_DEFAULTS.map(s => ({ ...s, title: resolveTitle(s.title ?? s.label), layout: s.layout ?? 'grid', includeCategoryIds: [...(s.includeCategoryIds ?? [])], excludeCategoryIds: [...(s.excludeCategoryIds ?? [])], action: { enabled: false, ...s.action }, loadMoreEnabled: s.loadMoreEnabled ?? false })),
 })
-
-const moveUp = (index: number) => {
-  if (index === 0) return
-  const arr = form.value.widgets;
-  [arr[index - 1], arr[index]] = [arr[index], arr[index - 1]]
-}
-
-const moveDown = (index: number) => {
-  const arr = form.value.widgets
-  if (index === arr.length - 1) return;
-  [arr[index], arr[index + 1]] = [arr[index + 1], arr[index]]
-}
 
 const loadSettings = async () => {
   isLoading.value = true
@@ -446,19 +498,30 @@ const loadSettings = async () => {
     }
     if (opts.homepage_sidebar_widgets !== undefined) {
       const parsed = JSON.parse(opts.homepage_sidebar_widgets) as WidgetConfig[]
+      savedWidgetsRaw.value = parsed
+      const allDefaults = [...HOMEPAGE_WIDGET_DEFAULTS, ...pluginWidgetDefaults.value]
       const savedIds = parsed.map(w => w.id)
-      const newIds = HOMEPAGE_WIDGET_DEFAULTS.map(w => w.id).filter(id => !savedIds.includes(id))
-      const merged = [
-        ...parsed
-          .filter(saved => HOMEPAGE_WIDGET_DEFAULTS.some(d => d.id === saved.id))
-          .map(saved => {
-            const def = HOMEPAGE_WIDGET_DEFAULTS.find(w => w.id === saved.id)
-            // always take label from def (it's an i18n key), not from saved (may be old Chinese text)
-            return def ? { ...def, ...saved, label: def.label, title: resolveTitle(saved.title ?? def.title ?? def.label) } : saved
-          }),
-        ...HOMEPAGE_WIDGET_DEFAULTS.filter(w => newIds.includes(w.id)).map(w => ({ ...w, title: resolveTitle(w.title ?? w.label) })),
-      ]
-      form.value.widgets = merged
+      // Filter out uninstalled plugin widgets, keep valid saved entries
+      const validSaved = parsed
+        .filter(saved =>
+          !saved.id.startsWith('plugin:')
+            ? HOMEPAGE_WIDGET_DEFAULTS.some(d => d.id === saved.id)
+            : pluginWidgetDefaults.value.some(pw => pw.id === saved.id),
+        )
+        .map(saved => {
+          const def = allDefaults.find(w => w.id === saved.id)
+          // For built-in: always take label from def (i18n key). For plugin: take label from def (latest title).
+          return def ? { ...def, ...saved, label: def.label, title: saved.isPlugin ? (saved.title || def.label) : resolveTitle(saved.title ?? def.title ?? def.label) } : saved
+        })
+      // Append newly registered widgets (built-in or plugin) not yet in saved config
+      const newWidgets = allDefaults
+        .filter(w => !savedIds.includes(w.id))
+        .map(w => ({ ...w, title: w.isPlugin ? w.label : resolveTitle(w.title ?? w.label) }))
+      form.value.widgets = [...validSaved, ...newWidgets] as typeof form.value.widgets
+    } else {
+      // No saved config — use all defaults including plugin widgets
+      const allDefaults = [...HOMEPAGE_WIDGET_DEFAULTS, ...pluginWidgetDefaults.value]
+      form.value.widgets = allDefaults.map(w => ({ ...w, title: w.isPlugin ? w.label : resolveTitle(w.title ?? w.label) })) as typeof form.value.widgets
     }
     if (opts.homepage_sections !== undefined) {
       const parsed = JSON.parse(opts.homepage_sections) as SectionConfig[]
@@ -504,4 +567,24 @@ const saveSettings = async () => {
 }
 
 await loadSettings()
+
+// When plugin contributions arrive after initial load, merge new plugin widgets into form.
+// Restore saved config for plugin widgets that were filtered out during loadSettings.
+watch(pluginWidgetDefaults, (newPluginWidgets) => {
+  if (!newPluginWidgets.length) return
+  const existingIds = new Set(form.value.widgets.map(w => w.id))
+  const toAdd: WidgetConfig[] = []
+  for (const pw of newPluginWidgets) {
+    if (existingIds.has(pw.id)) continue
+    const saved = savedWidgetsRaw.value.find(s => s.id === pw.id)
+    if (saved) {
+      toAdd.push({ ...pw, ...saved, label: pw.label, title: saved.title || pw.label } as WidgetConfig)
+    } else {
+      toAdd.push({ ...pw, title: pw.label } as WidgetConfig)
+    }
+  }
+  if (toAdd.length > 0) {
+    form.value.widgets = [...form.value.widgets, ...toAdd] as typeof form.value.widgets
+  }
+})
 </script>
