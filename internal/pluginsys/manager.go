@@ -93,7 +93,9 @@ func (m *Manager) HasPlugin(id string) bool {
 // Uses two-phase loading: first collects all enabled candidates, registers
 // dependencies, topologically sorts, then activates in dependency order.
 func (m *Manager) LoadStatic(ctx context.Context) error {
-	// Phase 1: collect enabled candidates
+	// Phase 1: sync DB records for ALL builtin plugins (even disabled ones)
+	// so their manifest/contributes stay up-to-date in the admin UI.
+	// Then collect enabled candidates for activation.
 	candidates := make(map[string]sdk.Plugin)
 	var ids []string
 	for _, p := range sdk.GetStatic() {
@@ -103,6 +105,7 @@ func (m *Manager) LoadStatic(ctx context.Context) error {
 			g.Log().Warning(ctx, "[pluginmgr] skipping plugin with empty ID")
 			continue
 		}
+		m.ensureDBRecord(ctx, mf)
 		if !m.isEnabled(ctx, id) {
 			g.Log().Infof(ctx, "[pluginmgr] plugin %s not enabled, skipping", id)
 			continue

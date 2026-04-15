@@ -43,9 +43,6 @@ const (
 	TermCreated     = "term.created"
 	TermDeleted     = "term.deleted"
 
-	// Checkin
-	CheckinDone = "checkin.done"
-
 	// Site settings
 	OptionUpdated = "option.updated"
 

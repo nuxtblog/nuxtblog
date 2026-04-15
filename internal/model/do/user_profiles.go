@@ -18,6 +18,4 @@ type UserProfiles struct {
 	Location          any //
 	SocialLinks       any //
 	NotificationPrefs any //
-	CheckinStreak     any //
-	LastCheckinDate   any //
 }

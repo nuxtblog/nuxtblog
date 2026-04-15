@@ -5,7 +5,6 @@ import (
 	_ "github.com/nuxtblog/nuxtblog/internal/notify"   // register email/SMS notification channels
 
 	_ "github.com/nuxtblog/nuxtblog/internal/logic/auth"
-	_ "github.com/nuxtblog/nuxtblog/internal/logic/checkin"
 	_ "github.com/nuxtblog/nuxtblog/internal/logic/history"
 	_ "github.com/nuxtblog/nuxtblog/internal/logic/follow"
 	_ "github.com/nuxtblog/nuxtblog/internal/logic/token"

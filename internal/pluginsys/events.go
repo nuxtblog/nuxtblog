@@ -230,13 +230,12 @@ func RegisterEventListeners() {
 			},
 		},
 		{
-			event.CheckinDone,
+			"checkin.done",
 			func(p any) map[string]any {
-				pp := p.(payload.CheckinDone)
-				return map[string]any{
-					"user_id": pp.UserID, "streak": pp.Streak,
-					"already_checked_in": pp.AlreadyCheckedIn,
+				if m, ok := p.(map[string]any); ok {
+					return m
 				}
+				return nil
 			},
 		},
 		// ── Post viewed ──────────────────────────────────────────────────────

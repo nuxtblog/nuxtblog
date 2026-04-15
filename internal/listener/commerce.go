@@ -16,7 +16,7 @@ import (
 
 func registerCommerceListeners() {
 	// Award credits on check-in
-	event.OnAsync(event.CheckinDone, onCheckinAwardCredits)
+	event.OnAsync("checkin.done", onCheckinAwardCredits)
 	// Award credits on comment
 	event.OnAsync(event.CommentCreated, onCommentAwardCredits)
 	// Handle topup order completion → credit wallet
@@ -29,8 +29,15 @@ func registerCommerceListeners() {
 // ── Check-in → credits ──────────────────────────────────────────────────────
 
 func onCheckinAwardCredits(ctx context.Context, e event.Event) error {
-	p, ok := e.Payload.(payload.CheckinDone)
-	if !ok || p.AlreadyCheckedIn {
+	data, ok := e.Payload.(map[string]any)
+	if !ok {
+		return nil
+	}
+	if alreadyDone, _ := data["already_checked_in"].(bool); alreadyDone {
+		return nil
+	}
+	userID := toInt64(data["user_id"])
+	if userID == 0 {
 		return nil
 	}
 
@@ -39,9 +46,9 @@ func onCheckinAwardCredits(ctx context.Context, e event.Event) error {
 		return nil
 	}
 
-	_, err := service.Credits().Earn(ctx, p.UserID, amount, "checkin", "checkin", "", "daily check-in")
+	_, err := service.Credits().Earn(ctx, userID, amount, "checkin", "checkin", "", "daily check-in")
 	if err != nil {
-		g.Log().Warningf(ctx, "award checkin credits user=%d: %v", p.UserID, err)
+		g.Log().Warningf(ctx, "award checkin credits user=%d: %v", userID, err)
 	}
 	return nil
 }
@@ -128,6 +135,22 @@ func onMembershipExpired(ctx context.Context, e event.Event) error {
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────────
+
+func toInt64(v any) int64 {
+	switch val := v.(type) {
+	case int64:
+		return val
+	case float64:
+		return int64(val)
+	case int:
+		return int64(val)
+	case json.Number:
+		n, _ := val.Int64()
+		return n
+	default:
+		return 0
+	}
+}
 
 func getCreditsRule(ctx context.Context, key string, defaultVal int) int {
 	val, err := g.DB().Ctx(ctx).Model("options").

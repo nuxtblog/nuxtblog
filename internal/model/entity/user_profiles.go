@@ -13,6 +13,4 @@ type UserProfiles struct {
 	Location          string `json:"location"          orm:"location"           description:""` //
 	SocialLinks       string `json:"socialLinks"       orm:"social_links"       description:""` //
 	NotificationPrefs string `json:"notificationPrefs" orm:"notification_prefs" description:""` //
-	CheckinStreak     int    `json:"checkinStreak"     orm:"checkin_streak"     description:""` //
-	LastCheckinDate   string `json:"lastCheckinDate"   orm:"last_checkin_date"  description:""` //
 }

@@ -28,8 +28,6 @@ type UserProfilesColumns struct {
 	Location          string //
 	SocialLinks       string //
 	NotificationPrefs string //
-	CheckinStreak     string //
-	LastCheckinDate   string //
 }
 
 // userProfilesColumns holds the columns for the table user_profiles.
@@ -41,8 +39,6 @@ var userProfilesColumns = UserProfilesColumns{
 	Location:          "location",
 	SocialLinks:       "social_links",
 	NotificationPrefs: "notification_prefs",
-	CheckinStreak:     "checkin_streak",
-	LastCheckinDate:   "last_checkin_date",
 }
 
 // NewUserProfilesDao creates and returns a new DAO object for table data access.

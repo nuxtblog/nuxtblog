@@ -24,7 +24,6 @@ import (
 	"github.com/nuxtblog/nuxtblog/internal/controller/auth"
 	docCtrl "github.com/nuxtblog/nuxtblog/internal/controller/doc"
 	momentCtrl "github.com/nuxtblog/nuxtblog/internal/controller/moment"
-	"github.com/nuxtblog/nuxtblog/internal/controller/checkin"
 	"github.com/nuxtblog/nuxtblog/internal/controller/comment"
 	"github.com/nuxtblog/nuxtblog/internal/controller/follow"
 	historyCtrl "github.com/nuxtblog/nuxtblog/internal/controller/history"
@@ -207,7 +206,6 @@ func registerAuthenticatedRoutes(group *ghttp.RouterGroup) {
 		protected.Bind(
 			reaction.NewV1(),
 			notification.NewV1(),
-			checkin.NewV1(),
 			token.NewV1(),
 			follow.NewAuthV1(),
 			reportCtrl.New(),

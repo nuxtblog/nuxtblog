@@ -53,9 +53,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
     github              TEXT        NOT NULL DEFAULT '',
     location            TEXT        NOT NULL DEFAULT '',
     social_links        TEXT        NOT NULL DEFAULT '{}',   -- JSON
-    notification_prefs  TEXT        NOT NULL DEFAULT '{}',   -- JSON
-    checkin_streak      INTEGER     NOT NULL DEFAULT 0,
-    last_checkin_date   TEXT        NOT NULL DEFAULT ''
+    notification_prefs  TEXT        NOT NULL DEFAULT '{}' -- JSON
 );
 
 -- ============================================================

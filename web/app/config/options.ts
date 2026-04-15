@@ -222,7 +222,6 @@ export const OPTIONS_SCHEMA = {
 
   floating_toolbar: optJSON(z.array(NavMenuItemSchema), [
     { local_id: 'action:profile_login', label: '个人中心', url: '', object_type: 'action' as const, object_id: 0, target: '', css_classes: '', parent_local_id: '' },
-    { local_id: 'action:checkin', label: '每日签到', url: '', object_type: 'action' as const, object_id: 0, target: '', css_classes: '', parent_local_id: '' },
     { local_id: 'action:ft_notifications', label: '通知', url: '', object_type: 'action' as const, object_id: 0, target: '', css_classes: '', parent_local_id: '' },
     { local_id: 'sep:1', label: '', url: '', object_type: 'separator' as const, object_id: 0, target: '', css_classes: '', parent_local_id: '' },
     { local_id: 'action:ft_theme_toggle', label: '主题切换', url: '', object_type: 'action' as const, object_id: 0, target: '', css_classes: '', parent_local_id: '' },

@@ -11,7 +11,6 @@ const optionsStore = useOptionsStore();
 const userApi = useUserApi();
 const postApi = usePostApi();
 const reactionApi = useReactionApi();
-const checkinApi = useCheckinApi();
 const followApi = useFollowApi();
 const toast = useToast();
 
@@ -85,10 +84,6 @@ const followLoading = ref(false);
 const followerCount = ref(0);
 const followingCount = ref(0);
 
-// ── Checkin (仅限自己查看) ────────────────────────────────────────────────────
-const streak = ref(0);
-const checkedInToday = ref(false);
-
 // ── Avatar / Cover previews (used in computed below) ─────────────────────
 const avatarPreview = ref("");
 const coverPreview = ref("");
@@ -114,13 +109,6 @@ const joinedDate = computed(() => {
     year: "numeric",
     month: "long",
   });
-});
-const checkinLabel = computed(() => {
-  if (checkedInToday.value)
-    return t("site.user.checkin_label_done", { n: streak.value });
-  if (streak.value > 0)
-    return t("site.user.checkin_label_streak", { n: streak.value });
-  return t("site.user.checkin_label_none");
 });
 const socialLinks = computed(() => {
   const m = user.value?.metas ?? {};
@@ -206,13 +194,6 @@ onMounted(async () => {
         .getBookmarks(1, 1)
         .then((r) => {
           bookmarksTotal.value = r.total;
-        })
-        .catch(() => {});
-      checkinApi
-        .getStatus()
-        .then((r) => {
-          streak.value = r.streak;
-          checkedInToday.value = r.checked_in_today;
         })
         .catch(() => {});
     }
@@ -523,31 +504,6 @@ useHead(() => ({
             </template>
           </div>
         </div>
-        <div class="mb-6">
-          <UCard v-if="isOwnProfile">
-            <div class="flex items-center gap-4">
-              <div
-                class="size-12 rounded-md flex items-center justify-center shrink-0"
-                :class="checkedInToday ? 'bg-success/10' : 'bg-amber-500/10'">
-                <UIcon
-                  :name="
-                    checkedInToday
-                      ? 'i-tabler-calendar-check'
-                      : 'i-tabler-flame'
-                  "
-                  class="size-6"
-                  :class="checkedInToday ? 'text-success' : 'text-amber-500'" />
-              </div>
-              <div class="flex-1">
-                <p class="font-semibold text-highlighted">{{ checkinLabel }}</p>
-                <p class="text-sm text-muted">
-                  {{ $t("site.user.checkin_desc") }}
-                </p>
-              </div>
-            </div>
-          </UCard>
-        </div>
-
         <!-- Tabs -->
         <div class="flex gap-1 mb-2 p-1 bg-default rounded-md w-fit flex-wrap">
           <UButton

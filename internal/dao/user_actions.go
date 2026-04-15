@@ -21,17 +21,6 @@ var (
 	UserActions = userActionsDao{internal.NewUserActionsDao()}
 )
 
-// CheckedInToday returns true if the user already has a check-in record for today.
-func (d *userActionsDao) CheckedInToday(ctx context.Context, userID int64, today string) (bool, error) {
-	cols := d.Columns()
-	count, err := d.Ctx(ctx).
-		Where(cols.UserId, userID).
-		Where(cols.Action, "checkin").
-		WhereLike(cols.CreatedAt, today+"%").
-		Count()
-	return count > 0, err
-}
-
 // InsertAction inserts a new user action record and returns the new ID.
 func (d *userActionsDao) InsertAction(ctx context.Context, userID int64, action, objectType string, objectID int64, extra string) (int64, error) {
 	cols := d.Columns()
@@ -49,28 +38,3 @@ func (d *userActionsDao) InsertAction(ctx context.Context, userID int64, action,
 	return result.LastInsertId()
 }
 
-// CheckinDates returns distinct check-in dates (YYYY-MM-DD) for a user in descending order,
-// limited to the most recent N days for streak calculation.
-func (d *userActionsDao) CheckinDates(ctx context.Context, userID int64, limit int) ([]string, error) {
-	cols := d.Columns()
-	type Row struct {
-		Date string `orm:"date"`
-	}
-	var rows []Row
-	err := d.Ctx(ctx).
-		Fields("date("+cols.CreatedAt+") AS date").
-		Where(cols.UserId, userID).
-		Where(cols.Action, "checkin").
-		Group("date("+cols.CreatedAt+")").
-		Order("date DESC").
-		Limit(limit).
-		Scan(&rows)
-	if err != nil {
-		return nil, err
-	}
-	dates := make([]string, len(rows))
-	for i, r := range rows {
-		dates[i] = r.Date
-	}
-	return dates, nil
-}
