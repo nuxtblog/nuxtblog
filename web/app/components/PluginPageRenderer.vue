@@ -12,6 +12,7 @@
 import { createPluginAsyncComponent } from '~/composables/usePluginComponents'
 import { publicPluginsLoaded } from '~/composables/usePublicPluginLoader'
 import { adminPluginsLoaded } from '~/composables/usePluginLoader'
+import { resolveTemplate } from '~/composables/usePluginI18n'
 
 const route = useRoute()
 const store = usePluginContributionsStore()
@@ -36,7 +37,12 @@ const pageDef = computed(() => {
 const pluginId = computed(() => pageDef.value?.pluginId || '')
 const componentName = computed(() => pageDef.value?.component || '')
 const moduleFile = computed(() => pageDef.value?.moduleFile || 'public.mjs')
-const pageTitle = computed(() => pageDef.value?.title || '')
+const { locale } = useI18n()
+const pageTitle = computed(() => {
+  const def = pageDef.value
+  if (!def?.title) return ''
+  return resolveTemplate(def.title, def.pluginId, locale.value)
+})
 
 useHead(() => ({ title: pageTitle.value || undefined }))
 
