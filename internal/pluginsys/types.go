@@ -39,9 +39,7 @@ const (
 	FilterContentRender = "filter:content.render"
 
 	// Commerce filters
-	FilterContentAccess  = "filter:content.access"   // check user access to paid content
-	FilterOrderCreate    = "filter:order.create"      // intercept/modify order before creation
-	FilterPriceCalculate = "filter:price.calculate"   // modify price (membership discount etc.)
+	FilterContentAccess = "filter:content.access" // check user access to paid content
 )
 
 // ─── Manifest ────────────────────────────────────────────────────────────────

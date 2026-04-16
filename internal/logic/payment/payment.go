@@ -8,6 +8,7 @@ import (
 	v1 "github.com/nuxtblog/nuxtblog/api/payment/v1"
 	"github.com/nuxtblog/nuxtblog/internal/middleware"
 	"github.com/nuxtblog/nuxtblog/internal/service"
+	sdk "github.com/nuxtblog/nuxtblog/sdk"
 
 	"github.com/gogf/gf/v2/errors/gcode"
 	"github.com/gogf/gf/v2/errors/gerror"
@@ -29,11 +30,25 @@ type PaymentProvider interface {
 	MergeConfig(existing, incoming map[string]interface{}) map[string]interface{}
 }
 
+// PaymentGatewayInternal extends PaymentProvider with payment operations.
+// Providers implementing this can create payments and verify callbacks.
+type PaymentGatewayInternal interface {
+	CreatePayment(ctx context.Context, cfg map[string]interface{}, req service.CreatePaymentReq) (*service.CreatePaymentRes, error)
+	VerifyNotify(ctx context.Context, cfg map[string]interface{}, body []byte, headers map[string]string) (*service.NotifyResult, error)
+}
+
 // ── Provider registry ─────────────────────────────────────────────────────────
 
 var providers []PaymentProvider
 
 func RegisterProvider(p PaymentProvider) {
+	// Replace if slug already exists (e.g. plugin overriding built-in)
+	for i, existing := range providers {
+		if existing.Slug() == p.Slug() {
+			providers[i] = p
+			return
+		}
+	}
 	providers = append(providers, p)
 }
 
@@ -46,6 +61,112 @@ func findProvider(slug string) PaymentProvider {
 	return nil
 }
 
+// ── Plugin gateway adapter ────────────────────────────────────────────────────
+
+// pluginPaymentAdapter adapts an sdk.PaymentGateway to internal PaymentProvider + PaymentGatewayInternal.
+type pluginPaymentAdapter struct {
+	gateway sdk.PaymentGateway
+	info    sdk.PaymentProviderInfo
+}
+
+func (a *pluginPaymentAdapter) Slug() string  { return a.info.Slug }
+func (a *pluginPaymentAdapter) Label() string { return a.info.Label }
+func (a *pluginPaymentAdapter) Icon() string  { return a.info.Icon }
+
+func (a *pluginPaymentAdapter) Fields() []v1.FieldDef {
+	fields := make([]v1.FieldDef, len(a.info.Fields))
+	for i, f := range a.info.Fields {
+		opts := make([]v1.FieldOption, len(f.Options))
+		for j, o := range f.Options {
+			opts[j] = v1.FieldOption{Label: o.Label, Value: o.Value}
+		}
+		fields[i] = v1.FieldDef{
+			Key:         f.Key,
+			Label:       f.Label,
+			Type:        f.Type,
+			Required:    f.Required,
+			Placeholder: f.Placeholder,
+			Options:     opts,
+		}
+	}
+	return fields
+}
+
+func (a *pluginPaymentAdapter) DefaultConfig() map[string]interface{} {
+	return a.info.DefaultConfig
+}
+
+func (a *pluginPaymentAdapter) MaskConfig(cfg map[string]interface{}) map[string]interface{} {
+	out := make(map[string]interface{}, len(cfg))
+	for k, v := range cfg {
+		out[k] = v
+	}
+	// Auto-mask fields with type="password"
+	for _, f := range a.info.Fields {
+		if f.Type == "password" {
+			out[f.Key] = maskKey(strVal(cfg, f.Key))
+		}
+	}
+	return out
+}
+
+func (a *pluginPaymentAdapter) MergeConfig(existing, incoming map[string]interface{}) map[string]interface{} {
+	merged := make(map[string]interface{}, len(incoming))
+	for k, v := range incoming {
+		merged[k] = v
+	}
+	// Preserve masked password fields
+	for _, f := range a.info.Fields {
+		if f.Type == "password" {
+			if isMasked(strVal(incoming, f.Key)) {
+				merged[f.Key] = strVal(existing, f.Key)
+			}
+		}
+	}
+	return merged
+}
+
+func (a *pluginPaymentAdapter) CreatePayment(ctx context.Context, cfg map[string]interface{}, req service.CreatePaymentReq) (*service.CreatePaymentRes, error) {
+	sdkReq := sdk.PaymentRequest{
+		OrderNo:   req.OrderNo,
+		Amount:    req.Amount,
+		Currency:  req.Currency,
+		Subject:   req.Subject,
+		NotifyURL: req.NotifyURL,
+		ReturnURL: req.ReturnURL,
+		ClientIP:  req.ClientIP,
+	}
+	res, err := a.gateway.CreatePayment(ctx, cfg, sdkReq)
+	if err != nil {
+		return nil, err
+	}
+	return &service.CreatePaymentRes{
+		PaymentURL: res.PaymentURL,
+		QRCode:     res.QRCode,
+		Method:     res.Method,
+	}, nil
+}
+
+func (a *pluginPaymentAdapter) VerifyNotify(ctx context.Context, cfg map[string]interface{}, body []byte, headers map[string]string) (*service.NotifyResult, error) {
+	res, err := a.gateway.HandleNotify(ctx, cfg, body, headers)
+	if err != nil {
+		return nil, err
+	}
+	return &service.NotifyResult{
+		Success:      res.Success,
+		OrderNo:      res.OrderNo,
+		Amount:       res.Amount,
+		ProviderTxID: res.ProviderTxID,
+		RawResponse:  res.RawResponse,
+	}, nil
+}
+
+// RegisterPluginGateway registers an SDK PaymentGateway as an internal provider.
+func RegisterPluginGateway(gw sdk.PaymentGateway) {
+	adapter := &pluginPaymentAdapter{gateway: gw, info: gw.ProviderInfo()}
+	RegisterProvider(adapter)
+}
+
 // ── Service implementation ────────────────────────────────────────────────────
 
 type sPayment struct{}
@@ -55,9 +176,7 @@ func New() service.IPayment { return &sPayment{} }
 func init() {
 	service.RegisterPayment(New())
 
-	// Register built-in providers
-	RegisterProvider(&alipayProvider{})
-	RegisterProvider(&paypalProvider{})
+	// Only balance is built-in; alipay/wechat/paypal are provided by plugins
 	RegisterProvider(&balanceProvider{})
 }
 
@@ -178,6 +297,63 @@ func (s *sPayment) SetProviderConfig(ctx context.Context, slug string, incoming 
 
 	info := buildProviderInfo(p, merged)
 	return &v1.PaymentSetProviderConfigRes{ProviderInfo: info}, nil
+}
+
+func (s *sPayment) ListEnabledProviders(ctx context.Context) ([]v1.ProviderBasicInfo, error) {
+	var result []v1.ProviderBasicInfo
+	for _, p := range providers {
+		cfg, _ := loadConfig(ctx, p.Slug())
+		if cfg == nil {
+			cfg = p.DefaultConfig()
+		}
+		enabled, _ := cfg["enabled"].(bool)
+		if enabled {
+			result = append(result, v1.ProviderBasicInfo{
+				Slug:  p.Slug(),
+				Label: p.Label(),
+				Icon:  p.Icon(),
+			})
+		}
+	}
+	return result, nil
+}
+
+func (s *sPayment) CreatePayment(ctx context.Context, provider string, req service.CreatePaymentReq) (*service.CreatePaymentRes, error) {
+	p := findProvider(provider)
+	if p == nil {
+		return nil, gerror.NewCode(gcode.CodeNotFound, "payment provider not found: "+provider)
+	}
+	gw, ok := p.(PaymentGatewayInternal)
+	if !ok {
+		return nil, gerror.NewCode(gcode.CodeNotSupported, "provider does not support payment creation: "+provider)
+	}
+	cfg, err := loadConfig(ctx, provider)
+	if err != nil {
+		return nil, err
+	}
+	if cfg == nil {
+		cfg = p.DefaultConfig()
+	}
+	return gw.CreatePayment(ctx, cfg, req)
+}
+
+func (s *sPayment) VerifyNotify(ctx context.Context, provider string, body []byte, headers map[string]string) (*service.NotifyResult, error) {
+	p := findProvider(provider)
+	if p == nil {
+		return nil, gerror.NewCode(gcode.CodeNotFound, "payment provider not found: "+provider)
+	}
+	gw, ok := p.(PaymentGatewayInternal)
+	if !ok {
+		return nil, gerror.NewCode(gcode.CodeNotSupported, "provider does not support notify verification: "+provider)
+	}
+	cfg, err := loadConfig(ctx, provider)
+	if err != nil {
+		return nil, err
+	}
+	if cfg == nil {
+		cfg = p.DefaultConfig()
+	}
+	return gw.VerifyNotify(ctx, cfg, body, headers)
 }
 
 // ── Shared mask helper ────────────────────────────────────────────────────────

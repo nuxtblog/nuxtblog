@@ -10,6 +10,7 @@ import (
 
 	"github.com/gogf/gf/v2/frame/g"
 
+	"github.com/nuxtblog/nuxtblog/internal/logic/payment"
 	"github.com/nuxtblog/nuxtblog/sdk"
 )
 
@@ -68,6 +69,30 @@ func (m *Manager) activatePlugin(ctx context.Context, p sdk.Plugin, source strin
 				g.Log().Warningf(ctx, "[pluginmgr] %s: register media category %s: %v", id, cat.Slug, err)
 			}
 		}
+	}
+
+	// Register payment gateway if plugin provides one
+	if gw, ok := p.(sdk.HasPaymentGateway); ok {
+		payment.RegisterPluginGateway(gw.PaymentGateway())
+		g.Log().Infof(ctx, "[pluginmgr] plugin %s: registered payment gateway %s", id, gw.PaymentGateway().ProviderInfo().Slug)
+	}
+
+	// Register provider interfaces
+	if wp, ok := p.(sdk.HasWalletProvider); ok {
+		m.walletProvider = wp.WalletProvider()
+		g.Log().Infof(ctx, "[pluginmgr] plugin %s: registered wallet provider", id)
+	}
+	if cp, ok := p.(sdk.HasCreditsProvider); ok {
+		m.creditsProvider = cp.CreditsProvider()
+		g.Log().Infof(ctx, "[pluginmgr] plugin %s: registered credits provider", id)
+	}
+	if mp, ok := p.(sdk.HasMembershipProvider); ok {
+		m.membershipProvider = mp.MembershipProvider()
+		g.Log().Infof(ctx, "[pluginmgr] plugin %s: registered membership provider", id)
+	}
+	if ep, ok := p.(sdk.HasEntitlementProvider); ok {
+		m.entitlementProvider = ep.EntitlementProvider()
+		g.Log().Infof(ctx, "[pluginmgr] plugin %s: registered entitlement provider", id)
 	}
 
 	// Collect routes

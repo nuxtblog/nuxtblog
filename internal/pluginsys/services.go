@@ -218,58 +218,201 @@ func (s *pluginSettings) GetAll() map[string]any {
 
 // ─── Commerce service ─────────────────────────────────────────────────────────
 
-// pluginCommerce implements sdk.Commerce by wrapping core Payment/Wallet/Credits services.
+// pluginCommerce implements sdk.Commerce by proxying to registered provider plugins
+// for wallet/credits/membership/entitlement, and to the core payment service for payments.
 type pluginCommerce struct{ pluginID string }
 
 func newPluginCommerce(pluginID string) *pluginCommerce {
 	return &pluginCommerce{pluginID: pluginID}
 }
 
+// ── Payment gateway (core infrastructure) ──
+
 func (c *pluginCommerce) GetEnabledPaymentMethods(ctx context.Context) ([]sdk.PaymentMethod, error) {
 	svc := service.Payment()
 	if svc == nil {
 		return nil, fmt.Errorf("payment service not registered")
 	}
-	res, err := svc.ListProviders(ctx)
+	providers, err := svc.ListEnabledProviders(ctx)
 	if err != nil {
 		return nil, err
 	}
 	var methods []sdk.PaymentMethod
-	for _, p := range res.Items {
-		if p.Enabled {
-			methods = append(methods, sdk.PaymentMethod{
-				Slug:  p.Slug,
-				Label: p.Label,
-				Icon:  p.Icon,
-			})
-		}
+	for _, p := range providers {
+		methods = append(methods, sdk.PaymentMethod{
+			Slug:  p.Slug,
+			Label: p.Label,
+			Icon:  p.Icon,
+		})
 	}
 	return methods, nil
 }
 
-func (c *pluginCommerce) GetUserBalance(ctx context.Context, userID int64) (int, int, error) {
-	walletSvc := service.Wallet()
-	res, err := walletSvc.GetBalance(ctx, userID)
-	if err != nil {
-		return 0, 0, err
+func (c *pluginCommerce) CreatePayment(ctx context.Context, provider string, req sdk.PaymentRequest) (*sdk.PaymentResult, error) {
+	svc := service.Payment()
+	if svc == nil {
+		return nil, fmt.Errorf("payment service not registered")
 	}
-	return res.Balance, res.Credits, nil
+	res, err := svc.CreatePayment(ctx, provider, service.CreatePaymentReq{
+		OrderNo:   req.OrderNo,
+		Amount:    req.Amount,
+		Currency:  req.Currency,
+		Subject:   req.Subject,
+		NotifyURL: req.NotifyURL,
+		ReturnURL: req.ReturnURL,
+		ClientIP:  req.ClientIP,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &sdk.PaymentResult{
+		PaymentURL: res.PaymentURL,
+		QRCode:     res.QRCode,
+		Method:     res.Method,
+	}, nil
+}
+
+func (c *pluginCommerce) VerifyNotify(ctx context.Context, provider string, body []byte, headers map[string]string) (*sdk.PaymentNotifyResult, error) {
+	svc := service.Payment()
+	if svc == nil {
+		return nil, fmt.Errorf("payment service not registered")
+	}
+	res, err := svc.VerifyNotify(ctx, provider, body, headers)
+	if err != nil {
+		return nil, err
+	}
+	return &sdk.PaymentNotifyResult{
+		Success:      res.Success,
+		OrderNo:      res.OrderNo,
+		Amount:       res.Amount,
+		ProviderTxID: res.ProviderTxID,
+		RawResponse:  res.RawResponse,
+	}, nil
+}
+
+// ── Wallet (proxied to WalletProvider plugin) ──
+
+func (c *pluginCommerce) GetUserBalance(ctx context.Context, userID int64) (int, int, error) {
+	var balance, credits int
+	if wp := defaultMgr.WalletProvider(); wp != nil {
+		b, _ := wp.GetBalance(ctx, userID)
+		balance = b
+	}
+	if cp := defaultMgr.CreditsProvider(); cp != nil {
+		cr, _ := cp.GetBalance(ctx, userID)
+		credits = cr
+	}
+	return balance, credits, nil
 }
 
 func (c *pluginCommerce) SpendBalance(ctx context.Context, userID int64, amount int, refType, refID, note string) (int, error) {
-	return service.Wallet().Spend(ctx, userID, amount, refType, refID, note)
-}
-
-func (c *pluginCommerce) SpendCredits(ctx context.Context, userID int64, amount int, refType, refID, note string) (int, error) {
-	return service.Credits().Spend(ctx, userID, amount, refType, refID, note)
+	wp := defaultMgr.WalletProvider()
+	if wp == nil {
+		return 0, fmt.Errorf("no wallet provider registered")
+	}
+	return wp.Spend(ctx, userID, amount, refType, refID, note)
 }
 
 func (c *pluginCommerce) RefundBalance(ctx context.Context, userID int64, amount int, refType, refID, note string) (int, error) {
-	return service.Wallet().Refund(ctx, userID, amount, refType, refID, note)
+	wp := defaultMgr.WalletProvider()
+	if wp == nil {
+		return 0, fmt.Errorf("no wallet provider registered")
+	}
+	return wp.Refund(ctx, userID, amount, refType, refID, note)
 }
 
-func (c *pluginCommerce) RefundCredits(ctx context.Context, userID int64, amount int, refType, refID, note string) (int, error) {
-	return service.Credits().Earn(ctx, userID, amount, "refund", refType, refID, note)
+func (c *pluginCommerce) TopupWallet(ctx context.Context, userID int64, amount int, provider, txID string) error {
+	wp := defaultMgr.WalletProvider()
+	if wp == nil {
+		return fmt.Errorf("no wallet provider registered")
+	}
+	return wp.Topup(ctx, userID, amount, provider, txID)
+}
+
+// ── Credits (proxied to CreditsProvider plugin) ──
+
+func (c *pluginCommerce) SpendCredits(ctx context.Context, userID int64, amount int, refType, refID, note string) (int, error) {
+	cp := defaultMgr.CreditsProvider()
+	if cp == nil {
+		return 0, fmt.Errorf("no credits provider registered")
+	}
+	return cp.Spend(ctx, userID, amount, refType, refID, note)
+}
+
+func (c *pluginCommerce) EarnCredits(ctx context.Context, userID int64, amount int, source, refID, note string) (int, error) {
+	cp := defaultMgr.CreditsProvider()
+	if cp == nil {
+		return 0, fmt.Errorf("no credits provider registered")
+	}
+	return cp.Earn(ctx, userID, amount, source, refID, note)
+}
+
+// ── Entitlement (proxied to EntitlementProvider plugin) ──
+
+func (c *pluginCommerce) GrantEntitlement(ctx context.Context, userID int64, objectType, objectID string) error {
+	ep := defaultMgr.EntitlementProvider()
+	if ep == nil {
+		return fmt.Errorf("no entitlement provider registered")
+	}
+	return ep.Grant(ctx, userID, objectType, objectID)
+}
+
+func (c *pluginCommerce) RevokeEntitlement(ctx context.Context, userID int64, objectType, objectID string) error {
+	ep := defaultMgr.EntitlementProvider()
+	if ep == nil {
+		return fmt.Errorf("no entitlement provider registered")
+	}
+	return ep.Revoke(ctx, userID, objectType, objectID)
+}
+
+func (c *pluginCommerce) CheckEntitlement(ctx context.Context, userID int64, objectType, objectID string) (bool, error) {
+	ep := defaultMgr.EntitlementProvider()
+	if ep == nil {
+		return false, nil // no provider = no entitlement
+	}
+	return ep.Check(ctx, userID, objectType, objectID)
+}
+
+// ── Membership (proxied to MembershipProvider plugin) ──
+
+func (c *pluginCommerce) ActivateMembership(ctx context.Context, userID int64, tierID int64) error {
+	mp := defaultMgr.MembershipProvider()
+	if mp == nil {
+		return fmt.Errorf("no membership provider registered")
+	}
+	return mp.Activate(ctx, userID, tierID)
+}
+
+func (c *pluginCommerce) CheckMembershipAccess(ctx context.Context, userID int64) (bool, error) {
+	mp := defaultMgr.MembershipProvider()
+	if mp == nil {
+		return false, nil
+	}
+	return mp.CheckAccess(ctx, userID)
+}
+
+func (c *pluginCommerce) ListMembershipTiers(ctx context.Context) ([]sdk.MembershipTier, error) {
+	mp := defaultMgr.MembershipProvider()
+	if mp == nil {
+		return nil, nil
+	}
+	return mp.ListTiers(ctx)
+}
+
+func (c *pluginCommerce) GetUserMembershipTier(ctx context.Context, userID int64) (*sdk.MembershipTier, error) {
+	mp := defaultMgr.MembershipProvider()
+	if mp == nil {
+		return nil, nil
+	}
+	return mp.GetUserTier(ctx, userID)
+}
+
+func (c *pluginCommerce) GetCreditsExchangeRate(ctx context.Context) (int, error) {
+	cp := defaultMgr.CreditsProvider()
+	if cp == nil {
+		return 0, nil
+	}
+	return cp.ExchangeRate(ctx)
 }
 
 // pluginLogger implements sdk.Logger

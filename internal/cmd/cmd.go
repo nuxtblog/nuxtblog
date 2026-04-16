@@ -17,9 +17,7 @@ import (
 	"github.com/gogf/gf/v2/text/gstr"
 
 	aiCtrl "github.com/nuxtblog/nuxtblog/internal/controller/ai"
-	orderCtrl "github.com/nuxtblog/nuxtblog/internal/controller/order"
 	paymentCtrl "github.com/nuxtblog/nuxtblog/internal/controller/payment"
-	walletCtrl "github.com/nuxtblog/nuxtblog/internal/controller/wallet"
 	announcementCtrl "github.com/nuxtblog/nuxtblog/internal/controller/announcement"
 	"github.com/nuxtblog/nuxtblog/internal/controller/auth"
 	docCtrl "github.com/nuxtblog/nuxtblog/internal/controller/doc"
@@ -83,12 +81,7 @@ var (
 				g.Log().Warningf(ctx, "register publish-scheduled cron: %v", err)
 			}
 
-			// Cron: check expired memberships every hour
-			if _, err = gcron.Add(ctx, "0 0 * * * *", func(ctx context.Context) {
-				service.Membership().ExpireCheck(ctx)
-			}, "membership-expire-check"); err != nil {
-				g.Log().Warningf(ctx, "register membership-expire-check cron: %v", err)
-			}
+			// Note: membership expire check is now handled by the membership plugin
 
 			s := g.Server()
 
@@ -193,8 +186,6 @@ func registerAdminRoutes(group *ghttp.RouterGroup) {
 			docCtrl.NewV1(),
 			aiCtrl.New(),
 			paymentCtrl.New(),
-			orderCtrl.New(),
-			walletCtrl.New(),
 		)
 	})
 }

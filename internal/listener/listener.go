@@ -12,5 +12,4 @@ package listener
 func init() {
 	registerNotificationListeners()
 	registerWebhookListeners()
-	registerCommerceListeners()
 }

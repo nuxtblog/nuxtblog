@@ -27,8 +27,4 @@ import (
 	_ "github.com/nuxtblog/nuxtblog/internal/logic/ai"
 	_ "github.com/nuxtblog/nuxtblog/internal/logic/payment"
 
-	_ "github.com/nuxtblog/nuxtblog/internal/logic/wallet"
-	_ "github.com/nuxtblog/nuxtblog/internal/logic/credits"
-	_ "github.com/nuxtblog/nuxtblog/internal/logic/order"
-	_ "github.com/nuxtblog/nuxtblog/internal/logic/membership"
 )

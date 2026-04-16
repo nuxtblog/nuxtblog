@@ -16,7 +16,9 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/mholt/archives v0.1.5
 	github.com/minio/minio-go/v7 v7.0.99
+	github.com/smartwalle/alipay/v3 v3.2.29
 	github.com/tencentyun/cos-go-sdk-v5 v0.7.73
+	github.com/wechatpay-apiv3/wechatpay-go v0.2.21
 	golang.org/x/crypto v0.49.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -73,6 +75,9 @@ require (
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/rs/xid v1.6.0 // indirect
+	github.com/smartwalle/ncrypto v1.0.4 // indirect
+	github.com/smartwalle/ngx v1.1.0 // indirect
+	github.com/smartwalle/nsign v1.0.9 // indirect
 	github.com/sorairolake/lzip-go v0.3.8 // indirect
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/tinylib/msgp v1.6.1 // indirect

@@ -82,6 +82,31 @@ type HasAssets interface {
 	Assets() map[string][]byte // filename -> content
 }
 
+// HasPaymentGateway indicates the plugin provides a payment method.
+type HasPaymentGateway interface {
+	PaymentGateway() PaymentGateway
+}
+
+// HasWalletProvider indicates the plugin provides wallet (balance) management.
+type HasWalletProvider interface {
+	WalletProvider() WalletProvider
+}
+
+// HasCreditsProvider indicates the plugin provides credits (points) management.
+type HasCreditsProvider interface {
+	CreditsProvider() CreditsProvider
+}
+
+// HasMembershipProvider indicates the plugin provides membership management.
+type HasMembershipProvider interface {
+	MembershipProvider() MembershipProvider
+}
+
+// HasEntitlementProvider indicates the plugin provides entitlement (purchase record) management.
+type HasEntitlementProvider interface {
+	EntitlementProvider() EntitlementProvider
+}
+
 // ─── Plugin Types ─────��───────────────────────────────────────────────────
 
 // PluginType enumerates plugin runtime types.
@@ -409,20 +434,86 @@ type PluginContext struct {
 	Commerce Commerce
 }
 
-// Commerce provides access to payment, wallet, and credits services.
+// Commerce provides access to payment, wallet, credits, entitlement and membership services.
+// Payment gateway methods are core infrastructure; all others proxy to registered provider plugins.
 type Commerce interface {
-	// GetEnabledPaymentMethods returns enabled payment providers (slug, label, icon).
+	// ── Payment gateway (core infrastructure) ──
 	GetEnabledPaymentMethods(ctx context.Context) ([]PaymentMethod, error)
-	// GetUserBalance returns wallet balance and credits for a user.
+	CreatePayment(ctx context.Context, provider string, req PaymentRequest) (*PaymentResult, error)
+	VerifyNotify(ctx context.Context, provider string, body []byte, headers map[string]string) (*PaymentNotifyResult, error)
+
+	// ── Wallet (proxied to WalletProvider plugin) ──
 	GetUserBalance(ctx context.Context, userID int64) (balance int, credits int, err error)
-	// SpendBalance deducts from wallet. Returns balance after.
 	SpendBalance(ctx context.Context, userID int64, amount int, refType, refID, note string) (int, error)
-	// SpendCredits deducts credits. Returns balance after.
-	SpendCredits(ctx context.Context, userID int64, amount int, refType, refID, note string) (int, error)
-	// RefundBalance refunds to wallet. Returns balance after.
 	RefundBalance(ctx context.Context, userID int64, amount int, refType, refID, note string) (int, error)
-	// RefundCredits refunds credits. Returns balance after.
-	RefundCredits(ctx context.Context, userID int64, amount int, refType, refID, note string) (int, error)
+	TopupWallet(ctx context.Context, userID int64, amount int, provider, txID string) error
+
+	// ── Credits (proxied to CreditsProvider plugin) ──
+	SpendCredits(ctx context.Context, userID int64, amount int, refType, refID, note string) (int, error)
+	EarnCredits(ctx context.Context, userID int64, amount int, source, refID, note string) (int, error)
+
+	// ── Entitlement (proxied to EntitlementProvider plugin) ──
+	GrantEntitlement(ctx context.Context, userID int64, objectType, objectID string) error
+	RevokeEntitlement(ctx context.Context, userID int64, objectType, objectID string) error
+	CheckEntitlement(ctx context.Context, userID int64, objectType, objectID string) (bool, error)
+
+	// ── Membership (proxied to MembershipProvider plugin) ──
+	ActivateMembership(ctx context.Context, userID int64, tierID int64) error
+	CheckMembershipAccess(ctx context.Context, userID int64) (bool, error)
+	ListMembershipTiers(ctx context.Context) ([]MembershipTier, error)
+	GetUserMembershipTier(ctx context.Context, userID int64) (*MembershipTier, error)
+
+	// ── Credits exchange rate ──
+	GetCreditsExchangeRate(ctx context.Context) (int, error)
+}
+
+// ─── Provider interfaces (implemented by plugins) ────────────────────────────
+
+// WalletProvider manages user wallet balance.
+type WalletProvider interface {
+	GetBalance(ctx context.Context, userID int64) (balance int, err error)
+	Spend(ctx context.Context, userID int64, amount int, refType, refID, note string) (int, error)
+	Refund(ctx context.Context, userID int64, amount int, refType, refID, note string) (int, error)
+	Topup(ctx context.Context, userID int64, amount int, provider, txID string) error
+	EnsureWallet(ctx context.Context, userID int64) error
+}
+
+// CreditsProvider manages user credits (points).
+type CreditsProvider interface {
+	GetBalance(ctx context.Context, userID int64) (int, error)
+	Earn(ctx context.Context, userID int64, amount int, source, refID, note string) (int, error)
+	Spend(ctx context.Context, userID int64, amount int, refType, refID, note string) (int, error)
+	EnsureCredits(ctx context.Context, userID int64) error
+	ExchangeRate(ctx context.Context) (int, error)
+}
+
+// MembershipProvider manages user memberships.
+type MembershipProvider interface {
+	Activate(ctx context.Context, userID int64, tierID int64) error
+	CheckAccess(ctx context.Context, userID int64) (bool, error)
+	ListTiers(ctx context.Context) ([]MembershipTier, error)
+	GetUserTier(ctx context.Context, userID int64) (*MembershipTier, error)
+}
+
+// EntitlementProvider manages user purchase/entitlement records.
+type EntitlementProvider interface {
+	Grant(ctx context.Context, userID int64, objectType, objectID string) error
+	Revoke(ctx context.Context, userID int64, objectType, objectID string) error
+	Check(ctx context.Context, userID int64, objectType, objectID string) (bool, error)
+}
+
+// MembershipTier describes a membership level.
+type MembershipTier struct {
+	ID             int64    `json:"id"`
+	Name           string   `json:"name"`
+	Slug           string   `json:"slug"`
+	Description    string   `json:"description,omitempty"`
+	Price          int      `json:"price"`
+	Duration       int      `json:"duration_days"`
+	DiscountPct    int      `json:"discount_pct"`
+	AccessAll      bool     `json:"access_all"`
+	CreditsMonthly int      `json:"credits_monthly"`
+	Features       []string `json:"features,omitempty"`
 }
 
 // PaymentMethod describes an enabled payment provider.
@@ -430,6 +521,70 @@ type PaymentMethod struct {
 	Slug  string `json:"slug"`
 	Label string `json:"label"`
 	Icon  string `json:"icon"`
+}
+
+// ─── Payment Gateway (plugin-provided) ──────────────────────────────────────
+
+// PaymentGateway is the interface a payment provider plugin implements.
+type PaymentGateway interface {
+	// ProviderInfo returns metadata and config field definitions.
+	ProviderInfo() PaymentProviderInfo
+	// CreatePayment creates a payment and returns redirect/QR info.
+	CreatePayment(ctx context.Context, cfg map[string]any, req PaymentRequest) (*PaymentResult, error)
+	// HandleNotify verifies and parses a payment provider callback.
+	HandleNotify(ctx context.Context, cfg map[string]any, body []byte, headers map[string]string) (*PaymentNotifyResult, error)
+}
+
+// PaymentProviderInfo holds metadata and config field definitions for a payment provider.
+type PaymentProviderInfo struct {
+	Slug          string
+	Label         string
+	Icon          string
+	Fields        []PaymentFieldDef
+	DefaultConfig map[string]any
+}
+
+// PaymentFieldDef describes a single config field for a payment provider.
+type PaymentFieldDef struct {
+	Key         string
+	Label       string
+	Type        string // "text", "password", "switch", "select"
+	Required    bool
+	Placeholder string
+	Options     []PaymentFieldOption
+}
+
+// PaymentFieldOption is a selectable option for a "select" type field.
+type PaymentFieldOption struct {
+	Label string
+	Value string
+}
+
+// PaymentRequest describes a payment to be created.
+type PaymentRequest struct {
+	OrderNo   string
+	Amount    int    // amount in cents
+	Currency  string // "CNY", "USD"
+	Subject   string // product title
+	NotifyURL string // async callback URL
+	ReturnURL string // sync redirect URL
+	ClientIP  string
+}
+
+// PaymentResult is the response from creating a payment.
+type PaymentResult struct {
+	PaymentURL string // payment page URL (Alipay/PayPal redirect)
+	QRCode     string // QR code content (WeChat Native)
+	Method     string // "redirect" | "qrcode"
+}
+
+// PaymentNotifyResult is the parsed result from a payment provider callback.
+type PaymentNotifyResult struct {
+	Success      bool
+	OrderNo      string
+	Amount       int
+	ProviderTxID string // third-party transaction ID
+	RawResponse  string // response to send back to the payment provider
 }
 
 // DB provides isolated database access for plugins.

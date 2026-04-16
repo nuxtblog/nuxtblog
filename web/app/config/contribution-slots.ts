@@ -70,6 +70,7 @@ export const CONTRIBUTION_SLOTS = {
 
   // ── Public: User Menu ────────────────────────────────────────────────
   PUBLIC_USER_MENU: 'public:user-menu',
+  PUBLIC_USER_MENU_CARDS: 'public:user-menu-cards',
 
   // ── Public: Floating Toolbar ──────────────────────────────────────────
   PUBLIC_FLOATING_TOOLBAR: 'public:floating-toolbar',

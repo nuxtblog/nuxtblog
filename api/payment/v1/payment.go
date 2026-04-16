@@ -52,3 +52,10 @@ type PaymentSetProviderConfigReq struct {
 type PaymentSetProviderConfigRes struct {
 	ProviderInfo
 }
+
+// ProviderBasicInfo is a lightweight provider representation for non-admin use.
+type ProviderBasicInfo struct {
+	Slug  string `json:"slug"`
+	Label string `json:"label"`
+	Icon  string `json:"icon"`
+}

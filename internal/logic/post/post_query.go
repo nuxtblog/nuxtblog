@@ -234,28 +234,17 @@ func (s *sPost) GetBySlug(ctx context.Context, slug string) (*v1.PostDetailEnric
 			}
 			item.FreePreviewPct = previewPct
 
-			// Check if user has access
+			// Check if user has access via FilterContentAccess (plugins decide)
 			userID, _ := middleware.GetCurrentUserID(ctx)
 			if userID > 0 {
-				// Check direct purchase
-				cnt, _ := g.DB().Ctx(ctx).Model("user_purchases").
-					Where("user_id", userID).
-					Where("object_type", "post_unlock").
-					Where("object_id", strconv.FormatInt(item.Id, 10)).
-					Count()
-				if cnt > 0 {
-					item.IsUnlocked = true
+				data := map[string]any{
+					"user_id":     userID,
+					"post_id":     item.Id,
+					"object_type": "post_unlock",
+					"allowed":     false,
 				}
-
-				// Check membership access
-				if !item.IsUnlocked {
-					var accessAll int
-					err := g.DB().Ctx(ctx).Raw(
-						"SELECT mt.access_all FROM user_memberships um "+
-							"JOIN membership_tiers mt ON mt.id = um.tier_id "+
-							"WHERE um.user_id = ? AND um.status = 1 AND um.expires_at > datetime('now') "+
-							"ORDER BY mt.access_all DESC LIMIT 1", userID).Scan(&accessAll)
-					if err == nil && accessAll == 1 {
+				if _, err := plugin.Filter(ctx, plugin.FilterContentAccess, data); err == nil {
+					if allowed, ok := data["allowed"].(bool); ok && allowed {
 						item.IsUnlocked = true
 					}
 				}

@@ -143,12 +143,10 @@ var routeRules = []routeRule{
 	{Method: "GET",    Pattern: "/admin/orders",                   MinRole: RoleAdmin},
 	{Method: "POST",   Pattern: "/admin/orders/*/refund",          MinRole: RoleAdmin},
 	{Method: "GET",    Pattern: "/admin/revenue/stats",            MinRole: RoleAdmin},
-	{Method: "POST",   Pattern: "/admin/membership/tiers",         MinRole: RoleAdmin},
-	{Method: "PUT",    Pattern: "/admin/membership/tiers/*",       MinRole: RoleAdmin},
-	{Method: "DELETE", Pattern: "/admin/membership/tiers/*",       MinRole: RoleAdmin},
-	{Method: "GET",    Pattern: "/admin/membership/subscribers",   MinRole: RoleAdmin},
-	{Method: "POST",   Pattern: "/admin/wallet/adjust",            MinRole: RoleAdmin},
-	{Method: "POST",   Pattern: "/admin/credits/adjust",           MinRole: RoleAdmin},
+	// Plugin admin routes (wallet, credits, membership)
+	{Method: "*",      Pattern: "/api/plugin/wallet/admin/*",      MinRole: RoleAdmin},
+	{Method: "*",      Pattern: "/api/plugin/credits/admin/*",     MinRole: RoleAdmin},
+	{Method: "*",      Pattern: "/api/plugin/membership/admin/*",  MinRole: RoleAdmin},
 
 	// ── Media library — GET requires editor+ (media library is admin-facing) ──
 	// POST /medias/upload is whitelisted in AdminWriteRequired for any auth user.

@@ -174,6 +174,7 @@ const dropdownItems = computed(() => {
               {{ $t("site.user_menu.followers") }}
             </NuxtLink>
           </div>
+          <ContributionSlot name="public:user-menu-cards" />
         </div>
       </template>
     </UDropdownMenu>

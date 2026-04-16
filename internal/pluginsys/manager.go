@@ -26,7 +26,25 @@ type Manager struct {
 	server  *ghttp.Server // set by RegisterRoutes, used for dynamic route binding
 	graph   *depGraph
 	eventWg sync.WaitGroup // tracks in-flight FanOutEvent goroutines
+
+	// Provider references — set during plugin activation
+	walletProvider      sdk.WalletProvider
+	creditsProvider     sdk.CreditsProvider
+	membershipProvider  sdk.MembershipProvider
+	entitlementProvider sdk.EntitlementProvider
 }
+
+// WalletProvider returns the registered wallet provider (may be nil).
+func (m *Manager) WalletProvider() sdk.WalletProvider { return m.walletProvider }
+
+// CreditsProvider returns the registered credits provider (may be nil).
+func (m *Manager) CreditsProvider() sdk.CreditsProvider { return m.creditsProvider }
+
+// MembershipProvider returns the registered membership provider (may be nil).
+func (m *Manager) MembershipProvider() sdk.MembershipProvider { return m.membershipProvider }
+
+// EntitlementProvider returns the registered entitlement provider (may be nil).
+func (m *Manager) EntitlementProvider() sdk.EntitlementProvider { return m.entitlementProvider }
 
 type loadedPlugin struct {
 	plugin  sdk.Plugin
