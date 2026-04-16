@@ -22,13 +22,17 @@ import (
 
 // EnsureMigrationTable creates the plugin_migrations tracking table if absent.
 func EnsureMigrationTable(ctx context.Context) {
-	sql := `CREATE TABLE IF NOT EXISTS plugin_migrations (
+	tsType := "DATETIME"
+	if dbDialect() == "pgsql" {
+		tsType = "TIMESTAMPTZ"
+	}
+	ddl := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS plugin_migrations (
 		plugin_id TEXT NOT NULL,
 		version   INTEGER NOT NULL,
-		applied_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		applied_at %s DEFAULT CURRENT_TIMESTAMP,
 		PRIMARY KEY (plugin_id, version)
-	)`
-	if _, err := g.DB().Exec(ctx, sql); err != nil {
+	)`, tsType)
+	if _, err := g.DB().Exec(ctx, ddl); err != nil {
 		g.Log().Warningf(ctx, "[plugin] create plugin_migrations table: %v", err)
 	}
 }
@@ -52,13 +56,19 @@ func RunMigrations(ctx context.Context, pluginID string, migrations []MigrationD
 			continue
 		}
 
+		// Resolve dialect-specific SQL
+		resolvedUp, err := resolveSQL(m.Up)
+		if err != nil {
+			return applied, fmt.Errorf("migration v%d: %w", m.Version, err)
+		}
+
 		// Validate table name prefix
-		if err := validateTablePrefix(m.Up, prefix); err != nil {
+		if err := validateTablePrefix(resolvedUp, prefix); err != nil {
 			return applied, fmt.Errorf("migration v%d: %w", m.Version, err)
 		}
 
 		// Execute the migration
-		if _, err := g.DB().Exec(ctx, m.Up); err != nil {
+		if _, err := g.DB().Exec(ctx, resolvedUp); err != nil {
 			return applied, fmt.Errorf("migration v%d: %w", m.Version, err)
 		}
 
@@ -88,11 +98,15 @@ func RollbackMigrations(ctx context.Context, pluginID string, migrations []Migra
 	// Run down migrations in reverse order
 	for i := len(migrations) - 1; i >= 0; i-- {
 		m := migrations[i]
-		if m.Version > currentVersion || m.Down == "" {
+		if m.Version > currentVersion {
+			continue
+		}
+		resolvedDown, err := resolveSQL(m.Down)
+		if err != nil || resolvedDown == "" {
 			continue
 		}
 
-		if _, err := g.DB().Exec(ctx, m.Down); err != nil {
+		if _, err := g.DB().Exec(ctx, resolvedDown); err != nil {
 			g.Log().Warningf(ctx, "[plugin:%s] rollback v%d error: %v", pluginID, m.Version, err)
 			// Continue with other rollbacks
 		}

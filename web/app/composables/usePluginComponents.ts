@@ -93,6 +93,10 @@ const __pluginFetch = (url, opts = {}) => {
 `
   source = fetchShim + source.replace(/\bfetch\s*\(/g, '__pluginFetch(')
 
+  // Inject per-plugin i18n composable
+  const i18nShim = `const usePluginT = window.__nuxtblog_i18n(${JSON.stringify(pluginId)});\n`
+  source = i18nShim + source
+
   const blob = new Blob([source], { type: 'application/javascript' })
   const blobUrl = URL.createObjectURL(blob)
   try {

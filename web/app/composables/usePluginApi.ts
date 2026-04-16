@@ -26,6 +26,8 @@ export interface PluginItem {
   type: 'builtin' | 'js' | 'yaml' | 'full'
   /** True when the plugin requires the Go server to be rebuilt and restarted to take effect (builtin plugins only). */
   need_restart?: boolean
+  /** Raw JSON — i18n messages for template resolution */
+  i18n?: string
 }
 
 /** Returns human-readable capability badge labels for a plugin. */

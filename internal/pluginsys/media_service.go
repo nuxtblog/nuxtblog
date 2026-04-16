@@ -143,8 +143,8 @@ func registerPluginCategoryViaOptions(ctx context.Context, pluginID string, def 
 	found := false
 	for i := range cats {
 		if cats[i].Slug == def.Slug {
-			cats[i].LabelZh = def.LabelZh
-			cats[i].LabelEn = def.LabelEn
+			cats[i].LabelZh = def.ResolvedZh
+			cats[i].LabelEn = def.ResolvedEn
 			cats[i].Order = def.Order
 			cats[i].MaxPerOwner = def.MaxPerOwner
 			cats[i].PluginID = pluginID
@@ -155,7 +155,7 @@ func registerPluginCategoryViaOptions(ctx context.Context, pluginID string, def 
 	}
 	if !found {
 		cats = append(cats, pluginCatItem{
-			Slug: def.Slug, LabelZh: def.LabelZh, LabelEn: def.LabelEn,
+			Slug: def.Slug, LabelZh: def.ResolvedZh, LabelEn: def.ResolvedEn,
 			Order: def.Order, MaxPerOwner: def.MaxPerOwner, PluginID: pluginID,
 		})
 	}

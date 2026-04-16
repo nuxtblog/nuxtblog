@@ -168,6 +168,9 @@ type Manifest struct {
 	// ── Permissions (frontend API access) ──
 	Permissions []string `yaml:"permissions" json:"permissions,omitempty"`
 
+	// ── Internationalization ──
+	I18n map[string]map[string]string `yaml:"i18n" json:"i18n,omitempty"`
+
 	// ── YAML plugin specific (declarative logic) ──
 	Webhooks []WebhookDef `yaml:"webhooks" json:"webhooks,omitempty"`
 	Filters  []YAMLFilter `yaml:"filters"  json:"filters,omitempty"`
@@ -302,10 +305,9 @@ type ViewDef struct {
 
 // CommandDef declares a command triggered from menus or keyboard shortcuts.
 type CommandDef struct {
-	ID      string `yaml:"id"       json:"id"`
-	Title   string `yaml:"title"    json:"title"`
-	TitleEn string `yaml:"title_en" json:"title_en,omitempty"`
-	Icon    string `yaml:"icon"     json:"icon,omitempty"`
+	ID   string `yaml:"id"    json:"id"`
+	Title string `yaml:"title" json:"title"`
+	Icon  string `yaml:"icon"  json:"icon,omitempty"`
 }
 
 // MenuEntry references a command by ID.
@@ -402,10 +404,11 @@ func (c *FilterContext) IsAborted() bool { return c.aborted }
 func (c *FilterContext) AbortReason() string { return c.reason }
 
 // Migration describes a versioned schema migration.
+// Up and Down are keyed by database dialect: "sqlite", "pgsql", "mysql".
 type Migration struct {
-	Version int    `yaml:"version" json:"version"`
-	Up      string `yaml:"up"      json:"up"`
-	Down    string `yaml:"down"    json:"down,omitempty"`
+	Version int               `yaml:"version" json:"version"`
+	Up      map[string]string `yaml:"up"      json:"up"`
+	Down    map[string]string `yaml:"down"    json:"down,omitempty"`
 }
 
 // Dependency declares a requirement on another plugin.
@@ -432,6 +435,7 @@ type PluginContext struct {
 	AI       AI
 	Media    MediaService
 	Commerce Commerce
+	I18n     map[string]map[string]string // plugin's i18n block from manifest
 }
 
 // Commerce provides access to payment, wallet, credits, entitlement and membership services.

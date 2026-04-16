@@ -193,6 +193,7 @@ import { dispatchCommand } from '~/composables/useNuxtblogAdmin'
 import { CONTRIBUTION_SLOTS } from '~/config/contribution-slots'
 import { usePluginContributionsStore } from '~/stores/plugin-contributions'
 import { usePluginContextStore } from '~/stores/plugin-context'
+import { usePluginLocale } from '~/composables/usePluginLocale'
 
 interface PostListItem {
   id: number
@@ -529,13 +530,14 @@ const confirmDelete = async () => {
 // ── Plugin contribution commands ──────────────────────────────────────────
 const contributionsStore = usePluginContributionsStore()
 const contextStore = usePluginContextStore()
+const { t: pluginT } = usePluginLocale()
 const pluginMenuItems = contributionsStore.getMenuItems(CONTRIBUTION_SLOTS.POST_LIST_ROW_ACTION)
 
 const getPluginActions = (post: PostListItem) => {
   const items = pluginMenuItems.value.filter(item => !item.when || contextStore.evaluateWhen(item.when))
   if (items.length === 0) return []
   return [items.map(item => ({
-    label: item.title || item.command,
+    label: pluginT(item) || item.command,
     icon: item.icon,
     onClick: () => dispatchCommand(item.command, { source: 'post-list', postId: post.id, postTitle: post.title }),
   }))]

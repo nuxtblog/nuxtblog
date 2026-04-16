@@ -11,6 +11,7 @@ import type { PluginContributes } from '~/stores/plugin-contributions'
 import { installNuxtblogPublic, eventBus } from '~/composables/useNuxtblogPublic'
 import type { PublicPluginPermissions } from '~/composables/useNuxtblogPublic'
 import { registerPluginVersion } from '~/composables/usePluginComponents'
+import { registerPluginI18n, createPluginI18nApi, createPluginTComposable } from '~/composables/usePluginI18n'
 
 interface PluginClientItem {
   id: string
@@ -20,6 +21,7 @@ interface PluginClientItem {
   trust_level: string
   contributes?: string // raw JSON
   permissions?: string // raw JSON
+  i18n?: string // raw JSON
 }
 
 interface PageDef {
@@ -48,6 +50,10 @@ export let pluginsLoadedPromise: Promise<void> | null = null
 export function usePublicPluginLoader() {
   const plugins = ref<PluginClientItem[]>([])
   const contributionsStore = usePluginContributionsStore()
+  const { locale } = useI18n()
+  // Expose i18n factory for plugin modules (source rewriting injects the call)
+  ;(window as any).__nuxtblog_i18n = (pluginId: string) =>
+    createPluginTComposable(pluginId, locale)
   const config = useRuntimeConfig()
   const apiBase = config.public.apiBase as string
   // Extract backend origin for asset URLs (e.g. "http://localhost:9000" from "http://localhost:9000/api/v1")
@@ -80,6 +86,15 @@ export function usePublicPluginLoader() {
       for (const plugin of plugins.value) {
         // Register version for cache busting
         registerPluginVersion(plugin.id, plugin.version)
+
+        // Parse and register i18n messages
+        if (plugin.i18n) {
+          try {
+            const i18nMessages = JSON.parse(plugin.i18n)
+            registerPluginI18n(plugin.id, i18nMessages)
+          }
+          catch { /* ignore */ }
+        }
 
         // Parse contributes (now includes pages, activation, styles)
         let contributes: PluginContributes = {}
@@ -143,7 +158,7 @@ export function usePublicPluginLoader() {
             trustLevel: plugin.trust_level,
             permissions,
           }
-          await loadPublicScript(plugin, publicActivation.module, meta, _createPluginApi!, backendOrigin)
+          await loadPublicScript(plugin, publicActivation.module, meta, _createPluginApi!, backendOrigin, plugin.i18n)
         }
       }
 
@@ -169,6 +184,7 @@ async function loadPublicScript(
   meta: PublicPluginPermissions,
   createPluginApi: (meta: PublicPluginPermissions) => Record<string, any>,
   backendOrigin: string,
+  i18nJSON?: string,
 ) {
   const scriptUrl = `${backendOrigin}/api/plugins/${encodeURIComponent(plugin.id)}/assets/${moduleFile}?v=${plugin.version}`
 
@@ -194,7 +210,7 @@ async function loadPublicScript(
     }
   }
   else {
-    loadInSandbox(plugin.id, scriptUrl, meta, backendOrigin)
+    loadInSandbox(plugin.id, scriptUrl, meta, backendOrigin, i18nJSON)
   }
 }
 
@@ -202,17 +218,19 @@ async function loadPublicScript(
  * Load a community plugin's public script in a sandboxed iframe.
  * Only safe APIs (page, theme, notify, slots.render with text only) are available.
  */
-function loadInSandbox(pluginId: string, scriptUrl: string, _meta: PublicPluginPermissions, _backendOrigin: string) {
+function loadInSandbox(pluginId: string, scriptUrl: string, _meta: PublicPluginPermissions, _backendOrigin: string, i18nJSON?: string) {
   const contributionsStore = usePluginContributionsStore()
   const iframe = document.createElement('iframe')
   iframe.style.display = 'none'
   iframe.sandbox.add('allow-scripts')
   iframe.dataset.pluginId = pluginId
 
+  const i18nMsgs = i18nJSON || '{}'
   const html = `
     <!DOCTYPE html>
     <html>
     <head><script>
+    window.__i18n = { messages: ${i18nMsgs}, locale: navigator.language.startsWith('zh') ? 'zh' : 'en' };
     window.nuxtblogPublic = {
       page: {
         getRoute: function() { return window.__route || {}; },
@@ -236,6 +254,14 @@ function loadInSandbox(pluginId: string, scriptUrl: string, _meta: PublicPluginP
         render: function(slotId, content, options) {
           parent.postMessage({type:'plugin:slotRender',pluginId:'${pluginId}',slotId:slotId,content:String(content),order:(options&&options.order)||100},'*');
         }
+      },
+      i18n: {
+        t: function(key, fallback) {
+          var m = window.__i18n.messages;
+          var l = window.__i18n.locale;
+          return (m[l] && m[l][key]) || (m['zh'] && m['zh'][key]) || fallback || key;
+        },
+        get locale() { return window.__i18n.locale; }
       },
       events: {
         emit: function(eventName) {
@@ -269,6 +295,9 @@ function loadInSandbox(pluginId: string, scriptUrl: string, _meta: PublicPluginP
       if (e.data.type === 'plugin:eventDispatch' && window.__eventHandlers) {
         var handlers = window.__eventHandlers[e.data.eventName];
         if (handlers) handlers.forEach(function(h) { try { h.apply(null, e.data.args || []); } catch(ex) {} });
+      }
+      if (e.data.type === 'localeChange') {
+        window.__i18n.locale = e.data.locale;
       }
     });
     <\/script>

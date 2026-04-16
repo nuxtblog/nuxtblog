@@ -32,7 +32,7 @@ func injectPluginSDK(vm *goja.Runtime, pctx sdk.PluginContext) {
 		injectPluginAI(vm, ctx, pctx.AI)
 	}
 	if pctx.Media != nil {
-		injectMedia(vm, ctx, pctx.Media)
+		injectMedia(vm, ctx, pctx.Media, pctx.I18n)
 	}
 	vm.Set("ctx", ctx)
 }
@@ -286,7 +286,7 @@ func injectPluginAI(vm *goja.Runtime, ctxObj *goja.Object, ai sdk.AI) {
 
 // injectMedia exposes ctx.media.upload(data, filename, opts) and ctx.media.delete(mediaID)
 // to JS plugins for media operations.
-func injectMedia(vm *goja.Runtime, ctxObj *goja.Object, ms sdk.MediaService) {
+func injectMedia(vm *goja.Runtime, ctxObj *goja.Object, ms sdk.MediaService, i18n map[string]map[string]string) {
 	o := vm.NewObject()
 
 	o.Set("registerStorageAdapter", func(call goja.FunctionCall) goja.Value {
@@ -305,11 +305,8 @@ func injectMedia(vm *goja.Runtime, ctxObj *goja.Object, ms sdk.MediaService) {
 		if v, ok := m["slug"].(string); ok {
 			def.Slug = v
 		}
-		if v, ok := m["label_zh"].(string); ok {
-			def.LabelZh = v
-		}
-		if v, ok := m["label_en"].(string); ok {
-			def.LabelEn = v
+		if v, ok := m["label"].(string); ok {
+			def.Label = v
 		}
 		if v, ok := m["order"].(int64); ok {
 			def.Order = int(v)
@@ -317,6 +314,7 @@ func injectMedia(vm *goja.Runtime, ctxObj *goja.Object, ms sdk.MediaService) {
 		if v, ok := m["max_per_owner"].(int64); ok {
 			def.MaxPerOwner = int(v)
 		}
+		def.ResolveCategoryLabel(i18n)
 		if err := ms.RegisterCategory(def); err != nil {
 			panic(vm.NewGoError(err))
 		}

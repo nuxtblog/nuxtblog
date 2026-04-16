@@ -158,9 +158,11 @@
 <script setup lang="ts">
 import { useRoute } from "vue-router";
 import { ADMIN_MENU, type MenuItem } from "../config/admin-menu";
+import { usePluginLocale } from '~/composables/usePluginLocale'
 
 const route = useRoute();
 const { t, te } = useI18n();
+const { t: pluginT } = usePluginLocale();
 /** Translate label if i18n key exists, otherwise return as-is (for plugin items). */
 const tl = (label: string) => te(label) ? t(label) : label;
 const { desktopCollapsed, closeMobile, toggleDesktop } = useAdminSidebar();
@@ -197,7 +199,7 @@ const contributionsStore = usePluginContributionsStore();
 
 const navToMenuItem = (nav: { pluginId: string; route: string; title: string; icon?: string; order: number; groupKey?: string }): MenuItem => ({
   name: nav.groupKey || `plugin-${nav.pluginId}-${nav.route}`,
-  label: nav.title,
+  label: pluginT(nav),
   to: nav.route || undefined,
   icon: nav.icon,
   order: nav.order,

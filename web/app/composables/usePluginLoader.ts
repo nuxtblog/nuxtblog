@@ -9,6 +9,7 @@
 import type { PluginContributes } from '~/stores/plugin-contributions'
 import { usePluginContributionsStore } from '~/stores/plugin-contributions'
 import { loadPluginModule, registerPluginVersion } from '~/composables/usePluginComponents'
+import { registerPluginI18n, createPluginI18nApi, createPluginTComposable } from '~/composables/usePluginI18n'
 
 interface PluginClientItem {
   id: string
@@ -17,6 +18,7 @@ interface PluginClientItem {
   version: string
   trust_level: string
   contributes?: string // raw JSON
+  i18n?: string // raw JSON
 }
 
 interface PageDef {
@@ -43,6 +45,10 @@ export const adminPluginsLoaded = ref(false)
 export function usePluginLoader() {
   const { apiFetch } = useApiFetch()
   const contributionsStore = usePluginContributionsStore()
+  const { locale } = useI18n()
+  // Expose i18n factory for plugin modules (source rewriting injects the call)
+  ;(window as any).__nuxtblog_i18n = (pluginId: string) =>
+    createPluginTComposable(pluginId, locale)
   const loaded = ref(false)
   const plugins = ref<PluginClientItem[]>([])
 
@@ -61,6 +67,16 @@ export function usePluginLoader() {
       // Register plugin versions for cache busting, then contribution points
       for (const plugin of plugins.value) {
         registerPluginVersion(plugin.id, plugin.version)
+
+        // Parse and register i18n messages
+        if (plugin.i18n) {
+          try {
+            const i18nMessages = JSON.parse(plugin.i18n)
+            registerPluginI18n(plugin.id, i18nMessages)
+          }
+          catch { /* ignore */ }
+        }
+
         // Parse contributes (now includes pages, activation, styles)
         let contributes: PluginContributes = {}
 
@@ -140,12 +156,19 @@ export function usePluginLoader() {
         const activations: ActivationEntry[] = contributes.activation || []
         const adminActivation = activations.find(a => a.scope === 'admin')
         if (adminActivation) {
-          await loadAdminScript(plugin, adminActivation.module)
+          await loadAdminScript(plugin, adminActivation.module, locale)
         }
       }
 
       loaded.value = true
       adminPluginsLoaded.value = true
+
+      // Broadcast locale changes to all sandboxed iframes
+      watch(locale, (newLocale) => {
+        document.querySelectorAll<HTMLIFrameElement>('iframe[data-plugin-id]').forEach((iframe) => {
+          iframe.contentWindow?.postMessage({ type: 'localeChange', locale: newLocale }, '*')
+        })
+      })
     }
     catch (e) {
       console.warn('[plugin-loader] failed to load plugins:', e)
@@ -160,13 +183,16 @@ export function usePluginLoader() {
  * - official/local: loaded via loadPluginModule (source rewriting + activate())
  * - community: loaded in a sandboxed iframe with postMessage bridge
  */
-async function loadAdminScript(plugin: PluginClientItem, moduleFile: string) {
+async function loadAdminScript(plugin: PluginClientItem, moduleFile: string, locale: Ref<string>) {
   if (plugin.trust_level === 'official' || plugin.trust_level === 'local') {
     // Main context — load via loadPluginModule (source rewriting + Blob URL import)
     try {
       const mod = await loadPluginModule(plugin.id, moduleFile, plugin.version)
       if (typeof mod.activate === 'function') {
-        await mod.activate((window as any).nuxtblogAdmin)
+        const i18nApi = createPluginI18nApi(plugin.id, locale)
+        const pluginApi = Object.create((window as any).nuxtblogAdmin)
+        pluginApi.i18n = i18nApi
+        await mod.activate(pluginApi)
       }
     }
     catch (e) {
@@ -177,7 +203,7 @@ async function loadAdminScript(plugin: PluginClientItem, moduleFile: string) {
     // Community plugins: sandboxed iframe
     // The iframe only has access to a restricted postMessage-based API
     const scriptUrl = `/api/plugins/${encodeURIComponent(plugin.id)}/assets/${moduleFile}?v=${plugin.version}`
-    loadInSandbox(plugin.id, scriptUrl)
+    loadInSandbox(plugin.id, scriptUrl, locale, plugin.i18n)
   }
 }
 
@@ -185,17 +211,20 @@ async function loadAdminScript(plugin: PluginClientItem, moduleFile: string) {
  * Load a community plugin's admin script in a sandboxed iframe.
  * Only suggest() is available (no set()), no cookie/DOM access.
  */
-function loadInSandbox(pluginId: string, scriptUrl: string) {
+function loadInSandbox(pluginId: string, scriptUrl: string, locale: Ref<string>, i18nJSON?: string) {
   const iframe = document.createElement('iframe')
   iframe.style.display = 'none'
   iframe.sandbox.add('allow-scripts')
   iframe.dataset.pluginId = pluginId
 
   // Create a minimal HTML page that loads the script and bridges postMessage
+  const i18nMsgs = i18nJSON || '{}'
   const html = `
     <!DOCTYPE html>
     <html>
     <head><script>
+    // i18n support for sandboxed plugins
+    window.__i18n = { messages: ${i18nMsgs}, locale: '${locale.value}' };
     // Restricted nuxtblogAdmin for sandboxed plugins
     window.nuxtblogAdmin = {
       watch: function(field, cb) {
@@ -225,6 +254,14 @@ function loadInSandbox(pluginId: string, scriptUrl: string) {
         success: function(msg) { parent.postMessage({type:'plugin:notify',level:'success',message:msg},'*'); },
         error: function(msg) { parent.postMessage({type:'plugin:notify',level:'error',message:msg},'*'); },
         info: function(msg) { parent.postMessage({type:'plugin:notify',level:'info',message:msg},'*'); }
+      },
+      i18n: {
+        t: function(key, fallback) {
+          var m = window.__i18n.messages;
+          var l = window.__i18n.locale;
+          return (m[l] && m[l][key]) || (m['zh'] && m['zh'][key]) || fallback || key;
+        },
+        get locale() { return window.__i18n.locale; }
       }
     };
     // Listen for messages from parent
@@ -236,6 +273,9 @@ function loadInSandbox(pluginId: string, scriptUrl: string) {
       if (e.data && e.data.type === 'plugin:executeCommand' && window.__commandHandlers) {
         var h = window.__commandHandlers[e.data.commandId];
         if (h) h(e.data.ctx);
+      }
+      if (e.data && e.data.type === 'localeChange') {
+        window.__i18n.locale = e.data.locale;
       }
     });
     <\/script>

@@ -490,6 +490,10 @@ func (s *sPlugin) ClientList(ctx context.Context) (*v1.PluginClientListRes, erro
 			pb, _ := json.Marshal(mf.Permissions)
 			item.Permissions = string(pb)
 		}
+		if len(mf.I18n) > 0 {
+			ib, _ := json.Marshal(mf.I18n)
+			item.I18n = string(ib)
+		}
 		items = append(items, item)
 	}
 	return &v1.PluginClientListRes{Items: items}, nil
@@ -590,6 +594,10 @@ func (s *sPlugin) PublicClientList(ctx context.Context) (*v1.PluginPublicClientR
 		if len(mf.Permissions) > 0 {
 			pb, _ := json.Marshal(mf.Permissions)
 			item.Permissions = string(pb)
+		}
+		if len(mf.I18n) > 0 {
+			ib, _ := json.Marshal(mf.I18n)
+			item.I18n = string(ib)
 		}
 		items = append(items, item)
 	}

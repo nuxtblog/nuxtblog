@@ -124,20 +124,21 @@ type pluginYAMLManifest struct {
 
 	Contributes *struct {
 		Commands []struct {
-			ID      string `yaml:"id"`
-			Title   string `yaml:"title"`
-			TitleEn string `yaml:"title_en"`
-			Icon    string `yaml:"icon"`
+			ID    string `yaml:"id"`
+			Title string `yaml:"title"`
+			Icon  string `yaml:"icon"`
 		} `yaml:"commands"`
 		Menus map[string][]struct {
 			Command string `yaml:"command"`
 		} `yaml:"menus"`
 	} `yaml:"contributes"`
 
+	I18n map[string]map[string]string `yaml:"i18n"`
+
 	Migrations []struct {
-		Version int    `yaml:"version"`
-		Up      string `yaml:"up"`
-		Down    string `yaml:"down"`
+		Version int               `yaml:"version"`
+		Up      map[string]string `yaml:"up"`
+		Down    map[string]string `yaml:"down"`
 	} `yaml:"migrations"`
 
 	Routes []struct {
@@ -403,6 +404,7 @@ func parsePluginYAML(data []byte) (*eng.Manifest, string, error) {
 		TrustLevel:  eng.TrustLevel(y.TrustLevel),
 		Type:        y.Type,
 		Entry:       y.Entry,
+		I18n:        y.I18n,
 	}
 
 	// Settings

@@ -189,6 +189,7 @@ type Manifest struct {
 	Service          *ServiceDef   `json:"service,omitempty"`        // external service proxy
 	Type             string        `json:"type,omitempty"`           // "builtin" | "js" | "yaml" | "full"
 	Permissions      []string      `json:"permissions,omitempty"`    // frontend API permissions: "user:read", "http:auth", "html:inject"
+	I18n             map[string]map[string]string `json:"i18n,omitempty"` // i18n messages: locale → key → message
 }
 
 // ─── Route definitions ──────────────────────────────────────────────────────
@@ -233,7 +234,6 @@ type ActivationEntry struct {
 type CommandDef struct {
 	ID       string `json:"id"`
 	Title    string `json:"title"`
-	TitleEn  string `json:"title_en,omitempty"`
 	Icon     string `json:"icon,omitempty"`
 	Shortcut string `json:"shortcut,omitempty"`
 }
@@ -270,10 +270,11 @@ type ViewDef struct {
 
 // MigrationDef declares one versioned schema migration for a plugin.
 // Table names must be prefixed with plugin_{sanitized_id}_.
+// Up and Down are keyed by database dialect: "sqlite", "pgsql", "mysql".
 type MigrationDef struct {
-	Version int    `json:"version"`
-	Up      string `json:"up"`              // DDL statement (CREATE, ALTER, CREATE INDEX)
-	Down    string `json:"down,omitempty"`  // rollback DDL
+	Version int               `json:"version"`
+	Up      map[string]string `json:"up"`              // DDL keyed by dialect
+	Down    map[string]string `json:"down,omitempty"`  // rollback DDL keyed by dialect
 }
 
 // ─── Page definitions ───────────────────────────────────────────────────────

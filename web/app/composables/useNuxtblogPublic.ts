@@ -5,6 +5,7 @@
  * Sensitive APIs (user, http) require explicit permission declaration in plugin.yaml.
  */
 import type { PluginContentBlock } from '~/stores/plugin-contributions'
+import { createPluginI18nApi } from '~/composables/usePluginI18n'
 
 export interface PublicPluginPermissions {
   pluginId: string
@@ -55,6 +56,7 @@ export function installNuxtblogPublic() {
   const colorMode = useColorMode()
   const toast = useToast()
   const contributionsStore = usePluginContributionsStore()
+  const { locale } = useI18n()
 
   const themeCallbacks = new Set<(mode: string) => void>()
 
@@ -175,6 +177,9 @@ export function installNuxtblogPublic() {
         },
       },
     }
+
+    // ── Plugin i18n ─────────────────────────────────────────────
+    api.i18n = createPluginI18nApi(meta.pluginId, locale)
 
     // ── Permission-gated APIs ──────────────────────────────────
 

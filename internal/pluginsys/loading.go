@@ -47,6 +47,7 @@ func (m *Manager) activatePlugin(ctx context.Context, p sdk.Plugin, source strin
 		AI:       DefaultAI(),
 		Media:    newMediaService(id),
 		Commerce: newPluginCommerce(id),
+		I18n:     mf.I18n,
 	}
 	lp.ctx = pctx
 
@@ -65,6 +66,7 @@ func (m *Manager) activatePlugin(ctx context.Context, p sdk.Plugin, source strin
 	// Register media categories declared in capabilities.media
 	if mf.Capabilities != nil && mf.Capabilities.Media != nil {
 		for _, cat := range mf.Capabilities.Media.Categories {
+			cat.ResolveCategoryLabel(mf.I18n)
 			if err := pctx.Media.RegisterCategory(cat); err != nil {
 				g.Log().Warningf(ctx, "[pluginmgr] %s: register media category %s: %v", id, cat.Slug, err)
 			}

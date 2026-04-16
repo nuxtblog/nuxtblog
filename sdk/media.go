@@ -3,6 +3,7 @@ package sdk
 import (
 	"context"
 	"io"
+	"strings"
 )
 
 // StorageAdapter is the interface that cloud storage plugins implement
@@ -53,10 +54,55 @@ type MediaService interface {
 }
 
 // CategoryDef declares a media category that a plugin can register.
+// Label supports plain strings or {{key}} templates resolved via the plugin's i18n block.
 type CategoryDef struct {
 	Slug        string `yaml:"slug"          json:"slug"`
-	LabelZh     string `yaml:"label_zh"      json:"label_zh"`
-	LabelEn     string `yaml:"label_en"      json:"label_en"`
+	Label       string `yaml:"label"         json:"label"`
 	Order       int    `yaml:"order"         json:"order"`
 	MaxPerOwner int    `yaml:"max_per_owner" json:"max_per_owner"`
+
+	// ResolvedZh/ResolvedEn are populated by ResolveCategoryLabel for internal use.
+	// Not serialized from plugin.yaml.
+	ResolvedZh string `yaml:"-" json:"-"`
+	ResolvedEn string `yaml:"-" json:"-"`
 }
+
+// ResolveCategoryLabel resolves Label's {{key}} template using the plugin's
+// i18n block, populating ResolvedZh/ResolvedEn for internal storage.
+// If Label contains no {{}} templates, both locales get the plain string.
+func (d *CategoryDef) ResolveCategoryLabel(i18n map[string]map[string]string) {
+	if d.Label == "" {
+		return
+	}
+	resolve := func(locale string) string {
+		msgs := i18n[locale]
+		if msgs == nil {
+			return d.Label
+		}
+		result := d.Label
+		for {
+			start := strings.Index(result, "{{")
+			if start < 0 {
+				break
+			}
+			end := strings.Index(result[start:], "}}")
+			if end < 0 {
+				break
+			}
+			key := result[start+2 : start+end]
+			val, ok := msgs[key]
+			if !ok {
+				break
+			}
+			result = result[:start] + val + result[start+end+2:]
+		}
+		return result
+	}
+	d.ResolvedZh = resolve("zh")
+	d.ResolvedEn = resolve("en")
+	// If en is still a template (no en translation), fall back to zh
+	if d.ResolvedEn == d.Label && d.ResolvedZh != d.Label {
+		d.ResolvedEn = d.ResolvedZh
+	}
+}
+

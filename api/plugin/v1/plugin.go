@@ -33,6 +33,7 @@ type PluginItem struct {
 	Source       string `json:"source"`                 // "builtin" (Go native, cannot uninstall) | "external" (installed via zip/github)
 	Type         string `json:"type"`                   // "builtin" | "js" | "yaml" | "full"
 	NeedRestart  bool   `json:"need_restart,omitempty"` // true when plugin requires server restart to activate
+	I18n         string `json:"i18n,omitempty"`         // raw JSON — i18n messages
 }
 
 // ── List ──────────────────────────────────────────────────────────────────
@@ -142,6 +143,7 @@ type PluginClientItem struct {
 	TrustLevel  string `json:"trust_level"`
 	Contributes string `json:"contributes,omitempty"` // raw JSON
 	Permissions string `json:"permissions,omitempty"` // raw JSON — frontend API permissions
+	I18n        string `json:"i18n,omitempty"`        // raw JSON — i18n messages
 }
 
 type PluginClientListRes struct {

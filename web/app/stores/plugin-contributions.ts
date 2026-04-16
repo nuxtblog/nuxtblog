@@ -13,7 +13,6 @@ export interface PluginCommand {
   pluginId: string
   id: string
   title: string
-  titleEn?: string
   icon?: string
   shortcut?: string
 }
@@ -38,7 +37,6 @@ export interface PluginMenuItem {
   group?: string
   // Resolved from commands registry:
   title?: string
-  titleEn?: string
   icon?: string
   shortcut?: string
 }
@@ -70,7 +68,6 @@ export interface PluginContributes {
   commands?: Array<{
     id: string
     title: string
-    title_en?: string
     icon?: string
     shortcut?: string
   }>
@@ -145,7 +142,6 @@ export const usePluginContributionsStore = defineStore('plugin-contributions', (
           pluginId,
           id: cmd.id,
           title: cmd.title,
-          titleEn: cmd.title_en,
           icon: cmd.icon,
           shortcut: cmd.shortcut,
         })
@@ -181,7 +177,6 @@ export const usePluginContributionsStore = defineStore('plugin-contributions', (
             when: entry.when,
             group: entry.group,
             title: cmd?.title,
-            titleEn: cmd?.title_en,
             icon: cmd?.icon,
             shortcut: cmd?.shortcut,
           })

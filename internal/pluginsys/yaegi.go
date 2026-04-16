@@ -83,6 +83,7 @@ func (m *Manager) ReactivatePlugin(ctx context.Context, id string) bool {
 		Plugins:  &pluginQuery{mgr: m},
 		AI:       DefaultAI(),
 		Media:    newMediaService(id),
+		I18n:     mf.I18n,
 	}
 
 	// 4. Re-activate
@@ -94,6 +95,7 @@ func (m *Manager) ReactivatePlugin(ctx context.Context, id string) bool {
 	// 5. Re-register media categories from capabilities.media
 	if mf.Capabilities != nil && mf.Capabilities.Media != nil {
 		for _, cat := range mf.Capabilities.Media.Categories {
+			cat.ResolveCategoryLabel(mf.I18n)
 			_ = pctx.Media.RegisterCategory(cat)
 		}
 	}

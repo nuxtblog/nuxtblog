@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PluginItem, PluginSettingField } from "~/composables/usePluginApi";
 import { parseCapabilityBadges } from "~/composables/usePluginApi";
+import { resolveTemplate } from '~/composables/usePluginI18n'
 
 const props = defineProps<{
   open: boolean;
@@ -11,7 +12,7 @@ const emit = defineEmits<{
   (e: "update:open", val: boolean): void;
 }>();
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const pluginApi = usePluginApi();
 const toast = useToast();
 
@@ -62,7 +63,7 @@ const saveSettings = async () => {
     <template #content>
       <div class="p-6">
         <h3 class="text-lg font-semibold text-highlighted mb-1">{{ $t("admin.plugins.settings_title") }}</h3>
-        <p class="text-sm text-muted mb-5">{{ plugin?.title }}</p>
+        <p class="text-sm text-muted mb-5">{{ plugin ? resolveTemplate(plugin.title, plugin.id, locale) : '' }}</p>
 
         <div v-if="settingsLoading" class="space-y-4 py-2">
           <div v-for="i in 3" :key="i" class="space-y-1.5">
@@ -74,6 +75,7 @@ const saveSettings = async () => {
           <PluginSettingFields
             :schema="settingsSchema"
             :model-value="settingsValues"
+            :plugin-id="plugin?.id"
             @update:model-value="settingsValues = $event"
           />
         </div>

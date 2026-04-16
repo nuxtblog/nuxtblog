@@ -12,6 +12,7 @@ import type { ContributionSlotName } from '~/config/contribution-slots'
 import { usePluginContextStore } from '~/stores/plugin-context'
 import { usePluginContributionsStore, type PluginContentBlock, type PluginMenuItem, type PluginViewItem } from '~/stores/plugin-contributions'
 import { createPluginAsyncComponent } from '~/composables/usePluginComponents'
+import { usePluginLocale } from '~/composables/usePluginLocale'
 
 export interface MenuGroup {
   group: string
@@ -43,6 +44,7 @@ const emit = defineEmits<{
 const contextStore = usePluginContextStore()
 const contributionsStore = usePluginContributionsStore()
 const { getOption } = useOption()
+const { t: pluginT } = usePluginLocale()
 
 const menuItems = contributionsStore.getMenuItems(props.name)
 const allViewItems = contributionsStore.getViewItems(props.name)
@@ -162,7 +164,7 @@ onBeforeUnmount(() => {
     <slot name="nav" :item="nav">
       <NuxtLink :to="nav.route" class="flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-default/50">
         <UIcon v-if="nav.icon" :name="nav.icon" class="size-4" />
-        <span>{{ nav.title }}</span>
+        <span>{{ pluginT(nav) }}</span>
       </NuxtLink>
     </slot>
   </template>
@@ -176,7 +178,7 @@ onBeforeUnmount(() => {
           variant="ghost"
           size="xs"
           :icon="entry.item.icon"
-          :label="entry.item.title"
+          :label="pluginT(entry.item)"
           @click="handleCommand(entry.item.command)" />
       </slot>
     </template>
@@ -186,7 +188,7 @@ onBeforeUnmount(() => {
       <slot name="menu-group" :group="entry.group" :execute="(cmd: string) => handleCommand(cmd)">
         <div class="inline-flex items-center">
           <!-- Primary button: first command in group -->
-          <UTooltip :text="entry.group!.items[0]!.title ?? ''">
+          <UTooltip :text="pluginT(entry.group!.items[0]!) ?? ''">
             <UButton
               variant="ghost"
               color="neutral"
@@ -212,7 +214,7 @@ onBeforeUnmount(() => {
                   class="flex items-center gap-2 px-3 py-1.5 text-sm text-left rounded hover:bg-elevated transition-colors"
                   @click="handleCommand(gItem.command)">
                   <UIcon v-if="gItem.icon" :name="gItem.icon" class="size-4 text-muted" />
-                  <span>{{ gItem.title }}</span>
+                  <span>{{ pluginT(gItem) }}</span>
                 </button>
               </div>
             </template>
@@ -235,7 +237,7 @@ onBeforeUnmount(() => {
       <div v-else class="plugin-view-panel">
         <div class="flex items-center gap-2 mb-2 text-sm font-medium">
           <UIcon v-if="view.icon" :name="view.icon" class="size-4" />
-          <span>{{ view.title }}</span>
+          <span>{{ pluginT(view) }}</span>
         </div>
         <div :id="`plugin-view-${view.id}`" class="plugin-view-content" />
       </div>

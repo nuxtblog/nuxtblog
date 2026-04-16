@@ -59,14 +59,20 @@ func (s *sPlugin) List(ctx context.Context) (*v1.PluginListRes, error) {
 		if source == "" {
 			source = "external"
 		}
-		// Extract type from stored manifest JSON
+		// Extract type and i18n from stored manifest JSON
 		pluginType := ""
+		i18nJSON := ""
 		if r.Manifest != "" {
 			var mf struct {
-				Type string `json:"type"`
+				Type string                       `json:"type"`
+				I18n map[string]map[string]string `json:"i18n"`
 			}
 			if json.Unmarshal([]byte(r.Manifest), &mf) == nil {
 				pluginType = mf.Type
+				if len(mf.I18n) > 0 {
+					ib, _ := json.Marshal(mf.I18n)
+					i18nJSON = string(ib)
+				}
 			}
 		}
 		// Derive type from source if not in manifest
@@ -90,6 +96,7 @@ func (s *sPlugin) List(ctx context.Context) (*v1.PluginListRes, error) {
 			Capabilities: r.Capabilities,
 			Source:       source,
 			Type:         pluginType,
+			I18n:         i18nJSON,
 		})
 	}
 

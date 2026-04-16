@@ -264,8 +264,13 @@ func (m *Manager) runMigrations(ctx context.Context, pluginID string, migrations
 		if mig.Version <= currentVersion {
 			continue
 		}
+		// Resolve dialect-specific SQL
+		resolvedUp, err := resolveSQL(mig.Up)
+		if err != nil {
+			return fmt.Errorf("migration v%d: %w", mig.Version, err)
+		}
 		// Execute migration statements (may be semicolon-separated)
-		for _, stmt := range splitSQL(mig.Up) {
+		for _, stmt := range splitSQL(resolvedUp) {
 			stmt = strings.TrimSpace(stmt)
 			if stmt == "" {
 				continue
@@ -275,7 +280,7 @@ func (m *Manager) runMigrations(ctx context.Context, pluginID string, migrations
 			}
 		}
 		// Record migration
-		_, err := db.Exec(ctx,
+		_, err = db.Exec(ctx,
 			"INSERT INTO plugin_migrations (plugin_id, version) VALUES (?, ?)",
 			pluginID, mig.Version)
 		if err != nil {

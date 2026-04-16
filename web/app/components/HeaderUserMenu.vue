@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import type { NavMenuItem } from '~/types/api/navMenu'
 import { executePublicCommand } from '~/composables/useNuxtblogPublic'
+import { usePluginLocale } from '~/composables/usePluginLocale'
 
 const { t } = useI18n();
 const authStore = useAuthStore();
 const followApi = useFollowApi();
 const contributionsStore = usePluginContributionsStore();
 const contextStore = usePluginContextStore();
+const { t: pluginT } = usePluginLocale();
 
 const displayName = computed(
   () => authStore.user?.display_name || authStore.user?.username || "",
@@ -102,7 +104,7 @@ const dropdownItems = computed(() => {
     }
     items.push(
       visiblePluginItems.value.map(item => ({
-        label: item.title || item.command,
+        label: pluginT(item) || item.command,
         icon: item.icon,
         onSelect: () => executePublicCommand(item.command),
       })),

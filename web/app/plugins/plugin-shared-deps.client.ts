@@ -29,6 +29,8 @@ import {
   AdminPageContainer, AdminPageHeader, AdminPageContent, AdminPageFooter,
   // Admin editor (1)
   AdminRichEditor,
+  // Sidebar card (1)
+  SidebarCard,
   // Media picker (1)
   MediaPickerModal,
   // Public layout (3)
@@ -51,6 +53,7 @@ export default defineNuxtPlugin(() => {
     ULink, UBreadcrumb,
     AdminPageContainer, AdminPageHeader, AdminPageContent, AdminPageFooter,
     AdminRichEditor,
+    SidebarCard,
     MediaPickerModal,
     PageHeader, PageContent, PageFooter,
   }

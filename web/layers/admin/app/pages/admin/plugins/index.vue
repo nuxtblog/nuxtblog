@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import type { PluginItem, MarketplaceItem } from "~/composables/usePluginApi";
 import { parseCapabilityBadges } from "~/composables/usePluginApi";
+import { resolveTemplate, registerPluginI18n } from '~/composables/usePluginI18n'
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const capBadges = (item: PluginItem) => parseCapabilityBadges(item.capabilities ?? '{}', t);
+/** Resolve i18n template for plugin item text fields. */
+const pt = (text: string, pluginId: string) => resolveTemplate(text, pluginId, locale.value);
 const pluginApi = usePluginApi();
 const toast = useToast();
 
@@ -153,6 +156,13 @@ const load = async () => {
   try {
     const res = await pluginApi.list();
     items.value = res.items ?? [];
+    // Register i18n messages for template resolution
+    for (const item of items.value) {
+      if (item.i18n) {
+        try { registerPluginI18n(item.id, JSON.parse(item.i18n)) }
+        catch { /* ignore */ }
+      }
+    }
   } catch (e: any) {
     toast.add({ title: e?.message, color: "error" });
   } finally {
@@ -360,7 +370,7 @@ const confirmUninstall = async () => {
         <template #content>
           <div class="p-6">
             <h3 class="text-lg font-semibold text-highlighted mb-2">{{ $t("admin.plugins.uninstall_confirm_title") }}</h3>
-            <p class="text-sm text-muted mb-4">{{ $t("admin.plugins.uninstall_confirm_desc", { name: pendingUninstall?.title }) }}</p>
+            <p class="text-sm text-muted mb-4">{{ $t("admin.plugins.uninstall_confirm_desc", { name: pendingUninstall ? pt(pendingUninstall.title, pendingUninstall.id) : '' }) }}</p>
             <!-- Cascade warning -->
             <div v-if="cascadeLoading" class="mb-4">
               <USkeleton class="h-4 w-48" />
@@ -373,7 +383,7 @@ const confirmUninstall = async () => {
                   <ul class="text-xs text-warning-700 dark:text-warning-300 space-y-0.5">
                     <li v-for="pid in cascadePlugins" :key="pid" class="flex items-center gap-1">
                       <UIcon name="i-tabler-plug" class="size-3" />
-                      {{ items.find(p => p.id === pid)?.title || pid }}
+                      {{ (() => { const p = items.find(x => x.id === pid); return p ? pt(p.title, p.id) : pid })() }}
                     </li>
                   </ul>
                 </div>
@@ -411,7 +421,7 @@ const confirmUninstall = async () => {
         <template #content>
           <div class="p-6">
             <h3 class="text-lg font-semibold text-highlighted mb-2">{{ $t("admin.plugins.disable_confirm_title") }}</h3>
-            <p class="text-sm text-muted mb-4">{{ $t("admin.plugins.disable_confirm_desc", { name: pendingDisable?.title }) }}</p>
+            <p class="text-sm text-muted mb-4">{{ $t("admin.plugins.disable_confirm_desc", { name: pendingDisable ? pt(pendingDisable.title, pendingDisable.id) : '' }) }}</p>
             <div class="mb-4 p-3 bg-warning-50 dark:bg-warning-950/30 border border-warning-200 dark:border-warning-800 rounded-md">
               <div class="flex items-start gap-2">
                 <UIcon name="i-tabler-alert-triangle" class="size-4 text-warning-600 dark:text-warning-400 shrink-0 mt-0.5" />
@@ -420,7 +430,7 @@ const confirmUninstall = async () => {
                   <ul class="text-xs text-warning-700 dark:text-warning-300 space-y-0.5">
                     <li v-for="pid in cascadePlugins" :key="pid" class="flex items-center gap-1">
                       <UIcon name="i-tabler-plug" class="size-3" />
-                      {{ items.find(p => p.id === pid)?.title || pid }}
+                      {{ (() => { const p = items.find(x => x.id === pid); return p ? pt(p.title, p.id) : pid })() }}
                     </li>
                   </ul>
                 </div>
@@ -479,7 +489,7 @@ const confirmUninstall = async () => {
             <div class="flex items-start justify-between gap-4">
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 mb-1 flex-wrap">
-                  <h3 class="text-sm font-semibold text-highlighted">{{ item.title || item.id }}</h3>
+                  <h3 class="text-sm font-semibold text-highlighted">{{ pt(item.title, item.id) || item.id }}</h3>
                   <UBadge :label="`v${item.version}`" color="neutral" variant="soft" size="sm" />
                   <UBadge v-if="item.type" :label="typeBadgeLabel(item.type)" :color="typeBadgeColor(item.type) as any" variant="soft" size="sm" />
                   <UBadge v-if="item.source === 'builtin'" :label="$t('admin.plugins.source_builtin')" color="primary" variant="outline" size="sm" />
@@ -499,7 +509,7 @@ const confirmUninstall = async () => {
                     variant="soft"
                     size="sm" />
                 </div>
-                <p class="text-xs text-muted mb-1">{{ item.description }}</p>
+                <p class="text-xs text-muted mb-1">{{ pt(item.description, item.id) }}</p>
                 <p class="text-xs text-muted">
                   {{ $t("admin.plugins.author_label") }}{{ item.author }}
                   <template v-if="item.repo_url">
